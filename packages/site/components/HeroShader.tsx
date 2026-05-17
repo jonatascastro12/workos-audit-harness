@@ -95,10 +95,11 @@ void main() {
   // ── tunnel vanishing point: shift right of the headline, proportional to
   // viewport aspect so it stays put on narrow screens.
   float aspect = u_resolution.x / max(u_resolution.y, 1.0);
-  // tunnel vanishing point sits in the lower-right quadrant where the hero
-  // has no text — fills the empty bottom-right with the densest pattern
-  // instead of crowding the headline.
-  vec2 origin = vec2(0.55 * aspect, -0.35);
+  // tunnel vanishing point sits *inside* the right-hand column of the hero
+  // (clamped so it doesn't fall off-screen on extreme aspect ratios) and
+  // is slightly below vertical center to balance the headline weight.
+  float ox = min(0.34 * aspect, aspect * 0.5 - 0.18);
+  vec2 origin = vec2(ox, -0.06);
 
   // ── cursor repulsion: push the sampled uv radially away from the cursor
   // with a gaussian falloff. Near the cursor the pattern is shoved outward,
@@ -126,8 +127,14 @@ void main() {
 
   float pattern = rings * 0.55 + spokes * 0.35 + swirl * 0.25;
   pattern = pattern * 0.5 + 0.5;                  // 0..1
-  pattern *= smoothstep(0.0, 0.18, r);            // mute the singularity
-  pattern *= smoothstep(1.20, 0.55, r);           // tunnel mouth darkens out
+  pattern *= smoothstep(0.0, 0.08, r);            // mute the singularity (tight)
+  pattern *= smoothstep(1.85, 0.40, r);           // wide tunnel mouth — pattern stays visible deep into the periphery
+
+  // horizontal mask: keep the pattern intense on the right (where the eye
+  // expects the tunnel to live) and gently fade across the headline column
+  // on the left so the title stays legible.
+  float headlineFade = smoothstep(-aspect * 0.35, 0.05 * aspect, uv.x);
+  pattern *= mix(0.18, 1.0, headlineFade);
 
   // slight stochastic dither per cell to break up bands
   pattern += (hash(cellIdx + floor(u_time * 8.0)) - 0.5) * 0.06;
