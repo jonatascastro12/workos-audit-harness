@@ -1,6 +1,6 @@
 import { sha256, byteLength, stableSerialize, truncateMetadataString } from '@workos-inc/audit-core/util';
 import { compactMetadata, readStdin, parseJson, createToolTimingStore } from '@workos-inc/audit-core/hook-runtime';
-import { sendAuditEvent } from '@workos-inc/audit-core/send-event';
+import { emitEvent } from '@workos-inc/audit-core/emit-event';
 import { configLoader } from './config-file.mjs';
 
 const EVENT_NAMES = new Set([
@@ -200,7 +200,7 @@ async function main() {
     const stdin = await readStdin();
     const payload = parseJson(stdin);
     const event = buildEvent(kind, payload, config);
-    sendAuditEvent({ event, config });
+    await emitEvent(event, config);
   } catch (error) {
     console.error(String(error instanceof Error ? error.message : error));
     process.exit(0);

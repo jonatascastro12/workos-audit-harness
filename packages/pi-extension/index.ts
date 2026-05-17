@@ -7,13 +7,11 @@ import { WorkOS } from "@workos-inc/node";
 import type { AgentMessage, ImageContent } from "@mariozechner/pi-ai";
 import type { ExtensionAPI, ExtensionContext } from "@mariozechner/pi-coding-agent";
 import { Type } from "typebox";
-import { getHarnessBinary as getAuditHarnessBinary } from "@workos-inc/audit-core/harness-path";
-
-function buildHarnessInvocation(args: string[]): { bin: string; argv: string[] } {
-  const target = getAuditHarnessBinary();
-  if (target.kind === "binary") return { bin: target.path, argv: args };
-  return { bin: process.execPath, argv: [target.path, ...args] };
-}
+import { emitEvent as auditCoreEmitEvent } from "@workos-inc/audit-core/emit-event";
+import { queryAuditLogs as auditCoreQuery } from "@workos-inc/audit-core/audit-query";
+import { ensureOrganization as auditCoreEnsureOrg } from "@workos-inc/audit-core/workos-client";
+import { createSchema as auditCoreCreateSchema } from "@workos-inc/audit-core/schema";
+import { getHarnessAuditSchemaDefinitions } from "@workos-inc/audit-core/harness-schemas";
 
 type MetadataValue = string | number | boolean;
 type Metadata = Record<string, MetadataValue>;
@@ -313,17 +311,41 @@ function createClient(config: Config): WorkOS | undefined {
   return new WorkOS(config.apiKey);
 }
 
-function runAuditHarness(config: Config, command: string, payload: unknown, extraArgs: string[] = []): unknown {
-  const baseArgs = [command, "--json", ...extraArgs];
-  if (config.organizationId) baseArgs.push("--org", config.organizationId);
-  if (config.apiKey) baseArgs.push("--api-key", config.apiKey);
-  const { bin, argv } = buildHarnessInvocation(baseArgs);
-  const output = execFileSync(bin, argv, {
-    input: JSON.stringify(payload ?? {}),
-    encoding: "utf8",
-    stdio: ["pipe", "pipe", "pipe"],
-  });
-  return JSON.parse(output);
+function auditCoreConfig(config: Config) {
+  return {
+    apiKey: config.apiKey,
+    organizationId: config.organizationId,
+    organizationName: undefined,
+    apiBaseUrl: undefined,
+  };
+}
+
+async function runAuditHarness(config: Config, command: string, payload: any, extraArgs: string[] = []): Promise<unknown> {
+  const ac = auditCoreConfig(config);
+  switch (command) {
+    case "emit-event":
+      return await auditCoreEmitEvent(payload, ac);
+    case "query":
+      return await auditCoreQuery(ac, payload || {});
+    case "ensure-organization": {
+      const organizationId = await auditCoreEnsureOrg(ac);
+      return { organizationId, organizationName: payload?.organizationName };
+    }
+    case "create-schema":
+      return await auditCoreCreateSchema(ac, payload);
+    case "seed-generic-schemas": {
+      const prefix = (payload && payload.prefix) || "harness";
+      const schemas = getHarnessAuditSchemaDefinitions(prefix);
+      const created: { action: string }[] = [];
+      for (const schema of schemas) {
+        await auditCoreCreateSchema(ac, schema);
+        created.push({ action: schema.action });
+      }
+      return { prefix, schemaCount: created.length, created };
+    }
+    default:
+      throw new Error(`Unknown audit-harness command: ${command}`);
+  }
 }
 
 function getSessionTarget(ctx: ExtensionContext) {
@@ -747,7 +769,7 @@ export default function workosAuditLogsExtension(pi: ExtensionAPI): void {
       metadata,
     };
 
-    runAuditHarness(config, "emit-event", event);
+    await runAuditHarness(config, "emit-event", event);
   }
 
   pi.registerCommand("workos-audit-status", {
@@ -796,10 +818,7 @@ export default function workosAuditLogsExtension(pi: ExtensionAPI): void {
       const message = "Starting WorkOS browser auth. If the browser does not open, follow the URL/code printed in the terminal.";
       if (ctx.hasUI) ctx.ui.notify(message, "info");
       console.log(message);
-      {
-        const { bin, argv } = buildHarnessInvocation(["auth-login"]);
-        execFileSync(bin, argv, { stdio: "inherit" });
-      }
+      execFileSync("npx", ["--yes", "workos@latest", "auth", "login"], { stdio: "inherit" });
       refreshStatus(ctx);
     },
   });
@@ -808,7 +827,7 @@ export default function workosAuditLogsExtension(pi: ExtensionAPI): void {
     description: "Find or create the default WorkOS Audit Log Harness organization and print its organization ID",
     handler: async (_args, ctx) => {
       refreshStatus(ctx);
-      const result = runAuditHarness(config, "ensure-organization", {}) as { organizationId?: string; organizationName?: string };
+      const result = await runAuditHarness(config, "ensure-organization", {}) as { organizationId?: string; organizationName?: string };
       const message = `WorkOS audit organization: ${result.organizationName || "Audit Log Harness"} (${result.organizationId})`;
       if (ctx.hasUI) ctx.ui.notify(message, "info");
       console.log(message);
@@ -1012,7 +1031,7 @@ export default function workosAuditLogsExtension(pi: ExtensionAPI): void {
           });
           createdSchemas.push(`${schema.action} -> schema v${created.version}`);
         } else {
-          runAuditHarness(config, "create-schema", schema);
+          await runAuditHarness(config, "create-schema", schema);
           createdSchemas.push(`${schema.action} -> schema created via workos cli`);
         }
       }
@@ -1033,8 +1052,9 @@ export default function workosAuditLogsExtension(pi: ExtensionAPI): void {
         if (token === "--dry-run") dryRun = true;
         else if (token.startsWith("--prefix=")) prefix = token.slice("--prefix=".length) || prefix;
       }
-      const extraArgs = ["--prefix", prefix, ...(dryRun ? ["--dry-run"] : [])];
-      const result = runAuditHarness(config, "seed-generic-schemas", {}, extraArgs) as unknown;
+      const result = dryRun
+        ? { prefix, schemas: getHarnessAuditSchemaDefinitions(prefix), schemaCount: getHarnessAuditSchemaDefinitions(prefix).length, dryRun: true }
+        : await runAuditHarness(config, "seed-generic-schemas", { prefix });
       const message = JSON.stringify(result, null, 2);
       if (ctx.hasUI) ctx.ui.notify(dryRun ? "Prepared generic harness schemas" : "Created generic harness schemas", "info");
       console.log(message);
@@ -1064,7 +1084,7 @@ export default function workosAuditLogsExtension(pi: ExtensionAPI): void {
     async execute(_toolCallId, params, signal, onUpdate) {
       refreshStatus();
       onUpdate?.({ content: [{ type: "text", text: `Creating WorkOS audit export via the Audit Log Harness for: ${params.question}` }] });
-      const harnessResult = runAuditHarness(config, "query", params) as { text?: string; details?: unknown };
+      const harnessResult = await runAuditHarness(config, "query", params) as { text?: string; details?: unknown };
       return {
         content: [{ type: "text", text: harnessResult.text || JSON.stringify(harnessResult, null, 2) }],
         details: harnessResult.details,

@@ -7,7 +7,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"${PLUGIN_ROOT}/scripts/emit-event.mjs\" session-started",
+            "command": "node \"${PLUGIN_ROOT}/dist/scripts/emit-event.mjs\" session-started",
             "timeout": 15,
             "statusMessage": "Emitting WorkOS session audit event"
           }
@@ -19,7 +19,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"${PLUGIN_ROOT}/scripts/emit-event.mjs\" prompt-submitted",
+            "command": "node \"${PLUGIN_ROOT}/dist/scripts/emit-event.mjs\" prompt-submitted",
             "timeout": 15,
             "statusMessage": "Emitting WorkOS prompt audit event"
           }
@@ -32,7 +32,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"${PLUGIN_ROOT}/scripts/emit-event.mjs\" tool-called",
+            "command": "node \"${PLUGIN_ROOT}/dist/scripts/emit-event.mjs\" tool-called",
             "timeout": 15,
             "statusMessage": "Emitting WorkOS tool audit event"
           }
@@ -45,7 +45,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"${PLUGIN_ROOT}/scripts/emit-event.mjs\" permission-requested",
+            "command": "node \"${PLUGIN_ROOT}/dist/scripts/emit-event.mjs\" permission-requested",
             "timeout": 15,
             "statusMessage": "Emitting WorkOS permission audit event"
           }
@@ -58,7 +58,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"${PLUGIN_ROOT}/scripts/emit-event.mjs\" tool-finished",
+            "command": "node \"${PLUGIN_ROOT}/dist/scripts/emit-event.mjs\" tool-finished",
             "timeout": 15,
             "statusMessage": "Emitting WorkOS tool result audit event"
           }
@@ -70,7 +70,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"${PLUGIN_ROOT}/scripts/emit-event.mjs\" turn-completed",
+            "command": "node \"${PLUGIN_ROOT}/dist/scripts/emit-event.mjs\" turn-completed",
             "timeout": 15,
             "statusMessage": "Emitting WorkOS turn audit event"
           }

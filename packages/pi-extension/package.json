@@ -1,19 +1,21 @@
 {
   "name": "@workos-inc/pi-audit",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "type": "module",
   "license": "MIT",
   "description": "WorkOS audit logging extension for the pi-coding-agent.",
+  "scripts": {
+    "bundle": "node ../../scripts/bundle-plugins.mjs pi-extension"
+  },
   "dependencies": {
-    "@workos-inc/audit-core": "*",
     "@workos-inc/node": "^8.10.0",
     "typebox": "^1.1.38",
     "zod": "^4.4.3"
   },
   "pi": {
     "extensions": [
-      "./index.ts"
+      "./dist/index.mjs"
     ]
   }
 }

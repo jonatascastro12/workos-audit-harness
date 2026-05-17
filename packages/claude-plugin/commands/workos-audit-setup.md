@@ -7,7 +7,7 @@ You are helping configure the local WorkOS Audit Claude Code plugin.
 
 Current plugin configuration visible to this command:
 
-!`node "${CLAUDE_PLUGIN_ROOT}/scripts/print-config-status.mjs"`
+!`node "${CLAUDE_PLUGIN_ROOT}/dist/scripts/print-config-status.mjs"`
 
 Follow these rules:
 
