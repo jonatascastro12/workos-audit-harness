@@ -2,9 +2,21 @@ import os from 'node:os';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
-import { Entry } from '@napi-rs/keyring';
+import { createRequire } from 'node:module';
 import { WorkOS } from '@workos-inc/node';
 import { trimToUndefined } from './util.mjs';
+
+const requireFromHere = createRequire(import.meta.url);
+let cachedKeyringEntry = null;
+function loadKeyringEntry() {
+  if (cachedKeyringEntry !== null) return cachedKeyringEntry;
+  try {
+    cachedKeyringEntry = requireFromHere('@napi-rs/keyring').Entry;
+  } catch {
+    cachedKeyringEntry = undefined;
+  }
+  return cachedKeyringEntry;
+}
 
 export const DEFAULT_API_BASE_URL = 'https://api.workos.com';
 export const DEFAULT_ORGANIZATION_NAME = 'Audit Log Harness';
@@ -41,11 +53,14 @@ export function runWorkos(args, options = {}) {
 }
 
 export function readWorkosCliConfig() {
-  try {
-    const raw = new Entry('workos-cli', 'config').getPassword();
-    if (raw) return JSON.parse(raw);
-  } catch {
-    // Fall back to the WorkOS CLI insecure-storage file when keyring is unavailable.
+  const Entry = loadKeyringEntry();
+  if (Entry) {
+    try {
+      const raw = new Entry('workos-cli', 'config').getPassword();
+      if (raw) return JSON.parse(raw);
+    } catch {
+      // Fall back to the WorkOS CLI insecure-storage file when keyring is unavailable.
+    }
   }
   try {
     const filePath = path.join(os.homedir(), '.workos', 'config.json');
@@ -58,8 +73,14 @@ export function readWorkosCliConfig() {
 
 export function getWorkosCliActiveEnvironment() {
   const cliConfig = readWorkosCliConfig();
-  if (!cliConfig?.activeEnvironment) return undefined;
-  return cliConfig.environments?.[cliConfig.activeEnvironment];
+  if (!cliConfig) return undefined;
+  if (cliConfig.activeEnvironment && cliConfig.environments?.[cliConfig.activeEnvironment]) {
+    return cliConfig.environments[cliConfig.activeEnvironment];
+  }
+  // Bootstrap key written by older `workos auth login` flows lives at the top level.
+  // Treat it as the active env so callers without keyring access can still emit events.
+  if (cliConfig.workosApiKey) return { apiKey: cliConfig.workosApiKey };
+  return undefined;
 }
 
 export function getEffectiveApiKey(config) {

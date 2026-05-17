@@ -1,3 +1,31 @@
+// AUTO-GENERATED preflight: ensure the plugin's node_modules exists before
+// importing externalized native deps (e.g. @napi-rs/keyring). The marketplace
+// install copies files only; this is the cheapest place to bootstrap deps so
+// hooks can run on a fresh install.
+import { existsSync as __preflightExists } from 'node:fs';
+import { execFileSync as __preflightExec } from 'node:child_process';
+import { fileURLToPath as __preflightFileURL } from 'node:url';
+import __preflightPath from 'node:path';
+(function __ensurePluginDeps() {
+  try {
+    const here = __preflightPath.dirname(__preflightFileURL(import.meta.url));
+    let pluginRoot = here;
+    for (let i = 0; i < 4; i += 1) {
+      if (__preflightExists(__preflightPath.join(pluginRoot, 'package.json'))) break;
+      pluginRoot = __preflightPath.resolve(pluginRoot, '..');
+    }
+    if (!__preflightExists(__preflightPath.join(pluginRoot, 'package.json'))) return;
+    if (__preflightExists(__preflightPath.join(pluginRoot, 'node_modules', '@napi-rs', 'keyring'))) return;
+    __preflightExec('npm', ['install', '--no-audit', '--no-fund', '--silent'], {
+      cwd: pluginRoot,
+      stdio: 'ignore',
+      timeout: 90_000,
+    });
+  } catch {
+    // Best-effort: callers fall back to no-keyring mode if install fails.
+  }
+})();
+
 // ../audit-core/src/config.mjs
 import os from "node:os";
 import path from "node:path";

@@ -1,6 +1,6 @@
 {
   "name": "@workos-inc/codex-audit-plugin",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "private": true,
   "type": "module",
   "license": "MIT",
@@ -12,9 +12,6 @@
     "bundle": "node ../../scripts/bundle-plugins.mjs codex-plugin"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.29.0",
-    "@napi-rs/keyring": "^1.3.0",
-    "@workos-inc/node": "^8.10.0",
-    "zod": "^4.4.3"
+    "@napi-rs/keyring": "^1.3.0"
   }
 }

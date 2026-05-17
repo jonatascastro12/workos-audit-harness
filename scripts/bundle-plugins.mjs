@@ -1,44 +1,76 @@
 #!/usr/bin/env node
 // Bundle each plugin's runtime entry points into `dist/` with @workos-inc/audit-core
-// inlined and the real npm deps (@modelcontextprotocol/sdk, @workos-inc/node, zod,
-// @napi-rs/keyring) left external. The marketplace ships `dist/` so installed plugins
-// are self-contained without the monorepo or a published audit-core package.
+// and its non-native deps inlined. Only native modules (@napi-rs/keyring) and pi's
+// peer deps stay external. Each bundled entry gets a preflight banner that runs
+// `npm install` once if the plugin's node_modules is missing (the marketplace
+// install copies files but does not install deps; the MCP server's start script
+// would do it lazily, but hooks fire before that on first session).
 //
 // Usage:
 //   node scripts/bundle-plugins.mjs              # build every plugin
 //   node scripts/bundle-plugins.mjs claude       # build a single plugin
 
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, rmSync, readdirSync, existsSync } from 'node:fs';
+import { mkdirSync, rmSync, readdirSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 const EXTERNALS = [
-  '@modelcontextprotocol/sdk',
-  '@workos-inc/node',
   '@napi-rs/keyring',
   '@mariozechner/pi-ai',
   '@mariozechner/pi-coding-agent',
-  'typebox',
-  'zod',
 ];
 
 const PLUGINS = {
   'claude-plugin': {
     dir: 'packages/claude-plugin',
     entries: ['server/index.mjs', 'scripts/*.mjs'],
+    keyringPackage: '@napi-rs/keyring',
   },
   'codex-plugin': {
     dir: 'packages/codex-plugin',
     entries: ['server/index.mjs', 'scripts/*.mjs'],
+    keyringPackage: '@napi-rs/keyring',
   },
   'pi-extension': {
     dir: 'packages/pi-extension',
     entries: ['index.ts'],
+    // pi-extension loads inside pi-coding-agent's runtime; no node_modules of its
+    // own — pi resolves keyring (and everything else) from its host install.
+    preflight: false,
   },
 };
+
+const PREFLIGHT = `// AUTO-GENERATED preflight: ensure the plugin's node_modules exists before
+// importing externalized native deps (e.g. @napi-rs/keyring). The marketplace
+// install copies files only; this is the cheapest place to bootstrap deps so
+// hooks can run on a fresh install.
+import { existsSync as __preflightExists } from 'node:fs';
+import { execFileSync as __preflightExec } from 'node:child_process';
+import { fileURLToPath as __preflightFileURL } from 'node:url';
+import __preflightPath from 'node:path';
+(function __ensurePluginDeps() {
+  try {
+    const here = __preflightPath.dirname(__preflightFileURL(import.meta.url));
+    let pluginRoot = here;
+    for (let i = 0; i < 4; i += 1) {
+      if (__preflightExists(__preflightPath.join(pluginRoot, 'package.json'))) break;
+      pluginRoot = __preflightPath.resolve(pluginRoot, '..');
+    }
+    if (!__preflightExists(__preflightPath.join(pluginRoot, 'package.json'))) return;
+    if (__preflightExists(__preflightPath.join(pluginRoot, 'node_modules', '@napi-rs', 'keyring'))) return;
+    __preflightExec('npm', ['install', '--no-audit', '--no-fund', '--silent'], {
+      cwd: pluginRoot,
+      stdio: 'ignore',
+      timeout: 90_000,
+    });
+  } catch {
+    // Best-effort: callers fall back to no-keyring mode if install fails.
+  }
+})();
+`;
 
 function expandEntries(pluginDir, patterns) {
   const entries = [];
@@ -57,7 +89,7 @@ function expandEntries(pluginDir, patterns) {
   return entries;
 }
 
-function bundlePlugin(name, { dir, entries: patterns }) {
+function bundlePlugin(name, { dir, entries: patterns, preflight = true }) {
   const pluginRoot = path.join(ROOT, dir);
   const distRoot = path.join(pluginRoot, 'dist');
   rmSync(distRoot, { recursive: true, force: true });
@@ -76,6 +108,10 @@ function bundlePlugin(name, { dir, entries: patterns }) {
     ];
     for (const ext of EXTERNALS) args.push('--external', ext);
     execFileSync('bun', args, { stdio: 'inherit', cwd: pluginRoot });
+    if (preflight) {
+      const bundled = readFileSync(out, 'utf8');
+      writeFileSync(out, `${PREFLIGHT}\n${bundled}`, 'utf8');
+    }
   }
   console.log(`✔ bundled ${name} → ${path.relative(ROOT, distRoot)} (${entries.length} entr${entries.length === 1 ? 'y' : 'ies'})`);
 }
