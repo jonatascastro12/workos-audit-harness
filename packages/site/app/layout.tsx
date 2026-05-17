@@ -1,12 +1,13 @@
 import type { Metadata, Viewport } from "next";
 import { ThemeProvider } from "@/components/ThemeProvider";
+import { getSiteUrl } from "@/lib/site-url";
 import "./globals.css";
 
 export const metadata: Metadata = {
   title: "WorkOS Audit Harness — ship audit logs from your coding agents",
   description:
     "A CLI + plugins that emit Claude Code, Codex, and pi-coding-agent lifecycle events to WorkOS Audit Logs. One harness, one schema set, three integrations.",
-  metadataBase: new URL("https://audit-harness.workos.dev"),
+  metadataBase: new URL(getSiteUrl()),
   openGraph: {
     title: "WorkOS Audit Harness",
     description:
