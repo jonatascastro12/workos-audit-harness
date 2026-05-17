@@ -1,9 +1,8 @@
-import os from 'node:os';
-import path from 'node:path';
-import { createHash } from 'node:crypto';
-import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { readFileConfig, trimToUndefined } from './config-file.mjs';
+import { existsSync, readFileSync } from 'node:fs';
+import { sha256, byteLength, truncateMetadataString } from '@workos-inc/audit-core/util';
+import { compactMetadata, readStdin, parseJson, createToolTimingStore } from '@workos-inc/audit-core/hook-runtime';
+import { sendAuditEvent } from '@workos-inc/audit-core/send-event';
+import { configLoader } from './config-file.mjs';
 
 const EVENT_NAMES = new Set([
   'session-started',
@@ -16,27 +15,10 @@ const EVENT_NAMES = new Set([
   'turn-failed',
 ]);
 
-function stableSerialize(value) {
-  if (value === null || value === undefined) return 'null';
-  if (typeof value === 'string') return JSON.stringify(value);
-  if (typeof value === 'number' || typeof value === 'boolean') return JSON.stringify(value);
-  if (Array.isArray(value)) return `[${value.map(stableSerialize).join(',')}]`;
-  if (typeof value === 'object') {
-    const entries = Object.entries(value)
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([key, nested]) => `${JSON.stringify(key)}:${stableSerialize(nested)}`);
-    return `{${entries.join(',')}}`;
-  }
-  return JSON.stringify(String(value));
-}
-
-function sha256(value) {
-  return createHash('sha256').update(stableSerialize(value)).digest('hex');
-}
-
-function byteLength(value) {
-  return Buffer.byteLength(stableSerialize(value), 'utf8');
-}
+const { storeToolTiming, consumeToolTiming } = createToolTimingStore({
+  baseEnvNames: ['CLAUDE_PLUGIN_DATA'],
+  fallbackDirName: 'claude-workos-audit',
+});
 
 function emptyTokenUsage() {
   return {
@@ -118,108 +100,6 @@ function getTranscriptTokenUsage(transcriptPath) {
     });
   } catch {
     return {};
-  }
-}
-
-function truncateMetadataString(value, maxLength = 500) {
-  if (typeof value !== 'string') return undefined;
-  if (value.length <= maxLength) return value;
-  if (maxLength <= 3) return value.slice(0, maxLength);
-  return `${value.slice(0, maxLength - 3)}...`;
-}
-
-function compactMetadata(metadata) {
-  return Object.fromEntries(Object.entries(metadata).filter(([, value]) => value !== undefined));
-}
-
-function readStdin() {
-  return new Promise((resolve, reject) => {
-    let data = '';
-    process.stdin.setEncoding('utf8');
-    process.stdin.on('data', (chunk) => {
-      data += chunk;
-    });
-    process.stdin.on('end', () => resolve(data));
-    process.stdin.on('error', reject);
-  });
-}
-
-function parseJson(text) {
-  if (!text.trim()) return {};
-  return JSON.parse(text);
-}
-
-function getEnvOption(name) {
-  return trimToUndefined(process.env[`CLAUDE_PLUGIN_OPTION_${name}`])
-    || trimToUndefined(process.env[`CLAUDE_PLUGIN_OPTION_${name.toLowerCase()}`])
-    || trimToUndefined(process.env[`CLAUDE_PLUGIN_OPTION_${name.toUpperCase()}`]);
-}
-
-function getConfig() {
-  const fileConfig = readFileConfig();
-  const apiKey = trimToUndefined(process.env.WORKOS_API_KEY) || getEnvOption('API_KEY') || fileConfig.apiKey;
-  const organizationId = trimToUndefined(process.env.WORKOS_ORGANIZATION_ID) || getEnvOption('ORGANIZATION_ID') || fileConfig.organizationId;
-  const actionPrefix = trimToUndefined(process.env.WORKOS_ACTION_PREFIX) || getEnvOption('ACTION_PREFIX') || fileConfig.actionPrefix || 'claude';
-  const actorType = trimToUndefined(process.env.WORKOS_ACTOR_TYPE) || getEnvOption('ACTOR_TYPE') || fileConfig.actorType || 'user';
-  const actorId = trimToUndefined(process.env.WORKOS_ACTOR_ID)
-    || getEnvOption('ACTOR_ID')
-    || fileConfig.actorId
-    || trimToUndefined(process.env.USER)
-    || trimToUndefined(process.env.USERNAME)
-    || os.hostname();
-  const actorName = trimToUndefined(process.env.WORKOS_ACTOR_NAME)
-    || getEnvOption('ACTOR_NAME')
-    || fileConfig.actorName
-    || trimToUndefined(process.env.USER)
-    || trimToUndefined(process.env.USERNAME);
-  const location = trimToUndefined(process.env.WORKOS_LOCATION) || getEnvOption('LOCATION') || fileConfig.location || 'claude-code';
-  const userAgent = trimToUndefined(process.env.WORKOS_USER_AGENT) || getEnvOption('USER_AGENT') || fileConfig.userAgent || 'claude-code-workos-audit/1';
-
-  return {
-    enabled: true,
-    apiKey,
-    organizationId,
-    actionPrefix,
-    actorId,
-    actorType,
-    actorName,
-    location,
-    userAgent,
-  };
-}
-
-function getStateDir() {
-  const base = trimToUndefined(process.env.CLAUDE_PLUGIN_DATA)
-    || path.join(os.tmpdir(), 'claude-workos-audit');
-  const dir = path.join(base, 'hook-state', 'tool-timings');
-  mkdirSync(dir, { recursive: true });
-  return dir;
-}
-
-function getTimingPath(payload) {
-  const toolUseId = payload.tool_use_id || sha256({
-    session_id: payload.session_id,
-    tool_name: payload.tool_name,
-    tool_input: payload.tool_input,
-  });
-  return path.join(getStateDir(), `${toolUseId}.json`);
-}
-
-function storeToolTiming(payload) {
-  const timingPath = getTimingPath(payload);
-  writeFileSync(timingPath, JSON.stringify({ startedAt: Date.now() }), 'utf8');
-}
-
-function consumeToolTiming(payload) {
-  const timingPath = getTimingPath(payload);
-  if (!existsSync(timingPath)) return undefined;
-  try {
-    const raw = JSON.parse(readFileSync(timingPath, 'utf8'));
-    rmSync(timingPath, { force: true });
-    return typeof raw.startedAt === 'number' ? Date.now() - raw.startedAt : undefined;
-  } catch {
-    rmSync(timingPath, { force: true });
-    return undefined;
   }
 }
 
@@ -351,22 +231,6 @@ function buildEvent(kind, payload, config) {
   };
 }
 
-function getHarnessPath() {
-  return trimToUndefined(process.env.WORKOS_AUDIT_HARNESS_PATH)
-    || path.resolve(path.dirname(new URL(import.meta.url).pathname), '../../pi-extension/scripts/audit-log-harness.mjs');
-}
-
-async function sendEvent(event, config) {
-  const args = [getHarnessPath(), 'emit-event'];
-  if (config.organizationId) args.push('--org', config.organizationId);
-  if (config.apiKey) args.push('--api-key', config.apiKey);
-  execFileSync(process.execPath, args, {
-    input: JSON.stringify(event),
-    encoding: 'utf8',
-    stdio: ['pipe', 'ignore', 'pipe'],
-  });
-}
-
 async function main() {
   const kind = process.argv[2];
   if (!EVENT_NAMES.has(kind)) {
@@ -374,14 +238,13 @@ async function main() {
     process.exit(0);
   }
 
-  const config = getConfig();
-  if (!config.enabled) process.exit(0);
+  const config = configLoader.loadConfig();
 
   try {
     const stdin = await readStdin();
     const payload = parseJson(stdin);
     const event = buildEvent(kind, payload, config);
-    await sendEvent(event, config);
+    sendAuditEvent({ event, config });
   } catch (error) {
     console.error(String(error instanceof Error ? error.message : error));
     process.exit(0);

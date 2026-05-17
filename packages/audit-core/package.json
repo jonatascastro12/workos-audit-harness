@@ -1,0 +1,24 @@
+{
+  "name": "@workos-inc/audit-core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "description": "Shared MCP server, config loader, and CLI helpers for the WorkOS audit plugins.",
+  "main": "./index.mjs",
+  "exports": {
+    ".": "./index.mjs",
+    "./config": "./src/config.mjs",
+    "./mcp-server": "./src/mcp-server.mjs",
+    "./send-event": "./src/send-event.mjs",
+    "./schema-cli": "./src/schema-cli.mjs",
+    "./hook-runtime": "./src/hook-runtime.mjs",
+    "./print-config-status": "./src/print-config-status.mjs",
+    "./util": "./src/util.mjs"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "@workos-inc/node": "^8.10.0",
+    "zod": "^4.4.3"
+  }
+}

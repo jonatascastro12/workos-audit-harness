@@ -1,70 +1,40 @@
-import os from 'node:os';
-import path from 'node:path';
-import { chmodSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { createConfigLoader } from '@workos-inc/audit-core/config';
 
-const CONFIG_KEYS = [
-  'apiKey',
-  'organizationId',
-  'actionPrefix',
-  'actorId',
-  'actorType',
-  'actorName',
-  'location',
-  'userAgent',
-];
-
-export function trimToUndefined(value) {
-  if (typeof value !== 'string') return undefined;
-  const trimmed = value.trim();
-  return trimmed || undefined;
+function claudePluginOptionEnvs(name) {
+  return [
+    `CLAUDE_PLUGIN_OPTION_${name}`,
+    `CLAUDE_PLUGIN_OPTION_${name.toLowerCase()}`,
+    `CLAUDE_PLUGIN_OPTION_${name.toUpperCase()}`,
+  ];
 }
 
-export function maskSecret(value) {
-  if (!value) return undefined;
-  if (value.length <= 8) return '********';
-  return `${value.slice(0, 4)}…${value.slice(-4)}`;
-}
+export const configLoader = createConfigLoader({
+  configFilePathEnvs: ['WORKOS_AUDIT_CONFIG_PATH', 'CLAUDE_WORKOS_AUDIT_CONFIG_PATH'],
+  defaultConfigDir: '.claude',
+  envKeyOrder: {
+    apiKey:         ['WORKOS_API_KEY', ...claudePluginOptionEnvs('API_KEY')],
+    organizationId: ['WORKOS_ORGANIZATION_ID', ...claudePluginOptionEnvs('ORGANIZATION_ID')],
+    actionPrefix:   ['WORKOS_ACTION_PREFIX', ...claudePluginOptionEnvs('ACTION_PREFIX')],
+    actorId:        ['WORKOS_ACTOR_ID', ...claudePluginOptionEnvs('ACTOR_ID')],
+    actorType:      ['WORKOS_ACTOR_TYPE', ...claudePluginOptionEnvs('ACTOR_TYPE')],
+    actorName:      ['WORKOS_ACTOR_NAME', ...claudePluginOptionEnvs('ACTOR_NAME')],
+    location:       ['WORKOS_LOCATION', ...claudePluginOptionEnvs('LOCATION')],
+    userAgent:      ['WORKOS_USER_AGENT', ...claudePluginOptionEnvs('USER_AGENT')],
+  },
+  defaults: {
+    actionPrefix: 'claude',
+    actorType: 'user',
+    location: 'claude-code',
+    userAgent: 'claude-code-workos-audit/1',
+  },
+});
 
-export function getConfigFilePath() {
-  return trimToUndefined(process.env.WORKOS_AUDIT_CONFIG_PATH)
-    || trimToUndefined(process.env.CLAUDE_WORKOS_AUDIT_CONFIG_PATH)
-    || path.join(os.homedir(), '.claude', 'workos-audit', 'config.json');
-}
+export const {
+  getConfigFilePath,
+  readFileConfig,
+  writeFileConfig,
+  clearFileConfig,
+  loadConfig,
+} = configLoader;
 
-export function readFileConfig() {
-  const filePath = getConfigFilePath();
-  if (!existsSync(filePath)) return {};
-
-  try {
-    const raw = JSON.parse(readFileSync(filePath, 'utf8'));
-    if (!raw || typeof raw !== 'object') return {};
-
-    const config = {};
-    for (const key of CONFIG_KEYS) {
-      const value = trimToUndefined(raw[key]);
-      if (value) config[key] = value;
-    }
-    return config;
-  } catch {
-    return {};
-  }
-}
-
-export function writeFileConfig(config) {
-  const filePath = getConfigFilePath();
-  const sanitized = {};
-
-  for (const key of CONFIG_KEYS) {
-    const value = trimToUndefined(config[key]);
-    if (value) sanitized[key] = value;
-  }
-
-  mkdirSync(path.dirname(filePath), { recursive: true, mode: 0o700 });
-  writeFileSync(filePath, `${JSON.stringify(sanitized, null, 2)}\n`, { mode: 0o600 });
-  chmodSync(filePath, 0o600);
-  return filePath;
-}
-
-export function clearFileConfig() {
-  rmSync(getConfigFilePath(), { force: true });
-}
+export { trimToUndefined, maskSecret } from '@workos-inc/audit-core/util';
