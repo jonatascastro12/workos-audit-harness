@@ -1,0 +1,18 @@
+{
+  "name": "@workos-inc/codex-audit-plugin",
+  "version": "0.1.1",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "description": "Codex plugin: emit lifecycle events and query WorkOS audit logs.",
+  "scripts": {
+    "start": "npm install --no-audit --no-fund --silent && node server/index.mjs",
+    "create:schemas": "node scripts/create-codex-schemas.mjs",
+    "remove:schemas": "node scripts/remove-codex-schemas.mjs"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "@workos-inc/node": "^8.10.0",
+    "zod": "^4.4.3"
+  }
+}

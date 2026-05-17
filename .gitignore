@@ -1,0 +1,18 @@
+node_modules/
+*.log
+.DS_Store
+
+# Local pi/Claude runtime state
+.pi/
+.vscode/
+.claude/
+
+# Track only the Codex marketplace manifest under .agents/
+.agents/*
+!.agents/plugins/
+.agents/plugins/*
+!.agents/plugins/marketplace.json
+
+# Runtime config written by `workos auth login` / `/workos-audit-setup`
+config.json
+packages/*/config.json

@@ -1,0 +1,20 @@
+{
+  "name": "workos-audit-logs",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "description": "WorkOS audit logging for Claude Code, Codex, and the pi-coding-agent.",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "audit-harness": "npm run audit-harness -w @workos-inc/pi-audit",
+    "workos-auth-login": "npm run workos-auth-login -w @workos-inc/pi-audit",
+    "create:harness-schemas": "npm run create:harness-schemas -w @workos-inc/pi-audit",
+    "create:claude-schemas": "npm run create:schemas -w @workos-inc/claude-audit-plugin",
+    "remove:claude-schemas": "npm run remove:schemas -w @workos-inc/claude-audit-plugin",
+    "create:codex-schemas": "npm run create:schemas -w @workos-inc/codex-audit-plugin",
+    "remove:codex-schemas": "npm run remove:schemas -w @workos-inc/codex-audit-plugin"
+  }
+}

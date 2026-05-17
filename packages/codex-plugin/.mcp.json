@@ -1,0 +1,33 @@
+{
+  "workos-audit": {
+    "command": "npm",
+    "args": [
+      "run",
+      "start",
+      "--silent"
+    ],
+    "cwd": ".",
+    "startup_timeout_sec": 30,
+    "tool_timeout_sec": 90,
+    "env_vars": [
+      "WORKOS_API_KEY",
+      "WORKOS_ORGANIZATION_ID",
+      "WORKOS_ACTION_PREFIX",
+      "WORKOS_ACTOR_ID",
+      "WORKOS_ACTOR_TYPE",
+      "WORKOS_ACTOR_NAME",
+      "WORKOS_LOCATION",
+      "WORKOS_USER_AGENT",
+      "WORKOS_AUDIT_CONFIG_PATH",
+      "CODEX_WORKOS_AUDIT_API_KEY",
+      "CODEX_WORKOS_AUDIT_ORGANIZATION_ID",
+      "CODEX_WORKOS_AUDIT_ACTION_PREFIX",
+      "CODEX_WORKOS_AUDIT_ACTOR_ID",
+      "CODEX_WORKOS_AUDIT_ACTOR_TYPE",
+      "CODEX_WORKOS_AUDIT_ACTOR_NAME",
+      "CODEX_WORKOS_AUDIT_LOCATION",
+      "CODEX_WORKOS_AUDIT_USER_AGENT",
+      "CODEX_WORKOS_AUDIT_CONFIG_PATH"
+    ]
+  }
+}

@@ -1,0 +1,60 @@
+{
+  "name": "workos-audit",
+  "version": "0.1.5",
+  "description": "Query WorkOS audit logs and emit Claude Code lifecycle events to WorkOS.",
+  "author": {
+    "name": "WorkOS"
+  },
+  "skills": "./skills/",
+  "commands": "./commands/",
+  "mcpServers": "./.mcp.json",
+  "userConfig": {
+    "api_key": {
+      "type": "string",
+      "title": "WorkOS API key",
+      "description": "Optional WorkOS server API key. Leave blank to use `workos auth login` / the active WorkOS CLI environment.",
+      "sensitive": true,
+      "required": false
+    },
+    "organization_id": {
+      "type": "string",
+      "title": "WorkOS organization ID",
+      "description": "Optional WorkOS organization ID that owns the audit logs. Leave blank to find/create Audit Log Harness automatically.",
+      "required": false
+    },
+    "action_prefix": {
+      "type": "string",
+      "title": "Action prefix",
+      "description": "Optional audit action prefix. Leave blank for claude.",
+      "default": "claude"
+    },
+    "actor_id": {
+      "type": "string",
+      "title": "Actor ID",
+      "description": "Optional actor ID override for emitted events. Leave blank to use the OS user."
+    },
+    "actor_type": {
+      "type": "string",
+      "title": "Actor type",
+      "description": "Optional actor type override. Leave blank for user.",
+      "default": "user"
+    },
+    "actor_name": {
+      "type": "string",
+      "title": "Actor name",
+      "description": "Optional actor display name override."
+    },
+    "location": {
+      "type": "string",
+      "title": "Location",
+      "description": "Optional context location. Leave blank for claude-code.",
+      "default": "claude-code"
+    },
+    "user_agent": {
+      "type": "string",
+      "title": "User agent",
+      "description": "Optional context user agent. Leave blank for claude-code-workos-audit/1.",
+      "default": "claude-code-workos-audit/1"
+    }
+  }
+}

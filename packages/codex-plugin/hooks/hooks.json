@@ -1,0 +1,81 @@
+{
+  "description": "Emit Codex lifecycle events to WorkOS and expose audit query tooling.",
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${PLUGIN_ROOT}/scripts/emit-event.mjs\" session-started",
+            "timeout": 15,
+            "statusMessage": "Emitting WorkOS session audit event"
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${PLUGIN_ROOT}/scripts/emit-event.mjs\" prompt-submitted",
+            "timeout": 15,
+            "statusMessage": "Emitting WorkOS prompt audit event"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${PLUGIN_ROOT}/scripts/emit-event.mjs\" tool-called",
+            "timeout": 15,
+            "statusMessage": "Emitting WorkOS tool audit event"
+          }
+        ]
+      }
+    ],
+    "PermissionRequest": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${PLUGIN_ROOT}/scripts/emit-event.mjs\" permission-requested",
+            "timeout": 15,
+            "statusMessage": "Emitting WorkOS permission audit event"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${PLUGIN_ROOT}/scripts/emit-event.mjs\" tool-finished",
+            "timeout": 15,
+            "statusMessage": "Emitting WorkOS tool result audit event"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${PLUGIN_ROOT}/scripts/emit-event.mjs\" turn-completed",
+            "timeout": 15,
+            "statusMessage": "Emitting WorkOS turn audit event"
+          }
+        ]
+      }
+    ]
+  }
+}

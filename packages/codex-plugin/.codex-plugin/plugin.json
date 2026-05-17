@@ -1,0 +1,27 @@
+{
+  "name": "workos-audit",
+  "version": "0.1.1",
+  "description": "Query WorkOS audit logs and emit Codex lifecycle events to WorkOS.",
+  "author": {
+    "name": "WorkOS"
+  },
+  "homepage": "https://workos.com",
+  "keywords": ["workos", "audit-logs", "codex", "mcp", "hooks"],
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.json",
+  "hooks": "./hooks/hooks.json",
+  "interface": {
+    "displayName": "WorkOS Audit",
+    "shortDescription": "WorkOS audit log queries and Codex lifecycle logging.",
+    "longDescription": "Adds a WorkOS audit MCP server and optional Codex lifecycle hooks for session, prompt, tool, permission, and turn events.",
+    "developerName": "WorkOS",
+    "category": "Monitoring",
+    "capabilities": ["Read", "Write"],
+    "websiteURL": "https://workos.com",
+    "brandColor": "#6366F1",
+    "defaultPrompt": [
+      "Use WorkOS Audit to check recent Codex tool activity.",
+      "Use WorkOS Audit to summarize audit logs for this session."
+    ]
+  }
+}

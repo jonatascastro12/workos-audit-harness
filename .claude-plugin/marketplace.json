@@ -1,0 +1,21 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "workos-audit-plugins",
+  "description": "Local marketplace for WorkOS audit logging Claude Code plugins.",
+  "owner": {
+    "name": "WorkOS"
+  },
+  "plugins": [
+    {
+      "name": "workos-audit",
+      "description": "Query WorkOS audit logs and emit Claude Code lifecycle events to WorkOS.",
+      "author": {
+        "name": "WorkOS"
+      },
+      "version": "0.1.5",
+      "source": "./packages/claude-plugin",
+      "category": "monitoring",
+      "homepage": "https://workos.com"
+    }
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "name": "@workos-inc/claude-audit-plugin",
+  "version": "0.1.5",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "description": "Claude Code plugin: emit lifecycle events and query WorkOS audit logs.",
+  "scripts": {
+    "configure": "node scripts/configure.mjs",
+    "start": "npm install --no-audit --no-fund --silent && node server/index.mjs",
+    "create:schemas": "node scripts/create-claude-schemas.mjs",
+    "remove:schemas": "node scripts/remove-claude-schemas.mjs"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "@workos-inc/node": "^8.10.0",
+    "zod": "^4.4.3"
+  }
+}
