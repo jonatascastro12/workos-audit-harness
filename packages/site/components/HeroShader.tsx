@@ -95,11 +95,11 @@ void main() {
   // ── tunnel vanishing point: shift right of the headline, proportional to
   // viewport aspect so it stays put on narrow screens.
   float aspect = u_resolution.x / max(u_resolution.y, 1.0);
-  // tunnel vanishing point sits *inside* the right-hand column of the hero
-  // (clamped so it doesn't fall off-screen on extreme aspect ratios) and
-  // is slightly below vertical center to balance the headline weight.
-  float ox = min(0.34 * aspect, aspect * 0.5 - 0.18);
-  vec2 origin = vec2(ox, -0.06);
+  // tunnel vanishing point biased toward the bottom-right of the hero so
+  // the pattern lives in the open right column and clears out of the
+  // headline. Clamped so it stays inside the viewport on extreme aspects.
+  float ox = min(0.44 * aspect, aspect * 0.5 - 0.10);
+  vec2 origin = vec2(ox, -0.28);
 
   // ── cursor repulsion: push the sampled uv radially away from the cursor
   // with a gaussian falloff. Near the cursor the pattern is shoved outward,
@@ -130,11 +130,16 @@ void main() {
   pattern *= smoothstep(0.0, 0.08, r);            // mute the singularity (tight)
   pattern *= smoothstep(1.85, 0.40, r);           // wide tunnel mouth — pattern stays visible deep into the periphery
 
-  // horizontal mask: keep the pattern intense on the right (where the eye
-  // expects the tunnel to live) and gently fade across the headline column
-  // on the left so the title stays legible.
-  float headlineFade = smoothstep(-aspect * 0.35, 0.05 * aspect, uv.x);
-  pattern *= mix(0.18, 1.0, headlineFade);
+  // horizontal mask: clear the left/center column entirely so the title
+  // stays clean, then ramp the pattern back up in the right column where
+  // the tunnel actually lives.
+  float headlineFade = smoothstep(-aspect * 0.05, aspect * 0.28, uv.x);
+  pattern *= mix(0.04, 1.0, headlineFade);
+
+  // vertical bias: the vanishing point sits low, so let the pattern stay
+  // strongest in the lower half and fade gently toward the top.
+  float topFade = smoothstep(0.45, -0.10, uv.y);
+  pattern *= mix(0.30, 1.0, topFade);
 
   // slight stochastic dither per cell to break up bands
   pattern += (hash(cellIdx + floor(u_time * 8.0)) - 0.5) * 0.06;
