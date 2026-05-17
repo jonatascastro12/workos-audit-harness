@@ -1,13 +1,8 @@
 {
   "mcpServers": {
     "workos-audit": {
-      "command": "npm",
-      "args": [
-        "run",
-        "start",
-        "--silent"
-      ],
-      "cwd": "${CLAUDE_PLUGIN_ROOT}"
+      "command": "node",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/dist/server/index.mjs"]
     }
   }
 }

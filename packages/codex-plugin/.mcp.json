@@ -1,10 +1,8 @@
 {
   "workos-audit": {
-    "command": "npm",
+    "command": "node",
     "args": [
-      "run",
-      "start",
-      "--silent"
+      "./dist/server/index.mjs"
     ],
     "cwd": ".",
     "startup_timeout_sec": 30,
