@@ -20,6 +20,9 @@
     "./util": "./src/util.mjs",
     "./harness-path": "./src/harness-path.mjs",
     "./audit-query": "./src/audit-query.mjs",
+    "./emit-event": "./src/cli/emit-event.mjs",
+    "./schema": "./src/cli/schema.mjs",
+    "./harness-schemas": "./src/harness-audit-schemas.mjs",
     "./workos-client": "./src/workos-client.mjs"
   },
   "files": [

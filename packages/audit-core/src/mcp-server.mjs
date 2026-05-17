@@ -2,9 +2,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z } from 'zod';
 import { maskSecret } from './util.mjs';
-import { runHarnessJson } from './send-event.mjs';
-
-const MAX_QUERY_MAX_ROWS = 200;
+import { queryAuditLogs, MAX_QUERY_MAX_ROWS } from './audit-query.mjs';
 
 export async function runMcpServer({ configLoader, serverName = 'workos-audit', version = '0.1.0' }) {
   const config = configLoader.loadConfig();
@@ -66,7 +64,7 @@ export async function runMcpServer({ configLoader, serverName = 'workos-audit', 
     },
     async (payload) => {
       try {
-        const result = runHarnessJson({ command: 'query', payload, config: queryConfig });
+        const result = await queryAuditLogs(queryConfig, payload);
         return {
           content: [{ type: 'text', text: result.text }],
           structuredContent: result.details,
