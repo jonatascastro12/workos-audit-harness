@@ -6,9 +6,9 @@ Wires pi-coding-agent into WorkOS audit logs and ships a CLI harness (`workos-au
 
 ## What's inside
 
-- `index.ts` — pi extension entry point. Hooks pi's session/prompt/tool lifecycle and forwards audit events to WorkOS.
-- `scripts/audit-log-harness.mjs` — `workos-audit-harness` CLI: `auth-login`, `status`, `ensure-organization`, `emit-event`, `query`, `create-schema`, `seed-generic-schemas`.
-- `scripts/harness-audit-schemas.mjs` — generic audit schema definitions shared across coding-agent integrations.
+- `index.ts` — pi extension entry point. Hooks pi's session/prompt/tool lifecycle and forwards audit events to WorkOS via the `@workos-inc/audit-core` harness.
+
+The `workos-audit-harness` CLI (`auth-login`, `status`, `ensure-organization`, `emit-event`, `query`, `create-schema`, `seed-generic-schemas`) now lives in [`@workos-inc/audit-core`](../audit-core).
 
 ## Install
 

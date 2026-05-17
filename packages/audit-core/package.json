@@ -4,8 +4,11 @@
   "private": true,
   "type": "module",
   "license": "MIT",
-  "description": "Shared MCP server, config loader, and CLI helpers for the WorkOS audit plugins.",
+  "description": "WorkOS audit log harness CLI plus shared MCP server, config loader, and CLI helpers for the WorkOS audit plugins.",
   "main": "./index.mjs",
+  "bin": {
+    "workos-audit-harness": "./scripts/audit-log-harness.mjs"
+  },
   "exports": {
     ".": "./index.mjs",
     "./config": "./src/config.mjs",
@@ -14,11 +17,19 @@
     "./schema-cli": "./src/schema-cli.mjs",
     "./hook-runtime": "./src/hook-runtime.mjs",
     "./print-config-status": "./src/print-config-status.mjs",
-    "./util": "./src/util.mjs"
+    "./util": "./src/util.mjs",
+    "./harness-path": "./src/harness-path.mjs"
+  },
+  "scripts": {
+    "audit-harness": "node scripts/audit-log-harness.mjs",
+    "workos-auth-login": "node scripts/audit-log-harness.mjs auth-login",
+    "create:harness-schemas": "node scripts/audit-log-harness.mjs seed-generic-schemas"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
+    "@napi-rs/keyring": "^1.3.0",
     "@workos-inc/node": "^8.10.0",
+    "typebox": "^1.1.38",
     "zod": "^4.4.3"
   }
 }

@@ -7,6 +7,7 @@ import { WorkOS } from "@workos-inc/node";
 import type { AgentMessage, ImageContent } from "@mariozechner/pi-ai";
 import type { ExtensionAPI, ExtensionContext } from "@mariozechner/pi-coding-agent";
 import { Type } from "typebox";
+import { getHarnessPath as getAuditHarnessPath } from "@workos-inc/audit-core/harness-path";
 
 type MetadataValue = string | number | boolean;
 type Metadata = Record<string, MetadataValue>;
@@ -304,10 +305,6 @@ function summarizeConfig(config: Config): string {
 function createClient(config: Config): WorkOS | undefined {
   if (!config.apiKey) return undefined;
   return new WorkOS(config.apiKey);
-}
-
-function getAuditHarnessPath(): string {
-  return path.resolve(path.dirname(new URL(import.meta.url).pathname), "scripts", "audit-log-harness.mjs");
 }
 
 function runAuditHarness(config: Config, command: string, payload: unknown, extraArgs: string[] = []): unknown {

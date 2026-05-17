@@ -5,17 +5,8 @@
   "type": "module",
   "license": "MIT",
   "description": "WorkOS audit logging extension for the pi-coding-agent.",
-  "bin": {
-    "workos-audit-harness": "./scripts/audit-log-harness.mjs"
-  },
-  "scripts": {
-    "audit-harness": "node scripts/audit-log-harness.mjs",
-    "workos-auth-login": "node scripts/audit-log-harness.mjs auth-login",
-    "create:harness-schemas": "node scripts/audit-log-harness.mjs seed-generic-schemas"
-  },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.29.0",
-    "@napi-rs/keyring": "^1.3.0",
+    "@workos-inc/audit-core": "*",
     "@workos-inc/node": "^8.10.0",
     "typebox": "^1.1.38",
     "zod": "^4.4.3"

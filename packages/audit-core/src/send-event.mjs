@@ -1,14 +1,7 @@
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
-import { trimToUndefined } from './util.mjs';
+import { getHarnessPath } from './harness-path.mjs';
 
-export function getHarnessPath() {
-  const fromEnv = trimToUndefined(process.env.WORKOS_AUDIT_HARNESS_PATH);
-  if (fromEnv) return fromEnv;
-  const here = path.dirname(fileURLToPath(import.meta.url));
-  return path.resolve(here, '../../pi-extension/scripts/audit-log-harness.mjs');
-}
+export { getHarnessPath };
 
 export function sendAuditEvent({ event, config }) {
   const args = [getHarnessPath(), 'emit-event'];
