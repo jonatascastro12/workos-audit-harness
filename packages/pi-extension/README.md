@@ -13,8 +13,8 @@ Wires pi-coding-agent into WorkOS audit logs and ships a CLI harness (`workos-au
 ## Install
 
 ```bash
-git clone https://github.com/workos/workos-audit-logs.git
-cd workos-audit-logs
+git clone https://github.com/jonatascastro12/workos-audit-harness.git
+cd workos-audit-harness
 npm install
 ```
 

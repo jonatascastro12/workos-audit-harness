@@ -15,7 +15,7 @@ Follow these rules:
 2. If `configured` is false, explain these setup paths:
    - Preferred WorkOS CLI auth (uses staging credentials provisioned by `workos auth login`; if no organization id is set, the harness finds or creates `Audit Log Harness` automatically):
      ```bash
-     npm --prefix /Users/jonatas/.pi/agent/extensions/workos-audit-logs run workos-auth-login
+     npx -y workos@latest auth login
      ```
    - Recommended installed-plugin fallback when Claude did not show the userConfig prompt:
      ```bash
@@ -26,7 +26,7 @@ Follow these rules:
      ```bash
      export WORKOS_API_KEY="sk_..."
      export WORKOS_ORGANIZATION_ID="org_..."
-     claude --plugin-dir ./claude-plugin
+     claude --plugin-dir ./packages/claude-plugin
      ```
    - Installed/enabled plugin userConfig, if Claude prompts for it: `organization_id` and `api_key` are optional when `workos auth login` has been run; blank `organization_id` uses/creates `Audit Log Harness`.
 3. Tell the user to restart Claude after changing plugin configuration. Hooks and MCP servers are loaded at startup.

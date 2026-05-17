@@ -1,4 +1,4 @@
-# workos-audit-logs
+# workos-audit-harness
 
 Ship WorkOS audit logs from your coding agents.
 
@@ -15,7 +15,7 @@ This repo contains three integrations, sharing one CLI harness and one set of au
 ### Claude Code
 
 ```text
-/plugin marketplace add workos/workos-audit-logs
+/plugin marketplace add jonatascastro12/workos-audit-harness
 /plugin install workos-audit@workos-audit-plugins
 ```
 
@@ -24,8 +24,8 @@ Then restart Claude Code and run `/workos-audit-setup` to wire up credentials. S
 ### Codex
 
 ```bash
-git clone https://github.com/workos/workos-audit-logs.git
-cd workos-audit-logs
+git clone https://github.com/jonatascastro12/workos-audit-harness.git
+cd workos-audit-harness
 codex plugin marketplace add .
 ```
 
@@ -34,8 +34,8 @@ Install `workos-audit` from the marketplace inside Codex, then restart. See [pac
 ### pi-coding-agent
 
 ```bash
-git clone https://github.com/workos/workos-audit-logs.git
-cd workos-audit-logs
+git clone https://github.com/jonatascastro12/workos-audit-harness.git
+cd workos-audit-harness
 npm install
 ```
 
