@@ -3,6 +3,9 @@ import Link from "next/link";
 import { StatusBar } from "@/components/StatusBar";
 import { CodeBlock } from "@/components/CodeBlock";
 import { SkillShortcut } from "@/components/SkillShortcut";
+import { HarnessLifecycle } from "@/components/HarnessLifecycle";
+import { EventAnatomy } from "@/components/EventAnatomy";
+import { ServerFlow } from "@/components/ServerFlow";
 import { H2, H3, P, UL, LI, OL, OLI, Quote, Mono, HR } from "@/components/Prose";
 
 export const metadata: Metadata = {
@@ -61,11 +64,6 @@ export default function Post() {
 
       {/* ───── body ───── */}
       <article className="mx-auto max-w-[820px] px-5 md:px-8 py-14 md:py-20">
-        <Quote>
-          Draft for review. Local sample implementation:{" "}
-          <Mono>~/.pi/agent/extensions/workos-audit-logs</Mono>.
-        </Quote>
-
         <P>
           AI products increasingly look less like a single API call and more like a{" "}
           <em>harness</em>: a runtime that accepts user input, chooses a model, invokes
@@ -140,6 +138,9 @@ export default function Post() {
           <OLI>The agent completes or fails.</OLI>
           <OLI>The customer exports logs later to investigate what happened.</OLI>
         </OL>
+
+        <HarnessLifecycle />
+
         <P>
           Most harnesses already expose hooks for these moments — <Mono>onPrompt</Mono>,
           {" "}<Mono>beforeAgentStart</Mono>, <Mono>onToolCall</Mono>,{" "}
@@ -228,6 +229,9 @@ export default function Post() {
   }
 }`}
         />
+
+        <EventAnatomy />
+
         <P>The exact fields depend on your product, but the structure stays consistent:</P>
         <UL>
           <LI>The <b>actor</b> is usually the end user, admin, service account, or system process.</LI>
@@ -411,6 +415,9 @@ await workos.auditLogs.createEvent(process.env.WORKOS_ORGANIZATION_ID!, {
           <OLI>Your backend authenticates the user and resolves the WorkOS organization ID for that customer.</OLI>
           <OLI>Your backend emits the WorkOS Audit Log event using a server-side API key.</OLI>
         </OL>
+
+        <ServerFlow />
+
         <P>
           That keeps the API key out of untrusted clients and gives you one place to
           enforce policy, normalize event shape, redact sensitive values, and retry

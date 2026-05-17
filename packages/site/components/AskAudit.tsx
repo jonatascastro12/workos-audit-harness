@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { Tokenized } from "./tokenize";
 
 type AnswerRow = {
   actor: string;
@@ -327,28 +328,30 @@ export function AskAudit() {
             {/* prompt + typed question */}
             <div className="px-4 md:px-6 py-5 md:py-7 text-[13px] leading-[1.65] font-mono">
               <div className="flex items-baseline gap-2">
-                <span className="text-[var(--accent)] shrink-0">$</span>
+                <span className="accent shrink-0">$</span>
                 <span className="break-all">
                   {mode === "cli" ? (
                     <>
-                      <span className="text-[var(--fg)]">workos-audit-harness</span>{" "}
-                      <span className="dim">ask</span>{" "}
-                      <span className="text-[var(--accent)]">&ldquo;{typed}</span>
+                      <span>workos-audit-harness</span>{" "}
+                      <span className="tok-kw">ask</span>{" "}
+                      <span className="tok-str">&ldquo;{typed}</span>
                       <span className="caret" aria-hidden />
-                      <span className="text-[var(--accent)]">&rdquo;</span>
+                      <span className="tok-str">&rdquo;</span>
                     </>
                   ) : (
                     <>
-                      <span className="text-[var(--fg)]">workos_audit_query</span>
-                      <span className="dim">(&#123; q: </span>
-                      <span className="text-[var(--accent)]">&ldquo;{typed}</span>
+                      <span>workos_audit_query</span>
+                      <span className="tok-punct">(&#123; </span>
+                      <span className="tok-id">q</span>
+                      <span className="tok-punct">: </span>
+                      <span className="tok-str">&ldquo;{typed}</span>
                       <span className="caret" aria-hidden />
-                      <span className="text-[var(--accent)]">&rdquo;</span>
-                      <span className="dim">, actions: </span>
-                      <span className="text-[var(--fg-2)]">
-                        {JSON.stringify(current.actionsFilter)}
-                      </span>
-                      <span className="dim"> &#125;)</span>
+                      <span className="tok-str">&rdquo;</span>
+                      <span className="tok-punct">, </span>
+                      <span className="tok-id">actions</span>
+                      <span className="tok-punct">: </span>
+                      <Tokenized text={JSON.stringify(current.actionsFilter)} />
+                      <span className="tok-punct"> &#125;)</span>
                     </>
                   )}
                 </span>
@@ -379,32 +382,37 @@ export function AskAudit() {
                     style={{ animationDelay: `${120 + i * 110}ms` }}
                   >
                     <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 text-[11.5px] uppercase tracking-[0.14em] dim">
-                      <span className="text-[var(--accent)]">▸</span>
+                      <span className="accent">▸</span>
                       <span className="text-[var(--fg)] normal-case tracking-normal text-[12.5px] font-medium">
                         {row.actor}
                       </span>
                       <span className="opacity-50">·</span>
-                      <span className="normal-case tracking-normal text-[12.5px] text-[var(--fg-2)]">
-                        {row.action}
-                      </span>
+                      <Tokenized
+                        text={row.action}
+                        className="normal-case tracking-normal text-[12.5px]"
+                      />
                       <span className="opacity-50">·</span>
-                      <span className="normal-case tracking-normal text-[12.5px] tabular-nums">
+                      <span className="normal-case tracking-normal text-[12.5px] tabular-nums dim">
                         {row.when}
                       </span>
                     </div>
                     {row.target && (
-                      <div className="mt-1.5 text-[12.5px] text-[var(--fg-2)] flex flex-wrap items-baseline gap-x-2">
+                      <div className="mt-1.5 text-[12.5px] flex flex-wrap items-baseline gap-x-2">
                         <span className="dim text-[10.5px] uppercase tracking-[0.16em] mt-[2px]">
                           target
                         </span>
-                        <code className="text-[12.5px]">{row.target}</code>
+                        <code className="text-[12.5px]">
+                          <Tokenized text={row.target} />
+                        </code>
                       </div>
                     )}
-                    <div className="mt-1.5 text-[12.5px] text-[var(--fg-2)] flex flex-wrap items-baseline gap-x-2">
+                    <div className="mt-1.5 text-[12.5px] flex flex-wrap items-baseline gap-x-2">
                       <span className="dim text-[10.5px] uppercase tracking-[0.16em] mt-[2px]">
                         evidence
                       </span>
-                      <code className="text-[12.5px]">{row.detail}</code>
+                      <code className="text-[12.5px]">
+                        <Tokenized text={row.detail} />
+                      </code>
                     </div>
                   </div>
                 ))}
@@ -428,15 +436,19 @@ export function AskAudit() {
         {/* under-section caption */}
         <div className="mt-6 flex flex-wrap items-center gap-x-6 gap-y-2 text-[12px] uppercase tracking-[0.14em] dim">
           <span>
-            <span className="text-[var(--accent)]">▌</span>{" "}
-            <code className="normal-case tracking-normal text-[var(--fg-2)]">
-              workos-audit-harness ask &lt;question&gt;
+            <span className="accent">▌</span>{" "}
+            <code className="normal-case tracking-normal">
+              <span>workos-audit-harness</span>{" "}
+              <span className="tok-kw">ask</span>{" "}
+              <span className="tok-punct">&lt;</span>
+              <span>question</span>
+              <span className="tok-punct">&gt;</span>
             </code>
           </span>
           <span className="opacity-40">·</span>
           <span>
             mcp tool{" "}
-            <code className="normal-case tracking-normal text-[var(--fg-2)]">
+            <code className="normal-case tracking-normal">
               workos_audit_query
             </code>
           </span>

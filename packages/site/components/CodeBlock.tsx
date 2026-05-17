@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, Fragment } from "react";
+import { tokenizeLine, classFor } from "./tokenize";
 
 type Props = {
   code: string;
@@ -39,17 +40,15 @@ export function CodeBlock({ code, label, language, showLineNumbers }: Props) {
       <pre className="m-0 p-0">
         <code className="block">
           {lines.map((ln, i) => {
-            const isCommand = ln.startsWith("$ ");
-            const content = isCommand ? ln.slice(2) : ln;
+            const toks = tokenizeLine(ln);
             return (
               <div key={i} className="whitespace-pre">
-                {showLineNumbers && (
-                  <span className="ln">{i + 1}</span>
-                )}
-                {isCommand ? (
-                  <span className="accent">$&nbsp;</span>
-                ) : null}
-                <span>{content}</span>
+                {showLineNumbers && <span className="ln">{i + 1}</span>}
+                {toks.map((tk, j) => (
+                  <Fragment key={j}>
+                    <span className={classFor(tk.type)}>{tk.text}</span>
+                  </Fragment>
+                ))}
               </div>
             );
           })}

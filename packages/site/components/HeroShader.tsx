@@ -26,6 +26,8 @@ uniform float u_dpr;
 uniform vec3  u_accent;
 uniform vec3  u_bg;
 uniform float u_dark;
+uniform vec2  u_mouse;     // eased cursor offset in world space (aspect-corrected)
+uniform float u_mouseAmt;  // 0..1 strength (drops to 0 when cursor leaves)
 
 // ---------- ASCII Tunnel ----------
 // Inspired by shaders.com / Ascii Tunnel preset:
@@ -93,7 +95,20 @@ void main() {
   // ── tunnel vanishing point: shift right of the headline, proportional to
   // viewport aspect so it stays put on narrow screens.
   float aspect = u_resolution.x / max(u_resolution.y, 1.0);
-  vec2 origin = vec2(0.30 * aspect, 0.0);
+  // tunnel vanishing point sits in the lower-right quadrant where the hero
+  // has no text — fills the empty bottom-right with the densest pattern
+  // instead of crowding the headline.
+  vec2 origin = vec2(0.55 * aspect, -0.35);
+
+  // ── cursor repulsion: push the sampled uv radially away from the cursor
+  // with a gaussian falloff. Near the cursor the pattern is shoved outward,
+  // leaving a softly cleared region.
+  vec2 toCursor = uv - u_mouse;
+  float dCursor = length(toCursor);
+  float force   = exp(-dCursor * dCursor * 7.0) * u_mouseAmt;
+  vec2  push    = (toCursor / max(dCursor, 0.0015)) * force * 0.22;
+  uv += push;
+
   vec2 puv = uv - origin;
 
   // ── tunnel projection (polar → 1/r forward field)
@@ -213,9 +228,11 @@ export function HeroShader() {
     const uAccent = gl.getUniformLocation(prog, "u_accent");
     const uBg = gl.getUniformLocation(prog, "u_bg");
     const uDark = gl.getUniformLocation(prog, "u_dark");
+    const uMouse = gl.getUniformLocation(prog, "u_mouse");
+    const uMouseAmt = gl.getUniformLocation(prog, "u_mouseAmt");
 
     const dark = resolvedTheme === "dark";
-    const accent = hexToRgb(dark ? "#7df2c8" : "#b8530a");
+    const accent = hexToRgb(dark ? "#e7e3d6" : "#0b0b0a");
     const bg = hexToRgb(dark ? "#0a0a09" : "#efece4");
 
     gl.uniform3f(uAccent, accent[0], accent[1], accent[2]);
@@ -225,6 +242,35 @@ export function HeroShader() {
     let raf = 0;
     let start = performance.now();
     let lastResize = 0;
+
+    // cursor tracking — target updated by mousemove, eased toward each frame
+    const mouseTarget = { x: 0, y: 0, amt: 0 };
+    const mouseEased = { x: 0, y: 0, amt: 0 };
+
+    const onMove = (ev: MouseEvent) => {
+      const r = canvas.getBoundingClientRect();
+      const inside =
+        ev.clientX >= r.left &&
+        ev.clientX <= r.right &&
+        ev.clientY >= r.top &&
+        ev.clientY <= r.bottom;
+      if (inside) {
+        // world space: x = (px - cx) / h, y inverted (gl_FragCoord y is flipped)
+        mouseTarget.x = (ev.clientX - r.left - r.width / 2) / r.height;
+        mouseTarget.y = -(ev.clientY - r.top - r.height / 2) / r.height;
+        mouseTarget.amt = 1;
+      } else {
+        mouseTarget.amt = 0;
+      }
+    };
+    const onLeave = () => {
+      mouseTarget.amt = 0;
+    };
+    if (!prefersReduced) {
+      window.addEventListener("mousemove", onMove, { passive: true });
+      window.addEventListener("blur", onLeave);
+      document.addEventListener("mouseleave", onLeave);
+    }
 
     const resize = () => {
       const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
@@ -249,6 +295,15 @@ export function HeroShader() {
     const draw = (t: number) => {
       const seconds = (t - start) / 1000;
       gl.uniform1f(uTime, prefersReduced ? 0 : seconds);
+
+      // ease the cursor uniform toward its target (light smoothing)
+      const k = 0.085;
+      mouseEased.x += (mouseTarget.x - mouseEased.x) * k;
+      mouseEased.y += (mouseTarget.y - mouseEased.y) * k;
+      mouseEased.amt += (mouseTarget.amt - mouseEased.amt) * 0.06;
+      gl.uniform2f(uMouse, mouseEased.x, mouseEased.y);
+      gl.uniform1f(uMouseAmt, mouseEased.amt);
+
       gl.drawArrays(gl.TRIANGLES, 0, 6);
       if (!prefersReduced) {
         raf = requestAnimationFrame(draw);
@@ -264,6 +319,11 @@ export function HeroShader() {
     return () => {
       cancelAnimationFrame(raf);
       ro.disconnect();
+      if (!prefersReduced) {
+        window.removeEventListener("mousemove", onMove);
+        window.removeEventListener("blur", onLeave);
+        document.removeEventListener("mouseleave", onLeave);
+      }
       gl.deleteBuffer(buf);
       gl.deleteProgram(prog);
       gl.deleteShader(vs);

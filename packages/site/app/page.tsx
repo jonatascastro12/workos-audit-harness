@@ -42,18 +42,18 @@ export default function Page() {
         <div className="relative mx-auto max-w-[1240px] px-5 md:px-8 pt-14 pb-20 md:pt-20 md:pb-28">
           <div>
               <div className="reveal reveal-1 text-[12px] uppercase tracking-[0.18em] dim mb-8 flex items-center gap-3">
-                <span className="text-[var(--accent)]">●</span>
+                <span className="ok">●</span>
                 <span>audit logging for coding agents</span>
               </div>
 
-              <h1 className="reveal reveal-2 glyph">
+              <h1 className="reveal reveal-2 glyph" style={{ minHeight: "1.9em" }}>
                 <TypeText
                   ariaLabel="Ship audit logs from your agents"
                   speed={70}
                   startDelay={520}
                   segments={[
                     { text: "Ship audit logs\nfrom your " },
-                    { text: "agents", className: "accent" },
+                    { text: "agents", className: "dim" },
                   ]}
                 />
               </h1>
@@ -104,7 +104,7 @@ export default function Page() {
                       }
                     >
                       <div className="flex items-center gap-2 text-[11px] uppercase tracking-[0.14em] dim mb-3">
-                        <span className="text-[var(--accent)]">●</span>
+                        <span className="ok">●</span>
                         <span>{p.meta}</span>
                       </div>
                       <div className="flex items-center gap-2">

@@ -10,9 +10,18 @@
   --color-ink-2: #2a2924;
   --color-rule: #1a1a17;
   --color-mute: #6b6a62;
-  --color-accent: #b8530a;
-  --color-accent-2: #d96812;
+  --color-accent: #0b0b0a;
+  --color-accent-2: #2a2924;
+  --color-ok: #1d6e44;
+  --color-stop: #b22f1f;
   --color-warn: #a23a1f;
+
+  /* syntax-highlight palette (resolved per theme in :root / [data-theme]) */
+  --color-str: #a5662d;   /* strings — warm amber */
+  --color-num: #1f5a72;   /* numbers — deep teal */
+  --color-kw:  #6b3a8a;   /* keywords — deep violet */
+  --color-id:  #2a5a3a;   /* identifiers / properties — forest */
+  --color-punct: #6b6a62; /* punctuation — muted */
 }
 
 :root {
@@ -24,7 +33,14 @@
   --mute: var(--color-mute);
   --accent: var(--color-accent);
   --accent-2: var(--color-accent-2);
-  --selection: #b8530a33;
+  --ok: var(--color-ok);
+  --stop: var(--color-stop);
+  --tok-str: var(--color-str);
+  --tok-num: var(--color-num);
+  --tok-kw:  var(--color-kw);
+  --tok-id:  var(--color-id);
+  --tok-punct: var(--color-punct);
+  --selection: #0b0b0a1a;
   --grid: #00000010;
 }
 
@@ -35,9 +51,16 @@
   --fg-2: #b9b5a6;
   --rule: #2a2924;
   --mute: #807c70;
-  --accent: #7df2c8;
-  --accent-2: #a8ffd9;
-  --selection: #7df2c833;
+  --accent: #e7e3d6;
+  --accent-2: #b9b5a6;
+  --ok: #7df2c8;
+  --stop: #e26b56;
+  --tok-str: #d9b66b;     /* amber */
+  --tok-num: #7dd5e2;     /* cyan */
+  --tok-kw:  #c9a0f0;     /* lavender */
+  --tok-id:  #a8d9b8;     /* mint-green */
+  --tok-punct: #807c70;
+  --selection: #e7e3d622;
   --grid: #ffffff0a;
 }
 
@@ -86,6 +109,23 @@ a {
 .accent {
   color: var(--accent);
 }
+
+.ok {
+  color: var(--ok);
+}
+
+.stop {
+  color: var(--stop);
+}
+
+/* syntax tokens */
+.tok-str   { color: var(--tok-str); }
+.tok-num   { color: var(--tok-num); }
+.tok-kw    { color: var(--tok-kw); font-weight: 500; }
+.tok-id    { color: var(--tok-id); }
+.tok-punct { color: var(--tok-punct); }
+.tok-cmt   { color: var(--mute); font-style: italic; }
+.tok-flag  { color: var(--tok-id); }
 
 .box {
   border: 1px solid var(--rule);
@@ -417,8 +457,8 @@ a {
   background: var(--mute);
   opacity: 0.6;
 }
-.ask-dot-y { background: color-mix(in oklab, var(--accent) 60%, var(--mute)); opacity: 0.85; }
-.ask-dot-g { background: var(--accent); opacity: 0.95; }
+.ask-dot-y { background: color-mix(in oklab, var(--ok) 60%, var(--mute)); opacity: 0.85; }
+.ask-dot-g { background: var(--ok); opacity: 0.95; }
 
 .ask-mode {
   background: transparent;
@@ -475,9 +515,9 @@ a {
   width: 6px;
   height: 6px;
   border-radius: 999px;
-  background: var(--accent);
+  background: var(--ok);
   animation: askTick 1.6s ease-in-out infinite;
-  box-shadow: 0 0 8px color-mix(in oklab, var(--accent) 60%, transparent);
+  box-shadow: 0 0 8px color-mix(in oklab, var(--ok) 60%, transparent);
 }
 
 @keyframes askTick {
@@ -648,4 +688,222 @@ a {
   .skill-shortcut,
   .skill-cta { transition: none !important; }
   .skill-cta--ok { animation: none !important; }
+}
+
+/* ─────────────────────────── post diagrams ─────────────────────────── */
+
+/* fig·01 — HarnessLifecycle ------------------------------------------ */
+
+.lc-frame {
+  box-shadow:
+    inset 0 0 0 1px var(--bg),
+    6px 6px 0 -1px var(--rule);
+}
+
+.lc-corner {
+  position: absolute;
+  color: var(--accent);
+  font-family: var(--font-mono);
+  font-size: 14px;
+  line-height: 1;
+  pointer-events: none;
+  user-select: none;
+  z-index: 1;
+}
+.lc-corner-tl { top: 4px; left: 4px; }
+.lc-corner-tr { top: 4px; right: 4px; }
+.lc-corner-bl { bottom: 4px; left: 4px; }
+.lc-corner-br { bottom: 4px; right: 4px; }
+
+.lc-rail {
+  position: absolute;
+  top: 11px;
+  left: 10%;
+  right: 10%;
+  height: 1px;
+  background-image: linear-gradient(
+    to right,
+    var(--accent) 50%,
+    transparent 50%
+  );
+  background-size: 8px 1px;
+  background-repeat: repeat-x;
+  z-index: 0;
+}
+
+.lc-station {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  background: var(--bg);
+  border: 1px solid var(--accent);
+  transform: rotate(45deg);
+  position: relative;
+  z-index: 1;
+  box-shadow: 0 0 0 3px var(--bg);
+}
+
+.lc-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  background: var(--bg);
+  border: 1px solid var(--rule);
+  transform: rotate(45deg);
+}
+.lc-dot-primary { border-color: var(--accent); background: var(--accent); }
+.lc-dot-branch  { border-color: var(--rule); background: var(--bg); }
+
+/* fig·02 — EventAnatomy --------------------------------------------- */
+
+.ev-frame {
+  box-shadow:
+    inset 0 0 0 1px var(--bg),
+    6px 6px 0 -1px var(--rule);
+}
+
+.ev-json {
+  font-family: var(--font-mono);
+  white-space: pre;
+  background:
+    linear-gradient(to bottom, var(--bg), var(--bg)),
+    var(--bg);
+  color: var(--fg-2);
+}
+
+.ev-row {
+  display: grid;
+  grid-template-columns: 2.4ch 1fr auto;
+  align-items: baseline;
+  gap: 0;
+  padding: 1px 0;
+  border-left: 2px solid transparent;
+  padding-left: 6px;
+  margin-left: -6px;
+  transition: background 120ms linear, border-color 120ms linear;
+}
+
+.ev-row-annotated {
+  background: color-mix(in oklab, var(--accent) 6%, transparent);
+  border-left-color: var(--accent);
+}
+
+.ev-gutter {
+  color: var(--mute);
+  user-select: none;
+  font-size: 10px;
+  letter-spacing: 0.05em;
+  padding-right: 1ch;
+}
+
+.ev-line { white-space: pre; }
+
+.ev-key {
+  color: var(--accent);
+  font-weight: 500;
+}
+
+.ev-bracket {
+  color: var(--accent);
+  padding-left: 1ch;
+  opacity: 0.7;
+}
+
+.ev-label {
+  border-left: 2px solid var(--rule);
+  padding-left: 12px;
+  transition: border-color 120ms linear;
+}
+.ev-label[data-mark="action"]   { border-color: var(--accent); }
+.ev-label[data-mark="actor"]    { border-color: var(--accent); }
+.ev-label[data-mark="targets"]  { border-color: var(--accent); }
+.ev-label[data-mark="metadata"] { border-color: var(--accent); }
+.ev-label[data-mark="org"]      { border-color: var(--accent); }
+
+/* fig·03 — ServerFlow ----------------------------------------------- */
+
+.sf-frame {
+  box-shadow:
+    inset 0 0 0 1px var(--bg),
+    6px 6px 0 -1px var(--rule);
+}
+
+.sf-trust-col {
+  background:
+    repeating-linear-gradient(
+      135deg,
+      transparent 0 14px,
+      color-mix(in oklab, var(--accent) 6%, transparent) 14px 15px
+    ),
+    var(--bg);
+}
+
+.sf-zone {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+}
+.sf-zone-untrusted { background: var(--stop); box-shadow: 0 0 0 2px color-mix(in oklab, var(--stop) 30%, transparent); }
+.sf-zone-trusted   { background: var(--ok);   box-shadow: 0 0 0 2px color-mix(in oklab, var(--ok) 30%, transparent); }
+.sf-zone-external  { background: var(--bg); border: 1px solid var(--rule); }
+
+.sf-pill {
+  color: var(--mute);
+}
+.sf-pill[data-trust="untrusted"] {
+  color: var(--stop);
+  border-color: var(--stop);
+}
+.sf-pill[data-trust="trusted"] {
+  color: var(--ok);
+  border-color: var(--ok);
+}
+.sf-pill[data-trust="external"] {
+  color: var(--fg);
+}
+
+.sf-key {
+  border: 1px dashed var(--accent);
+  background: var(--bg-2);
+  padding: 6px 10px;
+  display: inline-block;
+}
+
+.sf-key-bar {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.7ch;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: var(--accent);
+  text-transform: uppercase;
+}
+
+.sf-band-arrow {
+  font-family: var(--font-mono);
+  letter-spacing: -0.05em;
+  font-size: 10px;
+  line-height: 1;
+}
+
+.sf-boundary {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background-image: linear-gradient(
+    to bottom,
+    var(--accent) 33%,
+    transparent 33%
+  );
+  background-size: 1px 6px;
+  opacity: 0.5;
+  pointer-events: none;
+}
+.sf-boundary-left  { left: 33.33%; }
+.sf-boundary-right { left: 66.66%; }
+
+@media (prefers-reduced-motion: reduce) {
+  .lc-frame, .ev-frame, .sf-frame { transition: none !important; }
 }
