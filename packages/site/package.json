@@ -1,0 +1,27 @@
+{
+  "name": "@workos-inc/audit-harness-site",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Marketing and documentation site for the WorkOS Audit Harness.",
+  "scripts": {
+    "dev": "next dev --port 3030",
+    "build": "next build",
+    "start": "next start --port 3030",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "next": "15.1.3",
+    "next-themes": "0.4.4",
+    "react": "19.0.0",
+    "react-dom": "19.0.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.1.10",
+    "@types/node": "22.10.2",
+    "@types/react": "19.0.2",
+    "@types/react-dom": "19.0.2",
+    "postcss": "8.4.49",
+    "tailwindcss": "^4.1.10",
+    "typescript": "5.7.2"
+  }
+}

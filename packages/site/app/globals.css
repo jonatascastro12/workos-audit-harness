@@ -1,0 +1,379 @@
+@import "tailwindcss";
+
+@theme {
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", "Menlo", monospace;
+  --font-sans: "JetBrains Mono", ui-monospace, "SF Mono", "Menlo", monospace;
+
+  --color-paper: #efece4;
+  --color-paper-2: #e6e1d4;
+  --color-ink: #0b0b0a;
+  --color-ink-2: #2a2924;
+  --color-rule: #1a1a17;
+  --color-mute: #6b6a62;
+  --color-accent: #b8530a;
+  --color-accent-2: #d96812;
+  --color-warn: #a23a1f;
+}
+
+:root {
+  --bg: var(--color-paper);
+  --bg-2: var(--color-paper-2);
+  --fg: var(--color-ink);
+  --fg-2: var(--color-ink-2);
+  --rule: #20201d;
+  --mute: var(--color-mute);
+  --accent: var(--color-accent);
+  --accent-2: var(--color-accent-2);
+  --selection: #b8530a33;
+  --grid: #00000010;
+}
+
+[data-theme="dark"] {
+  --bg: #0a0a09;
+  --bg-2: #111110;
+  --fg: #e7e3d6;
+  --fg-2: #b9b5a6;
+  --rule: #2a2924;
+  --mute: #807c70;
+  --accent: #7df2c8;
+  --accent-2: #a8ffd9;
+  --selection: #7df2c833;
+  --grid: #ffffff0a;
+}
+
+html {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-mono);
+  font-feature-settings: "ss01", "ss02", "zero", "calt";
+  font-variant-ligatures: contextual;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: geometricPrecision;
+}
+
+body {
+  background-color: var(--bg);
+  color: var(--fg);
+  background-image:
+    linear-gradient(to right, var(--grid) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--grid) 1px, transparent 1px);
+  background-size: 80px 80px;
+  background-position: -1px -1px;
+  min-height: 100vh;
+}
+
+::selection {
+  background: var(--selection);
+  color: var(--fg);
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+/* ──────────────────────────────── primitives ──────────────────────────────── */
+
+.rule {
+  border-color: var(--rule);
+}
+
+.dim {
+  color: var(--mute);
+}
+
+.accent {
+  color: var(--accent);
+}
+
+.box {
+  border: 1px solid var(--rule);
+}
+
+.hl {
+  background: var(--bg-2);
+}
+
+/* prompt + caret */
+.prompt::before {
+  content: "$ ";
+  color: var(--accent);
+}
+
+.path::before {
+  content: "~/";
+  color: var(--mute);
+}
+
+.caret {
+  display: inline-block;
+  width: 0.55ch;
+  height: 1em;
+  background: var(--accent);
+  transform: translateY(0.15em);
+  animation: blink 1.05s steps(2, end) infinite;
+  vertical-align: baseline;
+}
+
+.caret-hero {
+  width: 0.5ch;
+  height: 0.78em;
+  margin-left: 0.12ch;
+  transform: translateY(0.02em);
+}
+
+@keyframes blink {
+  0%, 50% { opacity: 1; }
+  50.01%, 100% { opacity: 0; }
+}
+
+/* scanline / crt mood, subtle */
+.crt {
+  position: relative;
+}
+.crt::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    to bottom,
+    transparent 0,
+    transparent 3px,
+    var(--rule) 3px,
+    var(--rule) 4px
+  );
+  opacity: 0.05;
+  mix-blend-mode: multiply;
+}
+
+[data-theme="dark"] .crt::after {
+  mix-blend-mode: screen;
+  opacity: 0.04;
+}
+
+/* ASCII border helpers (drawn with characters, not CSS borders) */
+.ascii-frame {
+  white-space: pre;
+  line-height: 1.05;
+  color: var(--mute);
+  font-size: 12px;
+  letter-spacing: 0;
+}
+
+/* tab pills */
+.tab {
+  border: 1px solid var(--rule);
+  background: var(--bg);
+  color: var(--fg);
+  padding: 6px 12px;
+  border-bottom: 1px solid transparent;
+  margin-bottom: -1px;
+}
+.tab[data-active="true"] {
+  background: var(--bg-2);
+  color: var(--accent);
+  border-bottom: 1px solid var(--bg-2);
+}
+.tab:hover { color: var(--accent); }
+
+/* code block */
+.code {
+  border: 1px solid var(--rule);
+  background: var(--bg-2);
+  padding: 14px 16px 14px 16px;
+  font-size: 13px;
+  line-height: 1.55;
+  overflow-x: auto;
+  position: relative;
+}
+
+.code .ln {
+  color: var(--mute);
+  user-select: none;
+  display: inline-block;
+  width: 2.25ch;
+  text-align: right;
+  margin-right: 1.25ch;
+}
+
+.tag {
+  display: inline-block;
+  border: 1px solid var(--rule);
+  padding: 1px 8px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--mute);
+}
+
+.tag.on {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+/* big hero glyph */
+.glyph {
+  font-weight: 700;
+  line-height: 0.95;
+  letter-spacing: -0.035em;
+  font-size: clamp(40px, 6.4vw, 88px);
+  color: var(--fg);
+}
+
+.glyph-strike {
+  background: linear-gradient(180deg, transparent 0 49%, var(--accent) 49% 53%, transparent 53% 100%);
+  background-repeat: no-repeat;
+}
+
+/* link underlines */
+.link {
+  border-bottom: 1px dashed currentColor;
+  transition: color 120ms linear, border-color 120ms linear;
+}
+.link:hover { color: var(--accent); border-bottom-style: solid; }
+
+/* button */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5ch;
+  border: 1px solid var(--rule);
+  padding: 8px 14px;
+  background: var(--bg);
+  transition: background 120ms linear, color 120ms linear, border-color 120ms linear;
+}
+.btn:hover { background: var(--fg); color: var(--bg); border-color: var(--fg); }
+.btn-primary {
+  background: var(--fg);
+  color: var(--bg);
+  border-color: var(--fg);
+}
+.btn-primary:hover { background: var(--accent); border-color: var(--accent); color: var(--bg); }
+
+/* horizontal marquee of action names */
+.marquee {
+  overflow: hidden;
+  border-block: 1px solid var(--rule);
+  background: var(--bg);
+}
+.marquee-track {
+  display: inline-flex;
+  gap: 3rem;
+  white-space: nowrap;
+  padding: 12px 0;
+  animation: scroll 40s linear infinite;
+  color: var(--mute);
+  font-size: 12px;
+  letter-spacing: 0.12em;
+}
+@keyframes scroll {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+
+/* dotted divider */
+.div-dot {
+  height: 1px;
+  background-image: linear-gradient(to right, var(--rule) 50%, transparent 50%);
+  background-size: 6px 1px;
+  background-repeat: repeat-x;
+}
+
+/* heading style */
+.h-sec {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  font-size: 13px;
+  color: var(--mute);
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+}
+.h-sec::before {
+  content: "▌";
+  color: var(--accent);
+  font-size: 14px;
+  transform: translateY(1px);
+}
+
+/* hero shader canvas wrapper */
+.hero-canvas {
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* feather the bottom of the hero into the page so the shader doesn't fight
+   the next section's border */
+.hero-fade {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(to bottom, transparent 55%, var(--bg) 100%),
+    radial-gradient(120% 60% at 0% 0%, transparent 30%, var(--bg) 90%);
+}
+
+/* page-load stagger — slower so the choreography is felt */
+.reveal {
+  opacity: 0;
+  transform: translateY(14px);
+  animation: rise 900ms cubic-bezier(.2,.7,.2,1) forwards;
+}
+.reveal-1 { animation-delay: 120ms; }
+.reveal-2 { animation-delay: 340ms; }
+.reveal-3 { animation-delay: 740ms; }   /* after the typewriter starts */
+.reveal-4 { animation-delay: 1100ms; }
+.reveal-5 { animation-delay: 1500ms; }
+@keyframes rise {
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Scroll-driven reveals — progressive enhancement via view-timeline.
+   In browsers that support it, each section gently rises and fades in as it
+   crosses the viewport entry band. Elsewhere the section is just visible. */
+@supports (animation-timeline: view()) {
+  .onscroll {
+    animation: onscroll-rise linear both;
+    animation-timeline: view();
+    /* much longer band — animation plays from when the section first peeks in
+       to ~halfway up the viewport, so the rise is unmistakable while scrolling */
+    animation-range: entry -10% cover 55%;
+  }
+  .onscroll-stagger > * {
+    animation: onscroll-rise linear both;
+    animation-timeline: view();
+    animation-range: entry -10% cover 55%;
+  }
+  .onscroll-stagger > *:nth-child(2) { animation-range: entry  0% cover 60%; }
+  .onscroll-stagger > *:nth-child(3) { animation-range: entry 10% cover 65%; }
+  .onscroll-stagger > *:nth-child(4) { animation-range: entry 20% cover 70%; }
+  .onscroll-stagger > *:nth-child(5) { animation-range: entry 30% cover 75%; }
+  .onscroll-stagger > *:nth-child(6) { animation-range: entry 40% cover 80%; }
+}
+
+@keyframes onscroll-rise {
+  from {
+    opacity: 0;
+    transform: translateY(40px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .onscroll, .onscroll-stagger > * { animation: none !important; }
+  .reveal { animation: none; opacity: 1; transform: none; }
+  .caret { animation: none; opacity: 1; }
+}
+
+/* slightly stronger blink as the typing finishes (caret-done class) */
+.caret-done {
+  animation-duration: 1.2s;
+}
