@@ -5,6 +5,7 @@ import { EventsMarquee } from "@/components/EventsMarquee";
 import { HeroShader } from "@/components/HeroShader";
 import { LifecycleMatrix } from "@/components/LifecycleMatrix";
 import { TypeText } from "@/components/TypeText";
+import { AskAudit } from "@/components/AskAudit";
 
 const PAYLOAD = `{
   "action": "claude.tool.completed",
@@ -325,11 +326,14 @@ $ npm run create:harness-schemas -- --prefix=pi`}
         </div>
       </section>
 
+      {/* ──────────────────────────────── ASK (natural language) ──────────────────────────────── */}
+      <AskAudit />
+
       {/* ──────────────────────────────── DOCS LINKS ──────────────────────────────── */}
       <section className="border-b rule onscroll">
         <div className="mx-auto max-w-[1240px] px-5 md:px-8 py-16 md:py-24">
           <div className="h-sec mb-10">
-            <span>07 — docs &amp; references</span>
+            <span>08 — docs &amp; references</span>
           </div>
 
           <ul className="border rule">
@@ -433,6 +437,7 @@ $ npm run create:harness-schemas -- --prefix=pi`}
                 <li><a className="link" href="https://workos.com/docs/audit-logs" target="_blank" rel="noreferrer">Audit Logs docs</a></li>
                 <li><a className="link" href="https://workos.com/docs/reference" target="_blank" rel="noreferrer">API reference</a></li>
                 <li><a className="link" href="https://workos.com" target="_blank" rel="noreferrer">workos.com</a></li>
+                <li><a className="link" href="https://workos.com/mcp-night" target="_blank" rel="noreferrer">MCP Night</a></li>
               </ul>
             </div>
 
@@ -441,11 +446,6 @@ $ npm run create:harness-schemas -- --prefix=pi`}
                 community
               </div>
               <ul className="space-y-2 text-[13px]">
-                <li>
-                  <a className="link" href="https://workos.com/mcp-night" target="_blank" rel="noreferrer">
-                    MCP Night
-                  </a>
-                </li>
                 <li>
                   <a className="link" href="https://modelcontextprotocol.io" target="_blank" rel="noreferrer">
                     modelcontextprotocol.io

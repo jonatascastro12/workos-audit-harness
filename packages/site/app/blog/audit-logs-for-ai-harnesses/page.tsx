@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { StatusBar } from "@/components/StatusBar";
 import { CodeBlock } from "@/components/CodeBlock";
+import { SkillShortcut } from "@/components/SkillShortcut";
 import { H2, H3, P, UL, LI, OL, OLI, Quote, Mono, HR } from "@/components/Prose";
 
 export const metadata: Metadata = {
@@ -88,6 +89,8 @@ export default function Post() {
           into WorkOS Audit Logs, you can add enterprise-grade auditing to your AI
           product without building an audit log system from scratch.
         </P>
+
+        <SkillShortcut />
 
         <H2 n="01">What is an audit log?</H2>
         <P>

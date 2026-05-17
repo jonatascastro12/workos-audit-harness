@@ -377,3 +377,275 @@ a {
 .caret-done {
   animation-duration: 1.2s;
 }
+
+/* ─────────────────────────── ask audit terminal ─────────────────────────── */
+
+.ask-audit .ask-term {
+  position: relative;
+  background:
+    radial-gradient(140% 60% at 50% -10%,
+      color-mix(in oklab, var(--accent) 8%, transparent) 0%,
+      transparent 60%),
+    var(--bg);
+}
+
+.ask-audit .ask-term::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    to bottom,
+    transparent 0 2px,
+    color-mix(in oklab, var(--accent) 6%, transparent) 2px 3px
+  );
+  opacity: 0.55;
+  mix-blend-mode: screen;
+}
+
+[data-theme="light"] .ask-audit .ask-term::after,
+:root:not([data-theme="dark"]) .ask-audit .ask-term::after {
+  mix-blend-mode: multiply;
+  opacity: 0.35;
+}
+
+.ask-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: var(--mute);
+  opacity: 0.6;
+}
+.ask-dot-y { background: color-mix(in oklab, var(--accent) 60%, var(--mute)); opacity: 0.85; }
+.ask-dot-g { background: var(--accent); opacity: 0.95; }
+
+.ask-mode {
+  background: transparent;
+  color: var(--mute);
+  border-right: 1px solid var(--rule);
+  transition: background 120ms linear, color 120ms linear;
+}
+.ask-mode:last-child { border-right: none; }
+.ask-mode:hover { color: var(--fg); }
+.ask-mode-active {
+  background: var(--fg);
+  color: var(--bg);
+}
+
+.ask-chip {
+  cursor: pointer;
+  font-family: var(--font-mono);
+  position: relative;
+}
+.ask-chip[aria-selected="true"]::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: var(--accent);
+}
+
+.ask-row {
+  background: var(--bg-2);
+  position: relative;
+  opacity: 0;
+  transform: translateY(6px);
+  animation: askRowIn 480ms cubic-bezier(.2,.7,.2,1) forwards;
+  overflow: hidden;
+}
+
+.ask-row::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 2px;
+  background: color-mix(in oklab, var(--accent) 70%, transparent);
+}
+
+@keyframes askRowIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: none; }
+}
+
+.ask-tick {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--accent);
+  animation: askTick 1.6s ease-in-out infinite;
+  box-shadow: 0 0 8px color-mix(in oklab, var(--accent) 60%, transparent);
+}
+
+@keyframes askTick {
+  0%, 100% { opacity: 0.35; transform: scale(0.8); }
+  50%      { opacity: 1;    transform: scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ask-row { animation: none !important; opacity: 1; transform: none; }
+  .ask-tick { animation: none !important; }
+  .ask-audit .ask-term::after { display: none; }
+}
+
+/* ─────────────────────────── skill shortcut block ─────────────────────────── */
+
+.skill-shortcut {
+  background:
+    radial-gradient(120% 100% at 100% 0%, color-mix(in oklab, var(--accent) 10%, transparent) 0%, transparent 45%),
+    repeating-linear-gradient(
+      135deg,
+      transparent 0 18px,
+      color-mix(in oklab, var(--rule) 25%, transparent) 18px 19px
+    ),
+    var(--bg);
+  box-shadow:
+    inset 0 0 0 1px var(--bg),
+    8px 8px 0 -1px var(--rule);
+  transition: box-shadow 220ms ease, transform 220ms ease;
+}
+
+.skill-shortcut:hover {
+  box-shadow:
+    inset 0 0 0 1px var(--bg),
+    12px 12px 0 -1px var(--accent);
+}
+
+.skill-ribbon {
+  position: absolute;
+  top: -1px;
+  left: -1px;
+  bottom: -1px;
+  width: 28px;
+  border-right: 1px solid var(--rule);
+  background:
+    repeating-linear-gradient(
+      to bottom,
+      var(--rule) 0 6px,
+      transparent 6px 9px
+    ),
+    var(--bg-2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.skill-ribbon span {
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  font-size: 10px;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  color: var(--mute);
+  white-space: nowrap;
+}
+
+.skill-shortcut > .px-5,
+.skill-shortcut > .md\:px-9 {
+  /* no-op; safety */
+}
+
+.skill-shortcut > div:not(.skill-ribbon) {
+  padding-left: 44px;
+}
+
+@media (min-width: 768px) {
+  .skill-shortcut > div:not(.skill-ribbon) {
+    padding-left: 60px;
+  }
+}
+
+.corner {
+  position: absolute;
+  font-family: var(--font-mono);
+  font-size: 18px;
+  line-height: 1;
+  color: var(--accent);
+  pointer-events: none;
+  user-select: none;
+}
+.corner-tl { top: 4px; left: 32px; }
+.corner-tr { top: 4px; right: 6px; }
+.corner-bl { bottom: 4px; left: 32px; }
+.corner-br { bottom: 4px; right: 6px; }
+
+@media (min-width: 768px) {
+  .corner-tl { left: 36px; }
+  .corner-bl { left: 36px; }
+}
+
+.skill-headline-mark {
+  position: relative;
+  display: inline-block;
+  color: var(--bg);
+  padding: 0.02em 0.22em;
+  isolation: isolate;
+}
+
+.skill-headline-mark::before {
+  content: "";
+  position: absolute;
+  inset: 8% -0.05em 6% -0.05em;
+  background: var(--accent);
+  z-index: -1;
+  transform: skewX(-8deg);
+  box-shadow: 4px 4px 0 0 var(--rule);
+}
+
+.skill-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.8ch;
+  padding: 12px 18px;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  background: var(--fg);
+  color: var(--bg);
+  border: 1px solid var(--fg);
+  position: relative;
+  transition: transform 160ms ease, background 160ms ease, color 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+  box-shadow: 4px 4px 0 0 var(--rule);
+}
+
+.skill-cta:hover {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--bg);
+  transform: translate(-2px, -2px);
+  box-shadow: 6px 6px 0 0 var(--rule);
+}
+
+.skill-cta:active {
+  transform: translate(2px, 2px);
+  box-shadow: 0 0 0 0 var(--rule);
+}
+
+.skill-cta-glyph {
+  display: inline-block;
+  width: 1.1em;
+  text-align: center;
+}
+
+.skill-cta--ok {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--bg);
+  animation: skillCopiedPulse 600ms ease;
+}
+
+@keyframes skillCopiedPulse {
+  0%   { box-shadow: 4px 4px 0 0 var(--rule), 0 0 0 0 color-mix(in oklab, var(--accent) 50%, transparent); }
+  60%  { box-shadow: 4px 4px 0 0 var(--rule), 0 0 0 12px transparent; }
+  100% { box-shadow: 4px 4px 0 0 var(--rule), 0 0 0 0 transparent; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skill-shortcut,
+  .skill-cta { transition: none !important; }
+  .skill-cta--ok { animation: none !important; }
+}
