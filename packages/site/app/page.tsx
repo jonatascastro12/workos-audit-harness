@@ -92,7 +92,7 @@ export default function Page() {
                       key={p.name}
                       href={p.href}
                       className={
-                        "group block p-5 hover:bg-[var(--bg-2)] transition-colors relative " +
+                        "group block p-5 bg-[var(--bg)] hover:bg-[var(--bg-2)] transition-colors relative " +
                         // bottom border on small screens (except last)
                         (i < arr.length - 1 ? "border-b sm:border-b-0 " : "") +
                         // right border on sm (every odd cell except last col)

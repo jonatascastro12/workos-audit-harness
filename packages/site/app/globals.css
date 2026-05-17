@@ -344,15 +344,15 @@ a {
   z-index: 0;
 }
 
-/* feather the bottom of the hero into the page so the shader doesn't fight
-   the next section's border */
+/* feather only the section boundary so the shader doesn't fight the next
+   section's border. The shader handles its own internal masking, so we
+   no longer dampen the bottom-right (where the tunnel lives). */
 .hero-fade {
   position: absolute;
   inset: 0;
   pointer-events: none;
   background:
-    linear-gradient(to bottom, transparent 55%, var(--bg) 100%),
-    radial-gradient(120% 60% at 0% 0%, transparent 30%, var(--bg) 90%);
+    linear-gradient(to bottom, transparent 86%, var(--bg) 100%);
 }
 
 /* page-load stagger — slower so the choreography is felt */
