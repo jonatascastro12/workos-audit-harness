@@ -7,7 +7,13 @@ import { WorkOS } from "@workos-inc/node";
 import type { AgentMessage, ImageContent } from "@mariozechner/pi-ai";
 import type { ExtensionAPI, ExtensionContext } from "@mariozechner/pi-coding-agent";
 import { Type } from "typebox";
-import { getHarnessPath as getAuditHarnessPath } from "@workos-inc/audit-core/harness-path";
+import { getHarnessBinary as getAuditHarnessBinary } from "@workos-inc/audit-core/harness-path";
+
+function buildHarnessInvocation(args: string[]): { bin: string; argv: string[] } {
+  const target = getAuditHarnessBinary();
+  if (target.kind === "binary") return { bin: target.path, argv: args };
+  return { bin: process.execPath, argv: [target.path, ...args] };
+}
 
 type MetadataValue = string | number | boolean;
 type Metadata = Record<string, MetadataValue>;
@@ -308,10 +314,11 @@ function createClient(config: Config): WorkOS | undefined {
 }
 
 function runAuditHarness(config: Config, command: string, payload: unknown, extraArgs: string[] = []): unknown {
-  const args = [getAuditHarnessPath(), command, "--json", ...extraArgs];
-  if (config.organizationId) args.push("--org", config.organizationId);
-  if (config.apiKey) args.push("--api-key", config.apiKey);
-  const output = execFileSync(process.execPath, args, {
+  const baseArgs = [command, "--json", ...extraArgs];
+  if (config.organizationId) baseArgs.push("--org", config.organizationId);
+  if (config.apiKey) baseArgs.push("--api-key", config.apiKey);
+  const { bin, argv } = buildHarnessInvocation(baseArgs);
+  const output = execFileSync(bin, argv, {
     input: JSON.stringify(payload ?? {}),
     encoding: "utf8",
     stdio: ["pipe", "pipe", "pipe"],
@@ -789,7 +796,10 @@ export default function workosAuditLogsExtension(pi: ExtensionAPI): void {
       const message = "Starting WorkOS browser auth. If the browser does not open, follow the URL/code printed in the terminal.";
       if (ctx.hasUI) ctx.ui.notify(message, "info");
       console.log(message);
-      execFileSync(process.execPath, [getAuditHarnessPath(), "auth-login"], { stdio: "inherit" });
+      {
+        const { bin, argv } = buildHarnessInvocation(["auth-login"]);
+        execFileSync(bin, argv, { stdio: "inherit" });
+      }
       refreshStatus(ctx);
     },
   });
