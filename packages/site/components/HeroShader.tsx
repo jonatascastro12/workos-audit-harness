@@ -343,7 +343,7 @@ export function HeroShader() {
       ref={ref}
       aria-hidden="true"
       className="absolute inset-0 w-full h-full block pointer-events-none"
-      style={{ opacity: 0.95 }}
+      style={{ opacity: 0.5 }}
     />
   );
 }
