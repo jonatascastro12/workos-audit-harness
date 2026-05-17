@@ -15,6 +15,7 @@ export function printConfigStatus({ configLoader }) {
     actorName: config.actorName,
     location: config.location,
     userAgent: config.userAgent,
+    recordingEnabled: config.recordingEnabled !== false,
     sources: config.sources,
   }, null, 2));
 }

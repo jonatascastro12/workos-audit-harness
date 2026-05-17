@@ -1,0 +1,81 @@
+name: audit-core release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to release (e.g. v0.2.0). Must already exist.'
+        required: true
+
+jobs:
+  release:
+    name: Build and publish CLI binaries
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      WORKOS_AUDIT_HARNESS_SKIP_DOWNLOAD: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref }}
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install workspace dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Verify package version matches tag
+        run: |
+          set -euo pipefail
+          TAG="${{ github.event.inputs.tag || github.ref_name }}"
+          EXPECTED="v$(node -p "require('./packages/audit-core/package.json').version")"
+          if [ "$TAG" != "$EXPECTED" ]; then
+            echo "Tag $TAG does not match audit-core package version $EXPECTED" >&2
+            exit 1
+          fi
+
+      - name: Build all CLI targets
+        run: npm run build:cli -w @workos-inc/audit-core
+
+      - name: Smoke test the Linux x64 binary
+        run: ./packages/audit-core/build/workos-audit-harness-linux-x64 --help
+
+      - name: Create or update GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          TAG="${{ github.event.inputs.tag || github.ref_name }}"
+          cd packages/audit-core/build
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" \
+              workos-audit-harness-darwin-arm64 \
+              workos-audit-harness-darwin-x64 \
+              workos-audit-harness-linux-x64 \
+              workos-audit-harness-linux-arm64 \
+              workos-audit-harness-windows-x64.exe \
+              manifest.json \
+              SHA256SUMS.txt \
+              --clobber
+          else
+            gh release create "$TAG" \
+              workos-audit-harness-darwin-arm64 \
+              workos-audit-harness-darwin-x64 \
+              workos-audit-harness-linux-x64 \
+              workos-audit-harness-linux-arm64 \
+              workos-audit-harness-windows-x64.exe \
+              manifest.json \
+              SHA256SUMS.txt \
+              --title "$TAG" \
+              --generate-notes
+          fi

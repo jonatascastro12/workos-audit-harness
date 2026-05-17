@@ -7,7 +7,7 @@
   "description": "WorkOS audit log harness CLI plus shared MCP server, config loader, and CLI helpers for the WorkOS audit plugins.",
   "main": "./index.mjs",
   "bin": {
-    "workos-audit-harness": "./scripts/audit-log-harness.mjs"
+    "workos-audit-harness": "./bin/workos-audit-harness.mjs"
   },
   "exports": {
     ".": "./index.mjs",
@@ -18,12 +18,23 @@
     "./hook-runtime": "./src/hook-runtime.mjs",
     "./print-config-status": "./src/print-config-status.mjs",
     "./util": "./src/util.mjs",
-    "./harness-path": "./src/harness-path.mjs"
+    "./harness-path": "./src/harness-path.mjs",
+    "./audit-query": "./src/audit-query.mjs",
+    "./workos-client": "./src/workos-client.mjs"
   },
+  "files": [
+    "index.mjs",
+    "src/**",
+    "bin/workos-audit-harness.mjs",
+    "scripts/audit-log-harness.mjs",
+    "scripts/postinstall.mjs"
+  ],
   "scripts": {
-    "audit-harness": "node scripts/audit-log-harness.mjs",
-    "workos-auth-login": "node scripts/audit-log-harness.mjs auth-login",
-    "create:harness-schemas": "node scripts/audit-log-harness.mjs seed-generic-schemas"
+    "audit-harness": "node bin/workos-audit-harness.mjs",
+    "workos-auth-login": "node bin/workos-audit-harness.mjs auth-login",
+    "create:harness-schemas": "node bin/workos-audit-harness.mjs seed-generic-schemas",
+    "build:cli": "node scripts/build-cli.mjs",
+    "postinstall": "node scripts/postinstall.mjs"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",

@@ -16,3 +16,9 @@ node_modules/
 # Runtime config written by `workos auth login` / `/workos-audit-setup`
 config.json
 packages/*/config.json
+
+# audit-core compiled binaries (built locally or fetched in postinstall)
+packages/audit-core/build/
+packages/audit-core/bin/workos-audit-harness
+packages/audit-core/bin/workos-audit-harness-*
+

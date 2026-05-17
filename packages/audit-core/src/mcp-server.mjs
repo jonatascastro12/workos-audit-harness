@@ -8,6 +8,9 @@ const MAX_QUERY_MAX_ROWS = 200;
 
 export async function runMcpServer({ configLoader, serverName = 'workos-audit', version = '0.1.0' }) {
   const config = configLoader.loadConfig();
+  const queryConfig = configLoader.loadQueryConfig
+    ? configLoader.loadQueryConfig()
+    : { apiKey: config.apiKey, organizationId: config.organizationId };
 
   const server = new McpServer({ name: serverName, version });
 
@@ -31,6 +34,7 @@ export async function runMcpServer({ configLoader, serverName = 'workos-audit', 
             organizationResolution: config.organizationId
               ? 'explicit'
               : 'auto-find-or-create Audit Log Harness',
+            recordingEnabled: config.recordingEnabled !== false,
             actionPrefix: config.actionPrefix,
             actorId: config.actorId,
             actorType: config.actorType,
@@ -62,7 +66,7 @@ export async function runMcpServer({ configLoader, serverName = 'workos-audit', 
     },
     async (payload) => {
       try {
-        const result = runHarnessJson({ command: 'query', payload, config });
+        const result = runHarnessJson({ command: 'query', payload, config: queryConfig });
         return {
           content: [{ type: 'text', text: result.text }],
           structuredContent: result.details,

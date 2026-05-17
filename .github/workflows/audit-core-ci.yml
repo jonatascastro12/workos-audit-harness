@@ -1,0 +1,49 @@
+name: audit-core CI
+
+on:
+  pull_request:
+    paths:
+      - 'packages/audit-core/**'
+      - '.github/workflows/audit-core-ci.yml'
+  workflow_dispatch:
+
+jobs:
+  build-smoke-test:
+    name: Build CLI binaries (smoke test)
+    runs-on: ubuntu-latest
+    env:
+      WORKOS_AUDIT_HARNESS_SKIP_DOWNLOAD: '1'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install workspace dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Build all CLI targets
+        run: npm run build:cli -w @workos-inc/audit-core
+
+      - name: Verify build artifacts
+        run: |
+          set -euo pipefail
+          cd packages/audit-core/build
+          ls -la
+          test -s workos-audit-harness-darwin-arm64
+          test -s workos-audit-harness-darwin-x64
+          test -s workos-audit-harness-linux-x64
+          test -s workos-audit-harness-linux-arm64
+          test -s workos-audit-harness-windows-x64.exe
+          test -s manifest.json
+          test -s SHA256SUMS.txt
+
+      - name: Smoke test the Linux x64 binary
+        run: |
+          set -euo pipefail
+          ./packages/audit-core/build/workos-audit-harness-linux-x64 --help | head -3
