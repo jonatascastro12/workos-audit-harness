@@ -73,6 +73,15 @@ Override the config path with `WORKOS_AUDIT_CONFIG_PATH` or `CODEX_WORKOS_AUDIT_
 
 After starting Codex, call `workos_audit_status` to verify the MCP server sees the config.
 
+## Query-only install (recording disabled)
+
+Codex hooks can be turned off while keeping the `workos_audit_query` MCP tool available. Either:
+
+- Set `"recordingEnabled": false` in `~/.codex/workos-audit/config.json`, or
+- Export `CODEX_WORKOS_AUDIT_RECORDING=0` (or `WORKOS_AUDIT_RECORDING=0`) before launching Codex.
+
+When recording is disabled, the `emit-event` hooks exit immediately and emit nothing; the MCP query tool continues to work.
+
 ## Enable lifecycle hooks
 
 Plugin-bundled hooks are opt-in in Codex. Add this to `~/.codex/config.toml`:

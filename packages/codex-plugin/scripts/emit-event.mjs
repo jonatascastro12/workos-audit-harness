@@ -192,6 +192,10 @@ async function main() {
 
   const config = configLoader.loadConfig();
 
+  if (config.recordingEnabled === false) {
+    process.exit(0);
+  }
+
   try {
     const stdin = await readStdin();
     const payload = parseJson(stdin);

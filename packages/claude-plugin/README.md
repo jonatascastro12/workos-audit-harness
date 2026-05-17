@@ -69,6 +69,16 @@ npm run configure -w @workos-inc/claude-audit-plugin
 
 After Claude starts, run `/workos-audit-setup` or ask Claude to call `workos_audit_status` to verify the MCP server sees the config.
 
+## Query-only install (recording disabled)
+
+You can install the plugin purely to query audit logs without emitting any events:
+
+- Run `npm run configure -w @workos-inc/claude-audit-plugin` and answer `n` at the "Record audit events…" prompt, or
+- Set `recordingEnabled: false` in `~/.claude/workos-audit/config.json`, or
+- Export `CLAUDE_WORKOS_AUDIT_RECORDING=0` (or `WORKOS_AUDIT_RECORDING=0`) before launching Claude.
+
+With recording disabled, the `emit-event` hooks short-circuit, but the `workos_audit_query` MCP tool stays available.
+
 ## Schema scripts
 
 From the repo root. The generic harness schemas work with any coding-agent integration and can use either `WORKOS_API_KEY` or the active `workos` CLI environment created by `npm run workos-auth-login`:

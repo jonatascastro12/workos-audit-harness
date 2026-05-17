@@ -23,6 +23,7 @@ function showConfig() {
     actorName: config.actorName || null,
     location: config.location || 'claude-code',
     userAgent: config.userAgent || 'claude-code-workos-audit/1',
+    recordingEnabled: config.recordingEnabled !== false,
   }, null, 2));
 }
 
@@ -55,6 +56,16 @@ async function optionalQuestion(rl, prompt, existingValue, fallback) {
   return trimToUndefined(answer) || existingValue || fallback;
 }
 
+async function booleanQuestion(rl, prompt, existingValue, defaultValue) {
+  const current = existingValue === undefined ? defaultValue : existingValue;
+  const hint = current ? 'Y/n' : 'y/N';
+  const answer = (await rl.question(`${prompt} [${hint}]: `)).trim().toLowerCase();
+  if (!answer) return current;
+  if (['y', 'yes', '1', 'true', 'on'].includes(answer)) return true;
+  if (['n', 'no', '0', 'false', 'off'].includes(answer)) return false;
+  return current;
+}
+
 async function configure() {
   const current = readFileConfig();
   const rl = readline.createInterface({ input, output });
@@ -67,6 +78,7 @@ async function configure() {
 
     const apiKey = await hiddenQuestion(rl, 'WorkOS API key (sk_..., optional): ', current.apiKey);
     const organizationId = await optionalQuestion(rl, 'WorkOS organization ID (org_..., optional; blank uses/creates Audit Log Harness)', current.organizationId);
+    const recordingEnabled = await booleanQuestion(rl, 'Record audit events from this Claude Code install? (turn off for query-only)', current.recordingEnabled, true);
     const actionPrefix = await optionalQuestion(rl, 'Action prefix', current.actionPrefix, 'claude');
     const actorId = await optionalQuestion(rl, 'Actor ID override', current.actorId);
     const actorType = await optionalQuestion(rl, 'Actor type', current.actorType, 'user');
@@ -83,6 +95,7 @@ async function configure() {
       actorName,
       location,
       userAgent,
+      recordingEnabled,
     });
 
     console.log(`\nSaved WorkOS Audit config to ${filePath}`);
