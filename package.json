@@ -10,6 +10,7 @@
   ],
   "scripts": {
     "audit-harness": "npm run audit-harness -w @workos-inc/audit-core",
+    "check:versions": "node scripts/check-plugin-versions.mjs",
     "workos-auth-login": "npm run workos-auth-login -w @workos-inc/audit-core",
     "create:harness-schemas": "npm run create:harness-schemas -w @workos-inc/audit-core",
     "create:claude-schemas": "npm run create:schemas -w @workos-inc/claude-audit-plugin",

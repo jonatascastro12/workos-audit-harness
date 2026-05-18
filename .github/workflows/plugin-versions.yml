@@ -1,0 +1,24 @@
+name: plugin versions
+
+on:
+  pull_request:
+    paths:
+      - 'packages/claude-plugin/package.json'
+      - 'packages/claude-plugin/.claude-plugin/plugin.json'
+      - 'packages/codex-plugin/package.json'
+      - 'packages/codex-plugin/.codex-plugin/plugin.json'
+      - '.claude-plugin/marketplace.json'
+      - 'scripts/check-plugin-versions.mjs'
+      - '.github/workflows/plugin-versions.yml'
+  workflow_dispatch:
+
+jobs:
+  check:
+    name: Verify plugin versions are in sync
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: node scripts/check-plugin-versions.mjs
