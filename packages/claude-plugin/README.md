@@ -59,27 +59,35 @@ export WORKOS_ORGANIZATION_ID="org_..."
 claude --plugin-dir ./packages/claude-plugin
 ```
 
-When installed/enabled as a Claude Code plugin, Claude may prompt for plugin `userConfig` values. `organization_id` and `api_key` are optional when `workos auth login` has configured an active WorkOS CLI environment; leaving `organization_id` blank uses/creates `Audit Log Harness`. The other values are optional and can be left blank to use defaults.
+## Onboarding wizard
 
-If Claude does not show a plugin config prompt, use the terminal configurator instead. It prompts outside chat, hides the API key input, and writes `~/.claude/workos-audit/config.json` with mode `0600`:
+Once the plugin is installed, run `/workos-audit:workos-audit-setup` from inside Claude Code. The slash command prints the current credential state and a single launch line:
 
 ```bash
-npm run configure -w @workos-inc/claude-audit-plugin
+node "${CLAUDE_PLUGIN_ROOT}/dist/scripts/configure.mjs"
 ```
 
-After Claude starts, run `/workos-audit-setup` or ask Claude to call `workos_audit_status` to verify the MCP server sees the config. Both surface a `workosCli.loggedIn` field so you can tell at a glance whether the WorkOS CLI is signed in; when it isn't, the same payload includes a `remediation` line with the exact command to run.
+Run that in your terminal. The wizard is fully deterministic — no LLM in the loop — and walks through:
 
-To self-check outside of Claude, run `npx -y workos@latest auth status --mode agent`. From a clone of this repo, `npm run audit-harness -- status` shows the same view plus harness-config fields.
+1. **Credentials** — pick WorkOS CLI auth (default when `workos auth login` has been run), enter an explicit API key (production or staging), or skip and use `WORKOS_API_KEY` at runtime.
+2. **Organization** — the wizard calls `GET /organizations` with the chosen credential and lets you pick from the list, leave blank (auto-find/create `Audit Log Harness`), or type an id manually.
+3. **Recording on/off** — answer N for a query-only install. The hooks short-circuit when off; the `workos_audit_query` MCP tool stays active either way.
+4. **Identity & context** — actor / location / user-agent overrides, all optional.
 
-## Query-only install (recording disabled)
+The wizard writes `~/.claude/workos-audit/config.json` with mode `0600`. Restart Claude Code after it exits so hooks and MCP servers reload.
 
-You can install the plugin purely to query audit logs without emitting any events:
+To verify what the running MCP server sees, ask Claude to call `workos_audit_status`. To self-check outside Claude, run `npx -y workos@latest auth status --mode agent`. From a clone of this repo, `npm run audit-harness -- status` shows the same view plus harness-config fields.
 
-- Run `npm run configure -w @workos-inc/claude-audit-plugin` and answer `n` at the "Record audit events…" prompt, or
-- Set `recordingEnabled: false` in `~/.claude/workos-audit/config.json`, or
-- Export `CLAUDE_WORKOS_AUDIT_RECORDING=0` (or `WORKOS_AUDIT_RECORDING=0`) before launching Claude.
+### Cloud Claude (no terminal)
 
-With recording disabled, the `emit-event` hooks short-circuit, but the `workos_audit_query` MCP tool stays available.
+When the plugin is enabled in Claude on the web, Claude Code prompts for plugin `userConfig` values directly. All wizard fields are exposed there, including `recording_enabled` (set to `false` for query-only). The org-listing step is terminal-only — paste an `org_…` id manually if needed, or leave blank to auto-find/create `Audit Log Harness`.
+
+### Other entry points
+
+These are fallbacks, not the recommended path. Use them when the wizard is not an option:
+
+- `npm run configure -w @workos-inc/claude-audit-plugin` — same wizard, when running from this repo.
+- Set `recordingEnabled: false` directly in `~/.claude/workos-audit/config.json`, or export `CLAUDE_WORKOS_AUDIT_RECORDING=0` / `WORKOS_AUDIT_RECORDING=0` before launching Claude.
 
 ## Schema scripts
 

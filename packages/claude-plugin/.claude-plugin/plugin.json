@@ -1,6 +1,6 @@
 {
   "name": "workos-audit",
-  "version": "0.1.9",
+  "version": "0.1.10",
   "description": "Query WorkOS audit logs and emit Claude Code lifecycle events to WorkOS.",
   "author": {
     "name": "WorkOS"
@@ -55,6 +55,12 @@
       "title": "User agent",
       "description": "Optional context user agent. Leave blank for claude-code-workos-audit/1.",
       "default": "claude-code-workos-audit/1"
+    },
+    "recording_enabled": {
+      "type": "string",
+      "title": "Record audit events",
+      "description": "Set to false (or no/off/0) to disable recording — useful for query-only Cloud sessions. Leave blank or true to record.",
+      "default": "true"
     }
   }
 }
