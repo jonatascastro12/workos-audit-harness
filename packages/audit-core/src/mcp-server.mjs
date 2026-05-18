@@ -2,6 +2,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z } from 'zod';
 import { maskSecret } from './util.mjs';
+import { summarizeWorkosCliAuth } from './workos-client.mjs';
 import { queryAuditLogs, MAX_QUERY_MAX_ROWS } from './audit-query.mjs';
 
 export async function runMcpServer({ configLoader, serverName = 'workos-audit', version = '0.1.0' }) {
@@ -19,31 +20,39 @@ export async function runMcpServer({ configLoader, serverName = 'workos-audit', 
       description: 'Show WorkOS audit plugin configuration status.',
       inputSchema: z.object({}).strict(),
     },
-    async () => ({
-      content: [
-        {
-          type: 'text',
-          text: JSON.stringify({
-            enabled: true,
-            configPath: configLoader.getConfigFilePath(),
-            credentialSource: config.apiKey ? 'api-key' : 'workos-cli',
-            apiKey: maskSecret(config.apiKey),
-            organizationId: config.organizationId || null,
-            organizationResolution: config.organizationId
-              ? 'explicit'
-              : 'auto-find-or-create Audit Log Harness',
-            recordingEnabled: config.recordingEnabled !== false,
-            actionPrefix: config.actionPrefix,
-            actorId: config.actorId,
-            actorType: config.actorType,
-            actorName: config.actorName,
-            location: config.location,
-            userAgent: config.userAgent,
-            sources: config.sources,
-          }, null, 2),
-        },
-      ],
-    }),
+    async () => {
+      const workosCli = summarizeWorkosCliAuth();
+      const credentialSource = config.apiKey
+        ? 'api-key'
+        : (workosCli.loggedIn ? 'workos-cli' : 'none');
+      return {
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify({
+              enabled: true,
+              configured: credentialSource !== 'none',
+              configPath: configLoader.getConfigFilePath(),
+              credentialSource,
+              workosCli,
+              apiKey: maskSecret(config.apiKey),
+              organizationId: config.organizationId || null,
+              organizationResolution: config.organizationId
+                ? 'explicit'
+                : 'auto-find-or-create Audit Log Harness',
+              recordingEnabled: config.recordingEnabled !== false,
+              actionPrefix: config.actionPrefix,
+              actorId: config.actorId,
+              actorType: config.actorType,
+              actorName: config.actorName,
+              location: config.location,
+              userAgent: config.userAgent,
+              sources: config.sources,
+            }, null, 2),
+          },
+        ],
+      };
+    },
   );
 
   server.registerTool(

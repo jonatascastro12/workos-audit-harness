@@ -1,10 +1,17 @@
 import { maskSecret } from './util.mjs';
+import { summarizeWorkosCliAuth } from './workos-client.mjs';
 
 export function printConfigStatus({ configLoader }) {
   const config = configLoader.loadConfig();
+  const workosCli = summarizeWorkosCliAuth();
+  const credentialSource = config.apiKey
+    ? 'api-key'
+    : (workosCli.loggedIn ? 'workos-cli' : 'none');
+  const configured = credentialSource !== 'none';
   console.log(JSON.stringify({
-    configured: true,
-    credentialSource: config.apiKey ? 'api-key' : 'workos-cli',
+    configured,
+    credentialSource,
+    workosCli,
     organizationResolution: config.organizationId ? 'explicit' : 'auto-find-or-create Audit Log Harness',
     configPath: config.configPath,
     apiKey: maskSecret(config.apiKey),

@@ -32981,11 +32981,6 @@ function stableSerialize(value) {
   return JSON.stringify(String(value));
 }
 
-// ../audit-core/src/audit-query.mjs
-import os2 from "node:os";
-import path2 from "node:path";
-import { writeFileSync } from "node:fs";
-
 // ../audit-core/src/workos-client.mjs
 import os from "node:os";
 import path from "node:path";
@@ -37727,6 +37722,31 @@ function getWorkosCliActiveEnvironment() {
     return { apiKey: cliConfig.workosApiKey };
   return;
 }
+function summarizeWorkosCliAuth() {
+  const cliConfig = readWorkosCliConfig();
+  if (!cliConfig) {
+    return {
+      loggedIn: false,
+      activeEnvironment: null,
+      remediation: "Run `npx -y workos@latest auth login` to sign in to the WorkOS CLI."
+    };
+  }
+  const activeName = cliConfig.activeEnvironment || null;
+  const activeEnv = activeName ? cliConfig.environments?.[activeName] : undefined;
+  const hasApiKey = Boolean(activeEnv?.apiKey || cliConfig.workosApiKey);
+  if (!hasApiKey) {
+    return {
+      loggedIn: false,
+      activeEnvironment: activeName,
+      remediation: "A WorkOS CLI config exists but no active environment has an API key. Run `npx -y workos@latest auth login`."
+    };
+  }
+  return {
+    loggedIn: true,
+    activeEnvironment: activeName,
+    environments: Object.keys(cliConfig.environments || {})
+  };
+}
 function getEffectiveApiKey(config2) {
   return config2.apiKey || getWorkosCliActiveEnvironment()?.apiKey;
 }
@@ -37786,6 +37806,9 @@ async function ensureOrganization(config2) {
 }
 
 // ../audit-core/src/audit-query.mjs
+import os2 from "node:os";
+import path2 from "node:path";
+import { writeFileSync } from "node:fs";
 var DEFAULT_QUERY_RANGE_DAYS = 7;
 var DEFAULT_QUERY_MAX_ROWS = 50;
 var MAX_QUERY_MAX_ROWS = 200;
@@ -38046,29 +38069,35 @@ async function runMcpServer({ configLoader, serverName = "workos-audit", version
     title: "WorkOS Audit Status",
     description: "Show WorkOS audit plugin configuration status.",
     inputSchema: exports_external.object({}).strict()
-  }, async () => ({
-    content: [
-      {
-        type: "text",
-        text: JSON.stringify({
-          enabled: true,
-          configPath: configLoader.getConfigFilePath(),
-          credentialSource: config2.apiKey ? "api-key" : "workos-cli",
-          apiKey: maskSecret(config2.apiKey),
-          organizationId: config2.organizationId || null,
-          organizationResolution: config2.organizationId ? "explicit" : "auto-find-or-create Audit Log Harness",
-          recordingEnabled: config2.recordingEnabled !== false,
-          actionPrefix: config2.actionPrefix,
-          actorId: config2.actorId,
-          actorType: config2.actorType,
-          actorName: config2.actorName,
-          location: config2.location,
-          userAgent: config2.userAgent,
-          sources: config2.sources
-        }, null, 2)
-      }
-    ]
-  }));
+  }, async () => {
+    const workosCli = summarizeWorkosCliAuth();
+    const credentialSource = config2.apiKey ? "api-key" : workosCli.loggedIn ? "workos-cli" : "none";
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify({
+            enabled: true,
+            configured: credentialSource !== "none",
+            configPath: configLoader.getConfigFilePath(),
+            credentialSource,
+            workosCli,
+            apiKey: maskSecret(config2.apiKey),
+            organizationId: config2.organizationId || null,
+            organizationResolution: config2.organizationId ? "explicit" : "auto-find-or-create Audit Log Harness",
+            recordingEnabled: config2.recordingEnabled !== false,
+            actionPrefix: config2.actionPrefix,
+            actorId: config2.actorId,
+            actorType: config2.actorType,
+            actorName: config2.actorName,
+            location: config2.location,
+            userAgent: config2.userAgent,
+            sources: config2.sources
+          }, null, 2)
+        }
+      ]
+    };
+  });
   server.registerTool("workos_audit_query", {
     title: "WorkOS Audit Query",
     description: "Export filtered WorkOS audit logs, parse the CSV, and return summaries plus sample rows.",

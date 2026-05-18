@@ -67,7 +67,9 @@ If Claude does not show a plugin config prompt, use the terminal configurator in
 npm run configure -w @workos-inc/claude-audit-plugin
 ```
 
-After Claude starts, run `/workos-audit-setup` or ask Claude to call `workos_audit_status` to verify the MCP server sees the config.
+After Claude starts, run `/workos-audit-setup` or ask Claude to call `workos_audit_status` to verify the MCP server sees the config. Both surface a `workosCli.loggedIn` field so you can tell at a glance whether the WorkOS CLI is signed in; when it isn't, the same payload includes a `remediation` line with the exact command to run.
+
+To self-check outside of Claude, run `npx -y workos@latest auth status --mode agent`. From a clone of this repo, `npm run audit-harness -- status` shows the same view plus harness-config fields.
 
 ## Query-only install (recording disabled)
 

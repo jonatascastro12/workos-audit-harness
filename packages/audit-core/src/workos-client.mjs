@@ -83,6 +83,32 @@ export function getWorkosCliActiveEnvironment() {
   return undefined;
 }
 
+export function summarizeWorkosCliAuth() {
+  const cliConfig = readWorkosCliConfig();
+  if (!cliConfig) {
+    return {
+      loggedIn: false,
+      activeEnvironment: null,
+      remediation: 'Run `npx -y workos@latest auth login` to sign in to the WorkOS CLI.',
+    };
+  }
+  const activeName = cliConfig.activeEnvironment || null;
+  const activeEnv = activeName ? cliConfig.environments?.[activeName] : undefined;
+  const hasApiKey = Boolean(activeEnv?.apiKey || cliConfig.workosApiKey);
+  if (!hasApiKey) {
+    return {
+      loggedIn: false,
+      activeEnvironment: activeName,
+      remediation: 'A WorkOS CLI config exists but no active environment has an API key. Run `npx -y workos@latest auth login`.',
+    };
+  }
+  return {
+    loggedIn: true,
+    activeEnvironment: activeName,
+    environments: Object.keys(cliConfig.environments || {}),
+  };
+}
+
 export function getEffectiveApiKey(config) {
   return config.apiKey || getWorkosCliActiveEnvironment()?.apiKey;
 }

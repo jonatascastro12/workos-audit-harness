@@ -9,6 +9,7 @@ This repo contains three integrations, sharing one CLI harness and one set of au
 | [`packages/claude-plugin`](packages/claude-plugin) | Claude Code plugin: emits session/prompt/tool/turn events to WorkOS and exposes a `workos_audit_query` MCP tool. |
 | [`packages/codex-plugin`](packages/codex-plugin) | Codex plugin: same lifecycle events + MCP audit query, with Codex's hook model. |
 | [`packages/pi-extension`](packages/pi-extension) | Extension for [pi-coding-agent](https://github.com/mariozechner/pi) and the `workos-audit-harness` CLI. |
+| [`packages/site`](packages/site) | Marketing & docs site (Next.js 15 + Tailwind v4) — also hosts the `workos-audit-recipe` SKILL.md. |
 
 ## Install
 
@@ -53,6 +54,19 @@ This runs the WorkOS CLI login flow. If no organization is set, an `Audit Log Ha
 
 Alternatively set `WORKOS_API_KEY` and `WORKOS_ORGANIZATION_ID` env vars.
 
+## Self-check from your shell
+
+The `workos-audit-harness` CLI in `packages/audit-core` is the shared core for all integrations. From the repo root:
+
+```bash
+npm run audit-harness -- status              # show api-key / WorkOS CLI credential state
+npm run audit-harness -- auth-login          # delegate to `workos auth login`
+npm run audit-harness -- ensure-organization # find or create the harness org
+npm run audit-harness -- query --help        # export & summarize audit logs
+```
+
+If you only need the WorkOS CLI's own view of your auth (no harness config), run `npx -y workos@latest auth status --mode agent` from any shell — this is what the plugin's `/workos-audit-setup` reflects under `workosCli.loggedIn`.
+
 ## Seed audit schemas
 
 The generic harness schemas work across all three integrations:
@@ -77,7 +91,8 @@ npm run create:codex-schemas
 ├── packages/
 │   ├── claude-plugin/
 │   ├── codex-plugin/
-│   └── pi-extension/
+│   ├── pi-extension/
+│   └── site/                            # audit-harness.workos.dev (Next.js, deploys to Vercel)
 └── package.json                          # npm workspaces root
 ```
 

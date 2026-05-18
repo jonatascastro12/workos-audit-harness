@@ -22,3 +22,5 @@ packages/audit-core/build/
 packages/audit-core/bin/workos-audit-harness
 packages/audit-core/bin/workos-audit-harness-*
 
+.vercel
+.env*.local
