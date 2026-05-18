@@ -1,11 +1,12 @@
-import readline from 'node:readline/promises';
-import { stdin as input, stdout as output } from 'node:process';
-import { spawnSync } from 'node:child_process';
+import { confirm, input, password, select } from '@inquirer/prompts';
 import {
+  DEFAULT_API_BASE_URL,
   createSdk,
+  getEffectiveApiKey,
   summarizeWorkosCliAuth,
 } from '@workos-inc/audit-core/workos-client';
 import { clearFileConfig, getConfigFilePath, maskSecret, readFileConfig, trimToUndefined, writeFileConfig } from './config-file.mjs';
+import { getClaudeAuditSchemaDefinitions } from './claude-audit-schemas.mjs';
 
 function usage() {
   console.log(`Usage: node scripts/configure.mjs [--show|--clear|--reconfigure]\n\nRuns an interactive wizard that writes:\n  ${getConfigFilePath()}\n\nDo not pass secrets as command-line arguments.`);
@@ -30,63 +31,95 @@ function showConfig() {
   }, null, 2));
 }
 
-async function hiddenQuestion(rl, prompt, existingValue) {
+async function promptApiKey(existingValue) {
   if (existingValue) {
-    const keep = await rl.question(`${prompt} [currently ${maskSecret(existingValue)}; press Enter to keep]: `);
-    if (!keep.trim()) return existingValue;
-    return keep.trim();
-  }
-
-  output.write(prompt);
-  const canDisableEcho = input.isTTY && output.isTTY;
-  if (canDisableEcho) spawnSync('stty', ['-echo'], { stdio: 'inherit' });
-  try {
-    const answer = await rl.question('');
-    output.write('\n');
-    return answer.trim();
-  } finally {
-    if (canDisableEcho) spawnSync('stty', ['echo'], { stdio: 'inherit' });
-  }
-}
-
-async function optionalQuestion(rl, prompt, existingValue, fallback) {
-  const suffix = existingValue
-    ? ` [currently ${existingValue}; press Enter to keep]`
-    : fallback
-      ? ` [default ${fallback}]`
-      : ' [optional]';
-  const answer = await rl.question(`${prompt}${suffix}: `);
-  return trimToUndefined(answer) || existingValue || fallback;
-}
-
-async function booleanQuestion(rl, prompt, existingValue, defaultValue) {
-  const current = existingValue === undefined ? defaultValue : existingValue;
-  const hint = current ? 'Y/n' : 'y/N';
-  const answer = (await rl.question(`${prompt} [${hint}]: `)).trim().toLowerCase();
-  if (!answer) return current;
-  if (['y', 'yes', '1', 'true', 'on'].includes(answer)) return true;
-  if (['n', 'no', '0', 'false', 'off'].includes(answer)) return false;
-  return current;
-}
-
-async function choiceQuestion(rl, prompt, choices, defaultIndex = 0) {
-  while (true) {
-    console.log(prompt);
-    choices.forEach((choice, i) => {
-      const marker = i === defaultIndex ? '*' : ' ';
-      console.log(`  ${marker} [${i + 1}] ${choice.label}`);
+    const keep = await confirm({
+      message: `Keep stored API key (${maskSecret(existingValue)})?`,
+      default: true,
     });
-    const raw = (await rl.question(`Select [1-${choices.length}, default ${defaultIndex + 1}]: `)).trim();
-    if (!raw) return choices[defaultIndex];
-    const n = Number.parseInt(raw, 10);
-    if (Number.isInteger(n) && n >= 1 && n <= choices.length) return choices[n - 1];
-    console.log(`  ! Enter a number between 1 and ${choices.length}.`);
+    if (keep) return existingValue;
+  }
+  const value = await password({
+    message: 'WorkOS API key (sk_...)',
+    mask: '*',
+    validate: (v) => (v && v.trim() ? true : 'API key is required.'),
+  });
+  return value.trim();
+}
+
+async function promptOptional(message, existingValue, fallback) {
+  const defaultValue = existingValue || fallback || '';
+  const value = await input({ message, default: defaultValue });
+  return trimToUndefined(value) || existingValue || fallback;
+}
+
+async function checkSchemasSeeded(apiKey, action) {
+  if (!apiKey) return { status: 'unknown', reason: 'no-credential' };
+  try {
+    const url = new URL(`${DEFAULT_API_BASE_URL}/audit_logs/actions/${encodeURIComponent(action)}/schemas`);
+    url.searchParams.set('limit', '1');
+    const response = await fetch(url, { headers: { Authorization: `Bearer ${apiKey}` } });
+    if (response.status === 404) return { status: 'missing' };
+    if (!response.ok) {
+      return { status: 'unknown', reason: `${response.status} ${response.statusText}` };
+    }
+    const page = await response.json();
+    return { status: (page.data?.length ?? 0) > 0 ? 'seeded' : 'missing' };
+  } catch (error) {
+    return { status: 'unknown', reason: error?.message || String(error) };
   }
 }
 
-async function pickOrganization(rl, apiKey, currentOrganizationId) {
-  // Try to enumerate organizations using the user's chosen credential.
-  // On failure, fall back to a free-form prompt so the wizard never blocks.
+async function seedClaudeSchemas(apiKey, prefix) {
+  const sdk = createSdk({ apiKey });
+  if (!sdk) throw new Error('No WorkOS credential available to seed schemas.');
+  const schemas = getClaudeAuditSchemaDefinitions(prefix);
+  for (const [index, schema] of schemas.entries()) {
+    process.stdout.write(`  [${index + 1}/${schemas.length}] ${schema.action}\n`);
+    await sdk.auditLogs.createSchema({
+      action: schema.action,
+      actor: schema.actor,
+      targets: schema.targets,
+      metadata: schema.metadata,
+    });
+  }
+  console.log(`Seeded ${schemas.length} schema(s) for prefix "${prefix}".`);
+}
+
+async function maybeSeedSchemas(apiKey, actionPrefix) {
+  const probeAction = `${actionPrefix}.session.started`;
+  console.log('\nChecking whether audit log schemas are seeded for this prefix…');
+  const result = await checkSchemasSeeded(apiKey, probeAction);
+
+  if (result.status === 'seeded') {
+    console.log(`Schemas already exist for "${actionPrefix}.*" — nothing to seed.`);
+    return;
+  }
+
+  if (result.status === 'unknown') {
+    console.log(`Could not determine schema status (${result.reason}). You can seed manually with: npm run create:schemas`);
+    return;
+  }
+
+  console.log(`No schemas found for "${probeAction}". Without schemas, recorded events may be rejected by WorkOS.`);
+  const shouldSeed = await confirm({
+    message: 'Seed Claude audit log schemas now?',
+    default: true,
+  });
+  if (!shouldSeed) {
+    console.log('Skipping schema seeding. Run `npm run create:schemas` later when you are ready.');
+    return;
+  }
+  try {
+    await seedClaudeSchemas(apiKey, actionPrefix);
+  } catch (error) {
+    const message = error?.message || String(error);
+    console.log(`Failed to seed schemas: ${message}`);
+    console.log('You can retry later with: npm run create:schemas');
+  }
+}
+
+async function pickOrganization(apiKey, currentOrganizationId) {
   let organizations = null;
   try {
     const sdk = createSdk({ apiKey });
@@ -96,8 +129,7 @@ async function pickOrganization(rl, apiKey, currentOrganizationId) {
   } catch (error) {
     const message = error?.message || String(error);
     console.log(`\nCould not list organizations (${message}).`);
-    return await optionalQuestion(
-      rl,
+    return await promptOptional(
       'WorkOS organization ID (org_..., blank uses/creates Audit Log Harness)',
       currentOrganizationId,
     );
@@ -105,139 +137,144 @@ async function pickOrganization(rl, apiKey, currentOrganizationId) {
 
   if (organizations.length === 0) {
     console.log('\nNo organizations found for this credential. Leaving blank will create "Audit Log Harness" on first event.');
-    return await optionalQuestion(
-      rl,
+    return await promptOptional(
       'WorkOS organization ID (org_..., blank uses/creates Audit Log Harness)',
       currentOrganizationId,
     );
   }
 
-  console.log('\nOrganizations available to this credential:');
-  organizations.forEach((org, i) => {
-    const marker = org.id === currentOrganizationId ? '*' : ' ';
-    console.log(`  ${marker} [${i + 1}] ${org.name} (${org.id})`);
-  });
-  console.log('    [0] Leave blank (auto-find/create "Audit Log Harness")');
-  console.log('    [m] Type an organization ID manually');
+  const choices = [
+    { name: 'Leave blank (auto-find/create "Audit Log Harness")', value: '__blank__' },
+    ...organizations.map((org) => ({ name: `${org.name} (${org.id})`, value: org.id })),
+    { name: 'Type an organization ID manually', value: '__manual__' },
+  ];
+  const defaultValue = currentOrganizationId
+    && organizations.some((org) => org.id === currentOrganizationId)
+    ? currentOrganizationId
+    : '__blank__';
 
-  while (true) {
-    const defaultLabel = currentOrganizationId
-      ? `default keep ${currentOrganizationId}`
-      : 'default 0';
-    const raw = (await rl.question(`Select organization [0-${organizations.length}, m, ${defaultLabel}]: `)).trim();
-    if (!raw) return currentOrganizationId || undefined;
-    if (raw === '0') return undefined;
-    if (raw.toLowerCase() === 'm') {
-      return await optionalQuestion(rl, 'WorkOS organization ID (org_...)', currentOrganizationId);
-    }
-    const n = Number.parseInt(raw, 10);
-    if (Number.isInteger(n) && n >= 1 && n <= organizations.length) {
-      return organizations[n - 1].id;
-    }
-    console.log(`  ! Enter 0, m, or a number between 1 and ${organizations.length}.`);
+  const selection = await select({
+    message: 'Organization',
+    choices,
+    default: defaultValue,
+  });
+
+  if (selection === '__blank__') return undefined;
+  if (selection === '__manual__') {
+    return await promptOptional('WorkOS organization ID (org_...)', currentOrganizationId);
   }
+  return selection;
 }
 
 async function configure() {
   const current = readFileConfig();
   const cliAuth = summarizeWorkosCliAuth();
-  const rl = readline.createInterface({ input, output });
 
-  try {
-    console.log('Configure WorkOS Audit for Claude Code');
-    console.log(`Config file: ${getConfigFilePath()}`);
-    console.log('');
+  console.log('Configure WorkOS Audit for Claude Code');
+  console.log(`Config file: ${getConfigFilePath()}`);
 
-    // 1. Credential mode.
-    const choices = [];
-    if (cliAuth.loggedIn) {
-      choices.push({
-        key: 'cli',
-        label: `Use WorkOS CLI auth (active environment: ${cliAuth.activeEnvironment || 'unknown'})`,
-      });
-    }
-    choices.push({
-      key: 'apiKey',
-      label: 'Enter an explicit WorkOS API key (production or staging)',
+  // 1. Credential mode.
+  const credentialChoices = [];
+  if (cliAuth.loggedIn) {
+    credentialChoices.push({
+      name: `Use WorkOS CLI auth (active environment: ${cliAuth.activeEnvironment || 'unknown'})`,
+      value: 'cli',
     });
-    choices.push({
-      key: 'env',
-      label: 'Skip — use WORKOS_API_KEY at runtime',
-    });
-
-    // Default to the existing credential mode when reconfiguring.
-    let defaultIndex = 0;
-    if (current.apiKey) {
-      defaultIndex = choices.findIndex((c) => c.key === 'apiKey');
-    } else if (!cliAuth.loggedIn) {
-      defaultIndex = choices.findIndex((c) => c.key === 'env');
-    }
-    if (defaultIndex < 0) defaultIndex = 0;
-
-    const credentialChoice = await choiceQuestion(rl, '\nCredentials:', choices, defaultIndex);
-
-    let apiKey = current.apiKey;
-    if (credentialChoice.key === 'apiKey') {
-      console.log('The API key prompt does not echo input.');
-      apiKey = await hiddenQuestion(rl, 'WorkOS API key (sk_...): ', current.apiKey);
-    } else if (credentialChoice.key === 'cli') {
-      apiKey = undefined; // explicitly clear any stored key
-    } // env: leave whatever was there
-
-    // 2. Organization selection (interactive list when we have a usable key).
-    const apiKeyForListing = credentialChoice.key === 'cli' ? undefined : apiKey;
-    // createSdk falls back to the CLI active env when no apiKey is passed.
-    const organizationId = await pickOrganization(rl, apiKeyForListing, current.organizationId);
-
-    // 3. Recording. Land here last for visibility — query-only users only need to flip this.
-    console.log('');
-    const recordingEnabled = await booleanQuestion(
-      rl,
-      'Record audit events from this Claude Code install? (answer N for query-only)',
-      current.recordingEnabled,
-      true,
-    );
-
-    // 4. Identity / context — optional advanced fields.
-    console.log('\nIdentity & context (press Enter to accept each default):');
-    const actionPrefix = await optionalQuestion(rl, 'Action prefix', current.actionPrefix, 'claude');
-    const actorId = await optionalQuestion(rl, 'Actor ID override', current.actorId);
-    const actorType = await optionalQuestion(rl, 'Actor type', current.actorType, 'user');
-    const actorName = await optionalQuestion(rl, 'Actor name override', current.actorName);
-    const location = await optionalQuestion(rl, 'Location', current.location, 'claude-code');
-    const userAgent = await optionalQuestion(rl, 'User agent', current.userAgent, 'claude-code-workos-audit/1');
-
-    const filePath = writeFileConfig({
-      ...(apiKey ? { apiKey } : {}),
-      ...(organizationId ? { organizationId } : {}),
-      actionPrefix,
-      actorId,
-      actorType,
-      actorName,
-      location,
-      userAgent,
-      recordingEnabled,
-    });
-
-    console.log(`\nSaved WorkOS Audit config to ${filePath}`);
-    if (!recordingEnabled) {
-      console.log('Recording is OFF — hooks will short-circuit; only the query MCP tool will be active.');
-    }
-    console.log('Restart Claude Code so hooks and MCP servers reload the configuration.');
-  } finally {
-    rl.close();
   }
+  credentialChoices.push({
+    name: 'Enter an explicit WorkOS API key (production or staging)',
+    value: 'apiKey',
+  });
+  credentialChoices.push({
+    name: 'Skip — use WORKOS_API_KEY at runtime',
+    value: 'env',
+  });
+
+  let defaultCredential = credentialChoices[0].value;
+  if (current.apiKey) defaultCredential = 'apiKey';
+  else if (!cliAuth.loggedIn) defaultCredential = 'env';
+
+  const credentialKey = await select({
+    message: 'Credentials',
+    choices: credentialChoices,
+    default: defaultCredential,
+  });
+
+  let apiKey = current.apiKey;
+  if (credentialKey === 'apiKey') {
+    apiKey = await promptApiKey(current.apiKey);
+  } else if (credentialKey === 'cli') {
+    apiKey = undefined;
+  }
+
+  // 2. Organization.
+  const apiKeyForListing = credentialKey === 'cli' ? undefined : apiKey;
+  const organizationId = await pickOrganization(apiKeyForListing, current.organizationId);
+
+  // 3. Recording.
+  const recordingEnabled = await confirm({
+    message: 'Record audit events from this Claude Code install? (answer No for query-only)',
+    default: current.recordingEnabled !== false,
+  });
+
+  // 4. Identity / context — only relevant when recording. Query-only users keep their stored values.
+  let actionPrefix = current.actionPrefix;
+  let actorId = current.actorId;
+  let actorType = current.actorType;
+  let actorName = current.actorName;
+  let location = current.location;
+  let userAgent = current.userAgent;
+  if (recordingEnabled) {
+    console.log('\nIdentity & context:');
+    actionPrefix = await promptOptional('Action prefix', current.actionPrefix, 'claude');
+    actorId = await promptOptional('Actor ID override', current.actorId);
+    actorType = await promptOptional('Actor type', current.actorType, 'user');
+    actorName = await promptOptional('Actor name override', current.actorName);
+    location = await promptOptional('Location', current.location, 'claude-code');
+    userAgent = await promptOptional('User agent', current.userAgent, 'claude-code-workos-audit/1');
+  }
+
+  // 5. Schema seeding — only meaningful when recording is on.
+  if (recordingEnabled) {
+    const effectiveApiKey = getEffectiveApiKey({ apiKey }) || trimToUndefined(process.env.WORKOS_API_KEY);
+    await maybeSeedSchemas(effectiveApiKey, actionPrefix || 'claude');
+  }
+
+  const filePath = writeFileConfig({
+    ...(apiKey ? { apiKey } : {}),
+    ...(organizationId ? { organizationId } : {}),
+    actionPrefix,
+    actorId,
+    actorType,
+    actorName,
+    location,
+    userAgent,
+    recordingEnabled,
+  });
+
+  console.log(`\nSaved WorkOS Audit config to ${filePath}`);
+  if (!recordingEnabled) {
+    console.log('Recording is OFF — hooks will short-circuit; only the query MCP tool will be active.');
+  }
+  console.log('Restart Claude Code so hooks and MCP servers reload the configuration.');
 }
 
 const args = process.argv.slice(2);
-if (args.includes('--help') || args.includes('-h')) {
-  usage();
-} else if (args.includes('--show')) {
-  showConfig();
-} else if (args.includes('--clear')) {
-  clearFileConfig();
-  console.log(`Removed ${getConfigFilePath()}`);
-} else {
-  // --reconfigure is accepted but behaves the same as no args — every run is interactive.
-  await configure();
+try {
+  if (args.includes('--help') || args.includes('-h')) {
+    usage();
+  } else if (args.includes('--show')) {
+    showConfig();
+  } else if (args.includes('--clear')) {
+    clearFileConfig();
+    console.log(`Removed ${getConfigFilePath()}`);
+  } else {
+    await configure();
+  }
+} catch (error) {
+  if (error?.name === 'ExitPromptError') {
+    console.log('\nCancelled.');
+    process.exit(130);
+  }
+  throw error;
 }

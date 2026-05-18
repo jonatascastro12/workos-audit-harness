@@ -26,6 +26,7 @@ import __preflightPath from 'node:path';
   }
 })();
 
+import { createRequire } from "node:module";
 var __create = Object.create;
 var __getProtoOf = Object.getPrototypeOf;
 var __defProp = Object.defineProperty;
@@ -53,6 +54,167 @@ var __export = (target, all) => {
     });
 };
 var __esm = (fn, res) => () => (fn && (res = fn(fn = 0)), res);
+var __require = /* @__PURE__ */ createRequire(import.meta.url);
+
+// ../../node_modules/cli-width/index.js
+var require_cli_width = __commonJS((exports, module) => {
+  module.exports = cliWidth;
+  function normalizeOpts(options) {
+    const defaultOpts = {
+      defaultWidth: 0,
+      output: process.stdout,
+      tty: __require("tty")
+    };
+    if (!options) {
+      return defaultOpts;
+    }
+    Object.keys(defaultOpts).forEach(function(key) {
+      if (!options[key]) {
+        options[key] = defaultOpts[key];
+      }
+    });
+    return options;
+  }
+  function cliWidth(options) {
+    const opts = normalizeOpts(options);
+    if (opts.output.getWindowSize) {
+      return opts.output.getWindowSize()[0] || opts.defaultWidth;
+    }
+    if (opts.tty.getWindowSize) {
+      return opts.tty.getWindowSize()[1] || opts.defaultWidth;
+    }
+    if (opts.output.columns) {
+      return opts.output.columns;
+    }
+    if (process.env.CLI_WIDTH) {
+      const width = parseInt(process.env.CLI_WIDTH, 10);
+      if (!isNaN(width) && width !== 0) {
+        return width;
+      }
+    }
+    return opts.defaultWidth;
+  }
+});
+
+// ../../node_modules/mute-stream/lib/index.js
+var require_lib = __commonJS((exports, module) => {
+  var Stream = __require("stream");
+
+  class MuteStream extends Stream {
+    #isTTY = null;
+    constructor(opts = {}) {
+      super(opts);
+      this.writable = this.readable = true;
+      this.muted = false;
+      this.on("pipe", this._onpipe);
+      this.replace = opts.replace;
+      this._prompt = opts.prompt || null;
+      this._hadControl = false;
+    }
+    #destSrc(key, def) {
+      if (this._dest) {
+        return this._dest[key];
+      }
+      if (this._src) {
+        return this._src[key];
+      }
+      return def;
+    }
+    #proxy(method, ...args) {
+      if (typeof this._dest?.[method] === "function") {
+        this._dest[method](...args);
+      }
+      if (typeof this._src?.[method] === "function") {
+        this._src[method](...args);
+      }
+    }
+    get isTTY() {
+      if (this.#isTTY !== null) {
+        return this.#isTTY;
+      }
+      return this.#destSrc("isTTY", false);
+    }
+    set isTTY(val) {
+      this.#isTTY = val;
+    }
+    get rows() {
+      return this.#destSrc("rows");
+    }
+    get columns() {
+      return this.#destSrc("columns");
+    }
+    mute() {
+      this.muted = true;
+    }
+    unmute() {
+      this.muted = false;
+    }
+    _onpipe(src) {
+      this._src = src;
+    }
+    pipe(dest, options) {
+      this._dest = dest;
+      return super.pipe(dest, options);
+    }
+    pause() {
+      if (this._src) {
+        return this._src.pause();
+      }
+    }
+    resume() {
+      if (this._src) {
+        return this._src.resume();
+      }
+    }
+    write(c) {
+      if (this.muted) {
+        if (!this.replace) {
+          return true;
+        }
+        if (c.match(/^\u001b/)) {
+          if (c.indexOf(this._prompt) === 0) {
+            c = c.slice(this._prompt.length);
+            c = c.replace(/./g, this.replace);
+            c = this._prompt + c;
+          }
+          this._hadControl = true;
+          return this.emit("data", c);
+        } else {
+          if (this._prompt && this._hadControl && c.indexOf(this._prompt) === 0) {
+            this._hadControl = false;
+            this.emit("data", this._prompt);
+            c = c.slice(this._prompt.length);
+          }
+          c = c.toString().replace(/./g, this.replace);
+        }
+      }
+      this.emit("data", c);
+    }
+    end(c) {
+      if (this.muted) {
+        if (c && this.replace) {
+          c = c.toString().replace(/./g, this.replace);
+        } else {
+          c = null;
+        }
+      }
+      if (c) {
+        this.emit("data", c);
+      }
+      this.emit("end");
+    }
+    destroy(...args) {
+      return this.#proxy("destroy", ...args);
+    }
+    destroySoon(...args) {
+      return this.#proxy("destroySoon", ...args);
+    }
+    close(...args) {
+      return this.#proxy("close", ...args);
+    }
+  }
+  module.exports = MuteStream;
+});
 
 // ../../node_modules/eventemitter3/index.js
 var require_eventemitter3 = __commonJS((exports, module) => {
@@ -3758,16 +3920,1802 @@ var init_webapi_CxKOxXjo = __esm(() => {
   jwksCache = Symbol();
 });
 
-// scripts/configure.mjs
-import readline from "node:readline/promises";
-import { stdin as input, stdout as output } from "node:process";
-import { spawnSync } from "node:child_process";
+// ../../node_modules/@inquirer/core/dist/lib/key.js
+var isUpKey = (key, keybindings = []) => key.name === "up" || keybindings.includes("vim") && key.name === "k" || keybindings.includes("emacs") && key.ctrl && key.name === "p";
+var isDownKey = (key, keybindings = []) => key.name === "down" || keybindings.includes("vim") && key.name === "j" || keybindings.includes("emacs") && key.ctrl && key.name === "n";
+var isBackspaceKey = (key) => key.name === "backspace";
+var isTabKey = (key) => key.name === "tab";
+var isNumberKey = (key) => "1234567890".includes(key.name);
+var isEnterKey = (key) => key.name === "enter" || key.name === "return";
+// ../../node_modules/@inquirer/core/dist/lib/errors.js
+class AbortPromptError extends Error {
+  name = "AbortPromptError";
+  message = "Prompt was aborted";
+  constructor(options) {
+    super();
+    this.cause = options?.cause;
+  }
+}
 
+class CancelPromptError extends Error {
+  name = "CancelPromptError";
+  message = "Prompt was canceled";
+}
+
+class ExitPromptError extends Error {
+  name = "ExitPromptError";
+}
+
+class HookError extends Error {
+  name = "HookError";
+}
+
+class ValidationError extends Error {
+  name = "ValidationError";
+}
+// ../../node_modules/@inquirer/core/dist/lib/use-state.js
+import { AsyncResource as AsyncResource2 } from "node:async_hooks";
+
+// ../../node_modules/@inquirer/core/dist/lib/hook-engine.js
+import { AsyncLocalStorage, AsyncResource } from "node:async_hooks";
+var hookStorage = new AsyncLocalStorage;
+function createStore(rl) {
+  const store = {
+    rl,
+    hooks: [],
+    hooksCleanup: [],
+    hooksEffect: [],
+    index: 0,
+    handleChange() {}
+  };
+  return store;
+}
+function withHooks(rl, cb) {
+  const store = createStore(rl);
+  return hookStorage.run(store, () => {
+    function cycle(render) {
+      store.handleChange = () => {
+        store.index = 0;
+        render();
+      };
+      store.handleChange();
+    }
+    return cb(cycle);
+  });
+}
+function getStore() {
+  const store = hookStorage.getStore();
+  if (!store) {
+    throw new HookError("[Inquirer] Hook functions can only be called from within a prompt");
+  }
+  return store;
+}
+function readline() {
+  return getStore().rl;
+}
+function withUpdates(fn) {
+  const wrapped = (...args) => {
+    const store = getStore();
+    let shouldUpdate = false;
+    const oldHandleChange = store.handleChange;
+    store.handleChange = () => {
+      shouldUpdate = true;
+    };
+    const returnValue = fn(...args);
+    if (shouldUpdate) {
+      oldHandleChange();
+    }
+    store.handleChange = oldHandleChange;
+    return returnValue;
+  };
+  return AsyncResource.bind(wrapped);
+}
+function withPointer(cb) {
+  const store = getStore();
+  const { index } = store;
+  const pointer = {
+    get() {
+      return store.hooks[index];
+    },
+    set(value) {
+      store.hooks[index] = value;
+    },
+    initialized: index in store.hooks
+  };
+  const returnValue = cb(pointer);
+  store.index++;
+  return returnValue;
+}
+function handleChange() {
+  getStore().handleChange();
+}
+var effectScheduler = {
+  queue(cb) {
+    const store = getStore();
+    const { index } = store;
+    store.hooksEffect.push(() => {
+      store.hooksCleanup[index]?.();
+      const cleanFn = cb(readline());
+      if (cleanFn != null && typeof cleanFn !== "function") {
+        throw new ValidationError("useEffect return value must be a cleanup function or nothing.");
+      }
+      store.hooksCleanup[index] = cleanFn;
+    });
+  },
+  run() {
+    const store = getStore();
+    withUpdates(() => {
+      store.hooksEffect.forEach((effect) => {
+        effect();
+      });
+      store.hooksEffect.length = 0;
+    })();
+  },
+  clearAll() {
+    const store = getStore();
+    store.hooksCleanup.forEach((cleanFn) => {
+      cleanFn?.();
+    });
+    store.hooksEffect.length = 0;
+    store.hooksCleanup.length = 0;
+  }
+};
+
+// ../../node_modules/@inquirer/core/dist/lib/use-state.js
+function isFactory(value) {
+  return typeof value === "function";
+}
+function useState(defaultValue) {
+  return withPointer((pointer) => {
+    const setState = AsyncResource2.bind(function setState(newValue) {
+      if (pointer.get() !== newValue) {
+        pointer.set(newValue);
+        handleChange();
+      }
+    });
+    if (pointer.initialized) {
+      return [pointer.get(), setState];
+    }
+    const value = isFactory(defaultValue) ? defaultValue() : defaultValue;
+    pointer.set(value);
+    return [value, setState];
+  });
+}
+
+// ../../node_modules/@inquirer/core/dist/lib/use-effect.js
+function useEffect(cb, depArray) {
+  withPointer((pointer) => {
+    const oldDeps = pointer.get();
+    const hasChanged = !Array.isArray(oldDeps) || depArray.some((dep, i) => !Object.is(dep, oldDeps[i]));
+    if (hasChanged) {
+      effectScheduler.queue(cb);
+    }
+    pointer.set(depArray);
+  });
+}
+
+// ../../node_modules/@inquirer/core/dist/lib/theme.js
+import { styleText } from "node:util";
+
+// ../../node_modules/@inquirer/figures/dist/index.js
+import process2 from "node:process";
+function isUnicodeSupported() {
+  if (!process2.platform.startsWith("win")) {
+    return process2.env["TERM"] !== "linux";
+  }
+  return Boolean(process2.env["CI"]) || Boolean(process2.env["WT_SESSION"]) || Boolean(process2.env["TERMINUS_SUBLIME"]) || process2.env["ConEmuTask"] === "{cmd::Cmder}" || process2.env["TERM_PROGRAM"] === "Terminus-Sublime" || process2.env["TERM_PROGRAM"] === "vscode" || process2.env["TERM"] === "xterm-256color" || process2.env["TERM"] === "alacritty" || process2.env["TERMINAL_EMULATOR"] === "JetBrains-JediTerm";
+}
+var common = {
+  circleQuestionMark: "(?)",
+  questionMarkPrefix: "(?)",
+  square: "█",
+  squareDarkShade: "▓",
+  squareMediumShade: "▒",
+  squareLightShade: "░",
+  squareTop: "▀",
+  squareBottom: "▄",
+  squareLeft: "▌",
+  squareRight: "▐",
+  squareCenter: "■",
+  bullet: "●",
+  dot: "․",
+  ellipsis: "…",
+  pointerSmall: "›",
+  triangleUp: "▲",
+  triangleUpSmall: "▴",
+  triangleDown: "▼",
+  triangleDownSmall: "▾",
+  triangleLeftSmall: "◂",
+  triangleRightSmall: "▸",
+  home: "⌂",
+  heart: "♥",
+  musicNote: "♪",
+  musicNoteBeamed: "♫",
+  arrowUp: "↑",
+  arrowDown: "↓",
+  arrowLeft: "←",
+  arrowRight: "→",
+  arrowLeftRight: "↔",
+  arrowUpDown: "↕",
+  almostEqual: "≈",
+  notEqual: "≠",
+  lessOrEqual: "≤",
+  greaterOrEqual: "≥",
+  identical: "≡",
+  infinity: "∞",
+  subscriptZero: "₀",
+  subscriptOne: "₁",
+  subscriptTwo: "₂",
+  subscriptThree: "₃",
+  subscriptFour: "₄",
+  subscriptFive: "₅",
+  subscriptSix: "₆",
+  subscriptSeven: "₇",
+  subscriptEight: "₈",
+  subscriptNine: "₉",
+  oneHalf: "½",
+  oneThird: "⅓",
+  oneQuarter: "¼",
+  oneFifth: "⅕",
+  oneSixth: "⅙",
+  oneEighth: "⅛",
+  twoThirds: "⅔",
+  twoFifths: "⅖",
+  threeQuarters: "¾",
+  threeFifths: "⅗",
+  threeEighths: "⅜",
+  fourFifths: "⅘",
+  fiveSixths: "⅚",
+  fiveEighths: "⅝",
+  sevenEighths: "⅞",
+  line: "─",
+  lineBold: "━",
+  lineDouble: "═",
+  lineDashed0: "┄",
+  lineDashed1: "┅",
+  lineDashed2: "┈",
+  lineDashed3: "┉",
+  lineDashed4: "╌",
+  lineDashed5: "╍",
+  lineDashed6: "╴",
+  lineDashed7: "╶",
+  lineDashed8: "╸",
+  lineDashed9: "╺",
+  lineDashed10: "╼",
+  lineDashed11: "╾",
+  lineDashed12: "−",
+  lineDashed13: "–",
+  lineDashed14: "‐",
+  lineDashed15: "⁃",
+  lineVertical: "│",
+  lineVerticalBold: "┃",
+  lineVerticalDouble: "║",
+  lineVerticalDashed0: "┆",
+  lineVerticalDashed1: "┇",
+  lineVerticalDashed2: "┊",
+  lineVerticalDashed3: "┋",
+  lineVerticalDashed4: "╎",
+  lineVerticalDashed5: "╏",
+  lineVerticalDashed6: "╵",
+  lineVerticalDashed7: "╷",
+  lineVerticalDashed8: "╹",
+  lineVerticalDashed9: "╻",
+  lineVerticalDashed10: "╽",
+  lineVerticalDashed11: "╿",
+  lineDownLeft: "┐",
+  lineDownLeftArc: "╮",
+  lineDownBoldLeftBold: "┓",
+  lineDownBoldLeft: "┒",
+  lineDownLeftBold: "┑",
+  lineDownDoubleLeftDouble: "╗",
+  lineDownDoubleLeft: "╖",
+  lineDownLeftDouble: "╕",
+  lineDownRight: "┌",
+  lineDownRightArc: "╭",
+  lineDownBoldRightBold: "┏",
+  lineDownBoldRight: "┎",
+  lineDownRightBold: "┍",
+  lineDownDoubleRightDouble: "╔",
+  lineDownDoubleRight: "╓",
+  lineDownRightDouble: "╒",
+  lineUpLeft: "┘",
+  lineUpLeftArc: "╯",
+  lineUpBoldLeftBold: "┛",
+  lineUpBoldLeft: "┚",
+  lineUpLeftBold: "┙",
+  lineUpDoubleLeftDouble: "╝",
+  lineUpDoubleLeft: "╜",
+  lineUpLeftDouble: "╛",
+  lineUpRight: "└",
+  lineUpRightArc: "╰",
+  lineUpBoldRightBold: "┗",
+  lineUpBoldRight: "┖",
+  lineUpRightBold: "┕",
+  lineUpDoubleRightDouble: "╚",
+  lineUpDoubleRight: "╙",
+  lineUpRightDouble: "╘",
+  lineUpDownLeft: "┤",
+  lineUpBoldDownBoldLeftBold: "┫",
+  lineUpBoldDownBoldLeft: "┨",
+  lineUpDownLeftBold: "┥",
+  lineUpBoldDownLeftBold: "┩",
+  lineUpDownBoldLeftBold: "┪",
+  lineUpDownBoldLeft: "┧",
+  lineUpBoldDownLeft: "┦",
+  lineUpDoubleDownDoubleLeftDouble: "╣",
+  lineUpDoubleDownDoubleLeft: "╢",
+  lineUpDownLeftDouble: "╡",
+  lineUpDownRight: "├",
+  lineUpBoldDownBoldRightBold: "┣",
+  lineUpBoldDownBoldRight: "┠",
+  lineUpDownRightBold: "┝",
+  lineUpBoldDownRightBold: "┡",
+  lineUpDownBoldRightBold: "┢",
+  lineUpDownBoldRight: "┟",
+  lineUpBoldDownRight: "┞",
+  lineUpDoubleDownDoubleRightDouble: "╠",
+  lineUpDoubleDownDoubleRight: "╟",
+  lineUpDownRightDouble: "╞",
+  lineDownLeftRight: "┬",
+  lineDownBoldLeftBoldRightBold: "┳",
+  lineDownLeftBoldRightBold: "┯",
+  lineDownBoldLeftRight: "┰",
+  lineDownBoldLeftBoldRight: "┱",
+  lineDownBoldLeftRightBold: "┲",
+  lineDownLeftRightBold: "┮",
+  lineDownLeftBoldRight: "┭",
+  lineDownDoubleLeftDoubleRightDouble: "╦",
+  lineDownDoubleLeftRight: "╥",
+  lineDownLeftDoubleRightDouble: "╤",
+  lineUpLeftRight: "┴",
+  lineUpBoldLeftBoldRightBold: "┻",
+  lineUpLeftBoldRightBold: "┷",
+  lineUpBoldLeftRight: "┸",
+  lineUpBoldLeftBoldRight: "┹",
+  lineUpBoldLeftRightBold: "┺",
+  lineUpLeftRightBold: "┶",
+  lineUpLeftBoldRight: "┵",
+  lineUpDoubleLeftDoubleRightDouble: "╩",
+  lineUpDoubleLeftRight: "╨",
+  lineUpLeftDoubleRightDouble: "╧",
+  lineUpDownLeftRight: "┼",
+  lineUpBoldDownBoldLeftBoldRightBold: "╋",
+  lineUpDownBoldLeftBoldRightBold: "╈",
+  lineUpBoldDownLeftBoldRightBold: "╇",
+  lineUpBoldDownBoldLeftRightBold: "╊",
+  lineUpBoldDownBoldLeftBoldRight: "╉",
+  lineUpBoldDownLeftRight: "╀",
+  lineUpDownBoldLeftRight: "╁",
+  lineUpDownLeftBoldRight: "┽",
+  lineUpDownLeftRightBold: "┾",
+  lineUpBoldDownBoldLeftRight: "╂",
+  lineUpDownLeftBoldRightBold: "┿",
+  lineUpBoldDownLeftBoldRight: "╃",
+  lineUpBoldDownLeftRightBold: "╄",
+  lineUpDownBoldLeftBoldRight: "╅",
+  lineUpDownBoldLeftRightBold: "╆",
+  lineUpDoubleDownDoubleLeftDoubleRightDouble: "╬",
+  lineUpDoubleDownDoubleLeftRight: "╫",
+  lineUpDownLeftDoubleRightDouble: "╪",
+  lineCross: "╳",
+  lineBackslash: "╲",
+  lineSlash: "╱"
+};
+var specialMainSymbols = {
+  tick: "✔",
+  info: "ℹ",
+  warning: "⚠",
+  cross: "✘",
+  squareSmall: "◻",
+  squareSmallFilled: "◼",
+  circle: "◯",
+  circleFilled: "◉",
+  circleDotted: "◌",
+  circleDouble: "◎",
+  circleCircle: "ⓞ",
+  circleCross: "ⓧ",
+  circlePipe: "Ⓘ",
+  radioOn: "◉",
+  radioOff: "◯",
+  checkboxOn: "☒",
+  checkboxOff: "☐",
+  checkboxCircleOn: "ⓧ",
+  checkboxCircleOff: "Ⓘ",
+  pointer: "❯",
+  triangleUpOutline: "△",
+  triangleLeft: "◀",
+  triangleRight: "▶",
+  lozenge: "◆",
+  lozengeOutline: "◇",
+  hamburger: "☰",
+  smiley: "㋡",
+  mustache: "෴",
+  star: "★",
+  play: "▶",
+  nodejs: "⬢",
+  oneSeventh: "⅐",
+  oneNinth: "⅑",
+  oneTenth: "⅒"
+};
+var specialFallbackSymbols = {
+  tick: "√",
+  info: "i",
+  warning: "‼",
+  cross: "×",
+  squareSmall: "□",
+  squareSmallFilled: "■",
+  circle: "( )",
+  circleFilled: "(*)",
+  circleDotted: "( )",
+  circleDouble: "( )",
+  circleCircle: "(○)",
+  circleCross: "(×)",
+  circlePipe: "(│)",
+  radioOn: "(*)",
+  radioOff: "( )",
+  checkboxOn: "[×]",
+  checkboxOff: "[ ]",
+  checkboxCircleOn: "(×)",
+  checkboxCircleOff: "( )",
+  pointer: ">",
+  triangleUpOutline: "∆",
+  triangleLeft: "◄",
+  triangleRight: "►",
+  lozenge: "♦",
+  lozengeOutline: "◊",
+  hamburger: "≡",
+  smiley: "☺",
+  mustache: "┌─┐",
+  star: "✶",
+  play: "►",
+  nodejs: "♦",
+  oneSeventh: "1/7",
+  oneNinth: "1/9",
+  oneTenth: "1/10"
+};
+var mainSymbols = {
+  ...common,
+  ...specialMainSymbols
+};
+var fallbackSymbols = {
+  ...common,
+  ...specialFallbackSymbols
+};
+var shouldUseMain = isUnicodeSupported();
+var figures = shouldUseMain ? mainSymbols : fallbackSymbols;
+var dist_default = figures;
+var replacements = Object.entries(specialMainSymbols);
+
+// ../../node_modules/@inquirer/core/dist/lib/theme.js
+var defaultTheme = {
+  prefix: {
+    idle: styleText("blue", "?"),
+    done: styleText("green", dist_default.tick)
+  },
+  spinner: {
+    interval: 80,
+    frames: ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"].map((frame) => styleText("yellow", frame))
+  },
+  style: {
+    answer: (text) => styleText("cyan", text),
+    message: (text) => styleText("bold", text),
+    error: (text) => styleText("red", `> ${text}`),
+    defaultAnswer: (text) => styleText("dim", `(${text})`),
+    help: (text) => styleText("dim", text),
+    highlight: (text) => styleText("cyan", text),
+    key: (text) => styleText("cyan", styleText("bold", `<${text}>`))
+  }
+};
+
+// ../../node_modules/@inquirer/core/dist/lib/make-theme.js
+function isPlainObject(value) {
+  if (typeof value !== "object" || value === null)
+    return false;
+  let proto = value;
+  while (Object.getPrototypeOf(proto) !== null) {
+    proto = Object.getPrototypeOf(proto);
+  }
+  return Object.getPrototypeOf(value) === proto;
+}
+function deepMerge(...objects) {
+  const output = {};
+  for (const obj of objects) {
+    for (const [key, value] of Object.entries(obj)) {
+      const prevValue = output[key];
+      output[key] = isPlainObject(prevValue) && isPlainObject(value) ? deepMerge(prevValue, value) : value;
+    }
+  }
+  return output;
+}
+function makeTheme(...themes) {
+  const themesToMerge = [
+    defaultTheme,
+    ...themes.filter((theme) => theme != null)
+  ];
+  return deepMerge(...themesToMerge);
+}
+
+// ../../node_modules/@inquirer/core/dist/lib/use-prefix.js
+function usePrefix({ status = "idle", theme }) {
+  const [showLoader, setShowLoader] = useState(false);
+  const [tick, setTick] = useState(0);
+  const { prefix, spinner } = makeTheme(theme);
+  useEffect(() => {
+    if (status === "loading") {
+      let tickInterval;
+      let inc = -1;
+      const delayTimeout = setTimeout(() => {
+        setShowLoader(true);
+        tickInterval = setInterval(() => {
+          inc = inc + 1;
+          setTick(inc % spinner.frames.length);
+        }, spinner.interval);
+      }, 300);
+      return () => {
+        clearTimeout(delayTimeout);
+        clearInterval(tickInterval);
+      };
+    } else {
+      setShowLoader(false);
+    }
+  }, [status]);
+  if (showLoader) {
+    return spinner.frames[tick];
+  }
+  const iconName = status === "loading" ? "idle" : status;
+  return typeof prefix === "string" ? prefix : prefix[iconName] ?? prefix["idle"];
+}
+// ../../node_modules/@inquirer/core/dist/lib/use-memo.js
+function useMemo(fn, dependencies) {
+  return withPointer((pointer) => {
+    const prev = pointer.get();
+    if (!prev || prev.dependencies.length !== dependencies.length || prev.dependencies.some((dep, i) => dep !== dependencies[i])) {
+      const value = fn();
+      pointer.set({ value, dependencies });
+      return value;
+    }
+    return prev.value;
+  });
+}
+// ../../node_modules/@inquirer/core/dist/lib/use-ref.js
+function useRef(val) {
+  return useState({ current: val })[0];
+}
+// ../../node_modules/@inquirer/core/dist/lib/use-keypress.js
+function useKeypress(userHandler) {
+  const signal = useRef(userHandler);
+  signal.current = userHandler;
+  useEffect((rl) => {
+    let ignore = false;
+    const handler = withUpdates((_input, event) => {
+      if (ignore)
+        return;
+      signal.current(event, rl);
+    });
+    rl.input.on("keypress", handler);
+    return () => {
+      ignore = true;
+      rl.input.removeListener("keypress", handler);
+    };
+  }, []);
+}
+// ../../node_modules/@inquirer/core/dist/lib/utils.js
+var import_cli_width = __toESM(require_cli_width(), 1);
+
+// ../../node_modules/fast-string-truncated-width/dist/utils.js
+var getCodePointsLength = (() => {
+  const SURROGATE_PAIR_RE = /[\uD800-\uDBFF][\uDC00-\uDFFF]/g;
+  return (input) => {
+    let surrogatePairsNr = 0;
+    SURROGATE_PAIR_RE.lastIndex = 0;
+    while (SURROGATE_PAIR_RE.test(input)) {
+      surrogatePairsNr += 1;
+    }
+    return input.length - surrogatePairsNr;
+  };
+})();
+var isFullWidth = (x) => {
+  return x === 12288 || x >= 65281 && x <= 65376 || x >= 65504 && x <= 65510;
+};
+var isWideNotCJKTNotEmoji = (x) => {
+  return x === 8987 || x === 9001 || x >= 12272 && x <= 12287 || x >= 12289 && x <= 12350 || x >= 12441 && x <= 12543 || x >= 12549 && x <= 12591 || x >= 12593 && x <= 12686 || x >= 12688 && x <= 12771 || x >= 12783 && x <= 12830 || x >= 12832 && x <= 12871 || x >= 12880 && x <= 19903 || x >= 65040 && x <= 65049 || x >= 65072 && x <= 65106 || x >= 65108 && x <= 65126 || x >= 65128 && x <= 65131 || x >= 127488 && x <= 127490 || x >= 127504 && x <= 127547 || x >= 127552 && x <= 127560 || x >= 131072 && x <= 196605 || x >= 196608 && x <= 262141;
+};
+
+// ../../node_modules/fast-string-truncated-width/dist/index.js
+var ANSI_RE = /[\u001b\u009b][[()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><]|\u001b\]8;[^;]*;.*?(?:\u0007|\u001b\u005c)/y;
+var CONTROL_RE = /[\x00-\x08\x0A-\x1F\x7F-\x9F]{1,1000}/y;
+var CJKT_WIDE_RE = /(?:(?![\uFF61-\uFF9F\uFF00-\uFFEF])[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}\p{Script=Tangut}]){1,1000}/yu;
+var TAB_RE = /\t{1,1000}/y;
+var EMOJI_RE = /[\u{1F1E6}-\u{1F1FF}]{2}|\u{1F3F4}[\u{E0061}-\u{E007A}]{2}[\u{E0030}-\u{E0039}\u{E0061}-\u{E007A}]{1,3}\u{E007F}|(?:\p{Emoji}\uFE0F\u20E3?|\p{Emoji_Modifier_Base}\p{Emoji_Modifier}?|\p{Emoji_Presentation})(?:\u200D(?:\p{Emoji_Modifier_Base}\p{Emoji_Modifier}?|\p{Emoji_Presentation}|\p{Emoji}\uFE0F\u20E3?))*/yu;
+var LATIN_RE = /(?:[\x20-\x7E\xA0-\xFF](?!\uFE0F)){1,1000}/y;
+var MODIFIER_RE = /\p{M}+/gu;
+var NO_TRUNCATION = { limit: Infinity, ellipsis: "" };
+var getStringTruncatedWidth = (input, truncationOptions = {}, widthOptions = {}) => {
+  const LIMIT = truncationOptions.limit ?? Infinity;
+  const ELLIPSIS = truncationOptions.ellipsis ?? "";
+  const ELLIPSIS_WIDTH = truncationOptions?.ellipsisWidth ?? (ELLIPSIS ? getStringTruncatedWidth(ELLIPSIS, NO_TRUNCATION, widthOptions).width : 0);
+  const ANSI_WIDTH = 0;
+  const CONTROL_WIDTH = widthOptions.controlWidth ?? 0;
+  const TAB_WIDTH = widthOptions.tabWidth ?? 8;
+  const EMOJI_WIDTH = widthOptions.emojiWidth ?? 2;
+  const FULL_WIDTH_WIDTH = 2;
+  const REGULAR_WIDTH = widthOptions.regularWidth ?? 1;
+  const WIDE_WIDTH = widthOptions.wideWidth ?? FULL_WIDTH_WIDTH;
+  const PARSE_BLOCKS = [
+    [LATIN_RE, REGULAR_WIDTH],
+    [ANSI_RE, ANSI_WIDTH],
+    [CONTROL_RE, CONTROL_WIDTH],
+    [TAB_RE, TAB_WIDTH],
+    [EMOJI_RE, EMOJI_WIDTH],
+    [CJKT_WIDE_RE, WIDE_WIDTH]
+  ];
+  let indexPrev = 0;
+  let index = 0;
+  let length = input.length;
+  let lengthExtra = 0;
+  let truncationEnabled = false;
+  let truncationIndex = length;
+  let truncationLimit = Math.max(0, LIMIT - ELLIPSIS_WIDTH);
+  let unmatchedStart = 0;
+  let unmatchedEnd = 0;
+  let width = 0;
+  let widthExtra = 0;
+  outer:
+    while (true) {
+      if (unmatchedEnd > unmatchedStart || index >= length && index > indexPrev) {
+        const unmatched = input.slice(unmatchedStart, unmatchedEnd) || input.slice(indexPrev, index);
+        lengthExtra = 0;
+        for (const char of unmatched.replaceAll(MODIFIER_RE, "")) {
+          const codePoint = char.codePointAt(0) || 0;
+          if (isFullWidth(codePoint)) {
+            widthExtra = FULL_WIDTH_WIDTH;
+          } else if (isWideNotCJKTNotEmoji(codePoint)) {
+            widthExtra = WIDE_WIDTH;
+          } else {
+            widthExtra = REGULAR_WIDTH;
+          }
+          if (width + widthExtra > truncationLimit) {
+            truncationIndex = Math.min(truncationIndex, Math.max(unmatchedStart, indexPrev) + lengthExtra);
+          }
+          if (width + widthExtra > LIMIT) {
+            truncationEnabled = true;
+            break outer;
+          }
+          lengthExtra += char.length;
+          width += widthExtra;
+        }
+        unmatchedStart = unmatchedEnd = 0;
+      }
+      if (index >= length) {
+        break outer;
+      }
+      for (let i = 0, l = PARSE_BLOCKS.length;i < l; i++) {
+        const [BLOCK_RE, BLOCK_WIDTH] = PARSE_BLOCKS[i];
+        BLOCK_RE.lastIndex = index;
+        if (BLOCK_RE.test(input)) {
+          lengthExtra = BLOCK_RE === CJKT_WIDE_RE ? getCodePointsLength(input.slice(index, BLOCK_RE.lastIndex)) : BLOCK_RE === EMOJI_RE ? 1 : BLOCK_RE.lastIndex - index;
+          widthExtra = lengthExtra * BLOCK_WIDTH;
+          if (width + widthExtra > truncationLimit) {
+            truncationIndex = Math.min(truncationIndex, index + Math.floor((truncationLimit - width) / BLOCK_WIDTH));
+          }
+          if (width + widthExtra > LIMIT) {
+            truncationEnabled = true;
+            break outer;
+          }
+          width += widthExtra;
+          unmatchedStart = indexPrev;
+          unmatchedEnd = index;
+          index = indexPrev = BLOCK_RE.lastIndex;
+          continue outer;
+        }
+      }
+      index += 1;
+    }
+  return {
+    width: truncationEnabled ? truncationLimit : width,
+    index: truncationEnabled ? truncationIndex : length,
+    truncated: truncationEnabled,
+    ellipsed: truncationEnabled && LIMIT >= ELLIPSIS_WIDTH
+  };
+};
+var dist_default2 = getStringTruncatedWidth;
+
+// ../../node_modules/fast-string-width/dist/index.js
+var NO_TRUNCATION2 = {
+  limit: Infinity,
+  ellipsis: "",
+  ellipsisWidth: 0
+};
+var fastStringWidth = (input, options = {}) => {
+  return dist_default2(input, NO_TRUNCATION2, options).width;
+};
+var dist_default3 = fastStringWidth;
+
+// ../../node_modules/fast-wrap-ansi/lib/main.js
+var ESC = "\x1B";
+var CSI = "";
+var END_CODE = 39;
+var ANSI_ESCAPE_BELL = "\x07";
+var ANSI_CSI = "[";
+var ANSI_OSC = "]";
+var ANSI_SGR_TERMINATOR = "m";
+var ANSI_ESCAPE_LINK = `${ANSI_OSC}8;;`;
+var GROUP_REGEX = new RegExp(`(?:\\${ANSI_CSI}(?<code>\\d+)m|\\${ANSI_ESCAPE_LINK}(?<uri>.*)${ANSI_ESCAPE_BELL})`, "y");
+var getClosingCode = (openingCode) => {
+  if (openingCode >= 30 && openingCode <= 37)
+    return 39;
+  if (openingCode >= 90 && openingCode <= 97)
+    return 39;
+  if (openingCode >= 40 && openingCode <= 47)
+    return 49;
+  if (openingCode >= 100 && openingCode <= 107)
+    return 49;
+  if (openingCode === 1 || openingCode === 2)
+    return 22;
+  if (openingCode === 3)
+    return 23;
+  if (openingCode === 4)
+    return 24;
+  if (openingCode === 7)
+    return 27;
+  if (openingCode === 8)
+    return 28;
+  if (openingCode === 9)
+    return 29;
+  if (openingCode === 0)
+    return 0;
+  return;
+};
+var wrapAnsiCode = (code) => `${ESC}${ANSI_CSI}${code}${ANSI_SGR_TERMINATOR}`;
+var wrapAnsiHyperlink = (url) => `${ESC}${ANSI_ESCAPE_LINK}${url}${ANSI_ESCAPE_BELL}`;
+var wrapWord = (rows, word, columns) => {
+  const characters = word[Symbol.iterator]();
+  let isInsideEscape = false;
+  let isInsideLinkEscape = false;
+  let lastRow = rows.at(-1);
+  let visible = lastRow === undefined ? 0 : dist_default3(lastRow);
+  let currentCharacter = characters.next();
+  let nextCharacter = characters.next();
+  let rawCharacterIndex = 0;
+  while (!currentCharacter.done) {
+    const character = currentCharacter.value;
+    const characterLength = dist_default3(character);
+    if (visible + characterLength <= columns) {
+      rows[rows.length - 1] += character;
+    } else {
+      rows.push(character);
+      visible = 0;
+    }
+    if (character === ESC || character === CSI) {
+      isInsideEscape = true;
+      isInsideLinkEscape = word.startsWith(ANSI_ESCAPE_LINK, rawCharacterIndex + 1);
+    }
+    if (isInsideEscape) {
+      if (isInsideLinkEscape) {
+        if (character === ANSI_ESCAPE_BELL) {
+          isInsideEscape = false;
+          isInsideLinkEscape = false;
+        }
+      } else if (character === ANSI_SGR_TERMINATOR) {
+        isInsideEscape = false;
+      }
+    } else {
+      visible += characterLength;
+      if (visible === columns && !nextCharacter.done) {
+        rows.push("");
+        visible = 0;
+      }
+    }
+    currentCharacter = nextCharacter;
+    nextCharacter = characters.next();
+    rawCharacterIndex += character.length;
+  }
+  lastRow = rows.at(-1);
+  if (!visible && lastRow !== undefined && lastRow.length && rows.length > 1) {
+    rows[rows.length - 2] += rows.pop();
+  }
+};
+var stringVisibleTrimSpacesRight = (string) => {
+  const words = string.split(" ");
+  let last = words.length;
+  while (last) {
+    if (dist_default3(words[last - 1])) {
+      break;
+    }
+    last--;
+  }
+  if (last === words.length) {
+    return string;
+  }
+  return words.slice(0, last).join(" ") + words.slice(last).join("");
+};
+var exec = (string, columns, options = {}) => {
+  if (options.trim !== false && string.trim() === "") {
+    return "";
+  }
+  let returnValue = "";
+  let escapeCode;
+  let escapeUrl;
+  const words = string.split(" ");
+  let rows = [""];
+  let rowLength = 0;
+  for (let index = 0;index < words.length; index++) {
+    const word = words[index];
+    if (options.trim !== false) {
+      const row = rows.at(-1) ?? "";
+      const trimmed = row.trimStart();
+      if (row.length !== trimmed.length) {
+        rows[rows.length - 1] = trimmed;
+        rowLength = dist_default3(trimmed);
+      }
+    }
+    if (index !== 0) {
+      if (rowLength >= columns && (options.wordWrap === false || options.trim === false)) {
+        rows.push("");
+        rowLength = 0;
+      }
+      if (rowLength || options.trim === false) {
+        rows[rows.length - 1] += " ";
+        rowLength++;
+      }
+    }
+    const wordLength = dist_default3(word);
+    if (options.hard && wordLength > columns) {
+      const remainingColumns = columns - rowLength;
+      const breaksStartingThisLine = 1 + Math.floor((wordLength - remainingColumns - 1) / columns);
+      const breaksStartingNextLine = Math.floor((wordLength - 1) / columns);
+      if (breaksStartingNextLine < breaksStartingThisLine) {
+        rows.push("");
+      }
+      wrapWord(rows, word, columns);
+      rowLength = dist_default3(rows.at(-1) ?? "");
+      continue;
+    }
+    if (rowLength + wordLength > columns && rowLength && wordLength) {
+      if (options.wordWrap === false && rowLength < columns) {
+        wrapWord(rows, word, columns);
+        rowLength = dist_default3(rows.at(-1) ?? "");
+        continue;
+      }
+      rows.push("");
+      rowLength = 0;
+    }
+    if (rowLength + wordLength > columns && options.wordWrap === false) {
+      wrapWord(rows, word, columns);
+      rowLength = dist_default3(rows.at(-1) ?? "");
+      continue;
+    }
+    rows[rows.length - 1] += word;
+    rowLength += wordLength;
+  }
+  if (options.trim !== false) {
+    rows = rows.map((row) => stringVisibleTrimSpacesRight(row));
+  }
+  const preString = rows.join(`
+`);
+  let inSurrogate = false;
+  for (let i = 0;i < preString.length; i++) {
+    const character = preString[i];
+    returnValue += character;
+    if (!inSurrogate) {
+      inSurrogate = character >= "\uD800" && character <= "\uDBFF";
+      if (inSurrogate) {
+        continue;
+      }
+    } else {
+      inSurrogate = false;
+    }
+    if (character === ESC || character === CSI) {
+      GROUP_REGEX.lastIndex = i + 1;
+      const groupsResult = GROUP_REGEX.exec(preString);
+      const groups = groupsResult?.groups;
+      if (groups?.code !== undefined) {
+        const code = Number.parseFloat(groups.code);
+        escapeCode = code === END_CODE ? undefined : code;
+      } else if (groups?.uri !== undefined) {
+        escapeUrl = groups.uri.length === 0 ? undefined : groups.uri;
+      }
+    }
+    if (preString[i + 1] === `
+`) {
+      if (escapeUrl) {
+        returnValue += wrapAnsiHyperlink("");
+      }
+      const closingCode = escapeCode ? getClosingCode(escapeCode) : undefined;
+      if (escapeCode && closingCode) {
+        returnValue += wrapAnsiCode(closingCode);
+      }
+    } else if (character === `
+`) {
+      if (escapeCode && getClosingCode(escapeCode)) {
+        returnValue += wrapAnsiCode(escapeCode);
+      }
+      if (escapeUrl) {
+        returnValue += wrapAnsiHyperlink(escapeUrl);
+      }
+    }
+  }
+  return returnValue;
+};
+var CRLF_OR_LF = /\r?\n/;
+function wrapAnsi(string, columns, options) {
+  return String(string).normalize().split(CRLF_OR_LF).map((line) => exec(line, columns, options)).join(`
+`);
+}
+
+// ../../node_modules/@inquirer/core/dist/lib/utils.js
+function breakLines(content, width) {
+  return content.split(`
+`).flatMap((line) => wrapAnsi(line, width, { trim: false, hard: true }).split(`
+`).map((str) => str.trimEnd())).join(`
+`);
+}
+function readlineWidth() {
+  return import_cli_width.default({ defaultWidth: 80, output: readline().output });
+}
+
+// ../../node_modules/@inquirer/core/dist/lib/pagination/use-pagination.js
+function usePointerPosition({ active, renderedItems, pageSize, loop }) {
+  const state = useRef({
+    lastPointer: active,
+    lastActive: undefined
+  });
+  const { lastPointer, lastActive } = state.current;
+  const middle = Math.floor(pageSize / 2);
+  const renderedLength = renderedItems.reduce((acc, item) => acc + item.length, 0);
+  const defaultPointerPosition = renderedItems.slice(0, active).reduce((acc, item) => acc + item.length, 0);
+  let pointer = defaultPointerPosition;
+  if (renderedLength > pageSize) {
+    if (loop) {
+      pointer = lastPointer;
+      if (lastActive != null && lastActive < active && active - lastActive < pageSize) {
+        pointer = Math.min(middle, Math.abs(active - lastActive) === 1 ? Math.min(lastPointer + (renderedItems[lastActive]?.length ?? 0), Math.max(defaultPointerPosition, lastPointer)) : lastPointer + active - lastActive);
+      }
+    } else {
+      const spaceUnderActive = renderedItems.slice(active).reduce((acc, item) => acc + item.length, 0);
+      pointer = spaceUnderActive < pageSize - middle ? pageSize - spaceUnderActive : Math.min(defaultPointerPosition, middle);
+    }
+  }
+  state.current.lastPointer = pointer;
+  state.current.lastActive = active;
+  return pointer;
+}
+function usePagination({ items, active, renderItem, pageSize, loop = true }) {
+  const width = readlineWidth();
+  const bound = (num) => (num % items.length + items.length) % items.length;
+  const renderedItems = items.map((item, index) => {
+    if (item == null)
+      return [];
+    return breakLines(renderItem({ item, index, isActive: index === active }), width).split(`
+`);
+  });
+  const renderedLength = renderedItems.reduce((acc, item) => acc + item.length, 0);
+  const renderItemAtIndex = (index) => renderedItems[index] ?? [];
+  const pointer = usePointerPosition({ active, renderedItems, pageSize, loop });
+  const activeItem = renderItemAtIndex(active).slice(0, pageSize);
+  const activeItemPosition = pointer + activeItem.length <= pageSize ? pointer : pageSize - activeItem.length;
+  const pageBuffer = Array.from({ length: pageSize });
+  pageBuffer.splice(activeItemPosition, activeItem.length, ...activeItem);
+  const itemVisited = new Set([active]);
+  let bufferPointer = activeItemPosition + activeItem.length;
+  let itemPointer = bound(active + 1);
+  while (bufferPointer < pageSize && !itemVisited.has(itemPointer) && (loop && renderedLength > pageSize ? itemPointer !== active : itemPointer > active)) {
+    const lines = renderItemAtIndex(itemPointer);
+    const linesToAdd = lines.slice(0, pageSize - bufferPointer);
+    pageBuffer.splice(bufferPointer, linesToAdd.length, ...linesToAdd);
+    itemVisited.add(itemPointer);
+    bufferPointer += linesToAdd.length;
+    itemPointer = bound(itemPointer + 1);
+  }
+  bufferPointer = activeItemPosition - 1;
+  itemPointer = bound(active - 1);
+  while (bufferPointer >= 0 && !itemVisited.has(itemPointer) && (loop && renderedLength > pageSize ? itemPointer !== active : itemPointer < active)) {
+    const lines = renderItemAtIndex(itemPointer);
+    const linesToAdd = lines.slice(Math.max(0, lines.length - bufferPointer - 1));
+    pageBuffer.splice(bufferPointer - linesToAdd.length + 1, linesToAdd.length, ...linesToAdd);
+    itemVisited.add(itemPointer);
+    bufferPointer -= linesToAdd.length;
+    itemPointer = bound(itemPointer - 1);
+  }
+  return pageBuffer.filter((line) => typeof line === "string").join(`
+`);
+}
+// ../../node_modules/@inquirer/core/dist/lib/create-prompt.js
+var import_mute_stream = __toESM(require_lib(), 1);
+import * as readline2 from "node:readline";
+import { AsyncResource as AsyncResource3 } from "node:async_hooks";
+
+// ../../node_modules/signal-exit/dist/mjs/signals.js
+var signals = [];
+signals.push("SIGHUP", "SIGINT", "SIGTERM");
+if (process.platform !== "win32") {
+  signals.push("SIGALRM", "SIGABRT", "SIGVTALRM", "SIGXCPU", "SIGXFSZ", "SIGUSR2", "SIGTRAP", "SIGSYS", "SIGQUIT", "SIGIOT");
+}
+if (process.platform === "linux") {
+  signals.push("SIGIO", "SIGPOLL", "SIGPWR", "SIGSTKFLT");
+}
+
+// ../../node_modules/signal-exit/dist/mjs/index.js
+var processOk = (process3) => !!process3 && typeof process3 === "object" && typeof process3.removeListener === "function" && typeof process3.emit === "function" && typeof process3.reallyExit === "function" && typeof process3.listeners === "function" && typeof process3.kill === "function" && typeof process3.pid === "number" && typeof process3.on === "function";
+var kExitEmitter = Symbol.for("signal-exit emitter");
+var global = globalThis;
+var ObjectDefineProperty = Object.defineProperty.bind(Object);
+
+class Emitter {
+  emitted = {
+    afterExit: false,
+    exit: false
+  };
+  listeners = {
+    afterExit: [],
+    exit: []
+  };
+  count = 0;
+  id = Math.random();
+  constructor() {
+    if (global[kExitEmitter]) {
+      return global[kExitEmitter];
+    }
+    ObjectDefineProperty(global, kExitEmitter, {
+      value: this,
+      writable: false,
+      enumerable: false,
+      configurable: false
+    });
+  }
+  on(ev, fn) {
+    this.listeners[ev].push(fn);
+  }
+  removeListener(ev, fn) {
+    const list = this.listeners[ev];
+    const i = list.indexOf(fn);
+    if (i === -1) {
+      return;
+    }
+    if (i === 0 && list.length === 1) {
+      list.length = 0;
+    } else {
+      list.splice(i, 1);
+    }
+  }
+  emit(ev, code, signal) {
+    if (this.emitted[ev]) {
+      return false;
+    }
+    this.emitted[ev] = true;
+    let ret = false;
+    for (const fn of this.listeners[ev]) {
+      ret = fn(code, signal) === true || ret;
+    }
+    if (ev === "exit") {
+      ret = this.emit("afterExit", code, signal) || ret;
+    }
+    return ret;
+  }
+}
+
+class SignalExitBase {
+}
+var signalExitWrap = (handler) => {
+  return {
+    onExit(cb, opts) {
+      return handler.onExit(cb, opts);
+    },
+    load() {
+      return handler.load();
+    },
+    unload() {
+      return handler.unload();
+    }
+  };
+};
+
+class SignalExitFallback extends SignalExitBase {
+  onExit() {
+    return () => {};
+  }
+  load() {}
+  unload() {}
+}
+
+class SignalExit extends SignalExitBase {
+  #hupSig = process3.platform === "win32" ? "SIGINT" : "SIGHUP";
+  #emitter = new Emitter;
+  #process;
+  #originalProcessEmit;
+  #originalProcessReallyExit;
+  #sigListeners = {};
+  #loaded = false;
+  constructor(process3) {
+    super();
+    this.#process = process3;
+    this.#sigListeners = {};
+    for (const sig of signals) {
+      this.#sigListeners[sig] = () => {
+        const listeners = this.#process.listeners(sig);
+        let { count } = this.#emitter;
+        const p = process3;
+        if (typeof p.__signal_exit_emitter__ === "object" && typeof p.__signal_exit_emitter__.count === "number") {
+          count += p.__signal_exit_emitter__.count;
+        }
+        if (listeners.length === count) {
+          this.unload();
+          const ret = this.#emitter.emit("exit", null, sig);
+          const s = sig === "SIGHUP" ? this.#hupSig : sig;
+          if (!ret)
+            process3.kill(process3.pid, s);
+        }
+      };
+    }
+    this.#originalProcessReallyExit = process3.reallyExit;
+    this.#originalProcessEmit = process3.emit;
+  }
+  onExit(cb, opts) {
+    if (!processOk(this.#process)) {
+      return () => {};
+    }
+    if (this.#loaded === false) {
+      this.load();
+    }
+    const ev = opts?.alwaysLast ? "afterExit" : "exit";
+    this.#emitter.on(ev, cb);
+    return () => {
+      this.#emitter.removeListener(ev, cb);
+      if (this.#emitter.listeners["exit"].length === 0 && this.#emitter.listeners["afterExit"].length === 0) {
+        this.unload();
+      }
+    };
+  }
+  load() {
+    if (this.#loaded) {
+      return;
+    }
+    this.#loaded = true;
+    this.#emitter.count += 1;
+    for (const sig of signals) {
+      try {
+        const fn = this.#sigListeners[sig];
+        if (fn)
+          this.#process.on(sig, fn);
+      } catch (_) {}
+    }
+    this.#process.emit = (ev, ...a) => {
+      return this.#processEmit(ev, ...a);
+    };
+    this.#process.reallyExit = (code) => {
+      return this.#processReallyExit(code);
+    };
+  }
+  unload() {
+    if (!this.#loaded) {
+      return;
+    }
+    this.#loaded = false;
+    signals.forEach((sig) => {
+      const listener = this.#sigListeners[sig];
+      if (!listener) {
+        throw new Error("Listener not defined for signal: " + sig);
+      }
+      try {
+        this.#process.removeListener(sig, listener);
+      } catch (_) {}
+    });
+    this.#process.emit = this.#originalProcessEmit;
+    this.#process.reallyExit = this.#originalProcessReallyExit;
+    this.#emitter.count -= 1;
+  }
+  #processReallyExit(code) {
+    if (!processOk(this.#process)) {
+      return 0;
+    }
+    this.#process.exitCode = code || 0;
+    this.#emitter.emit("exit", this.#process.exitCode, null);
+    return this.#originalProcessReallyExit.call(this.#process, this.#process.exitCode);
+  }
+  #processEmit(ev, ...args) {
+    const og = this.#originalProcessEmit;
+    if (ev === "exit" && processOk(this.#process)) {
+      if (typeof args[0] === "number") {
+        this.#process.exitCode = args[0];
+      }
+      const ret = og.call(this.#process, ev, ...args);
+      this.#emitter.emit("exit", this.#process.exitCode, null);
+      return ret;
+    } else {
+      return og.call(this.#process, ev, ...args);
+    }
+  }
+}
+var process3 = globalThis.process;
+var {
+  onExit,
+  load,
+  unload
+} = signalExitWrap(processOk(process3) ? new SignalExit(process3) : new SignalExitFallback);
+
+// ../../node_modules/@inquirer/core/dist/lib/screen-manager.js
+import { stripVTControlCharacters } from "node:util";
+
+// ../../node_modules/@inquirer/ansi/dist/index.js
+var ESC2 = "\x1B[";
+var cursorLeft = ESC2 + "G";
+var cursorHide = ESC2 + "?25l";
+var cursorShow = ESC2 + "?25h";
+var cursorUp = (rows = 1) => rows > 0 ? `${ESC2}${rows}A` : "";
+var cursorDown = (rows = 1) => rows > 0 ? `${ESC2}${rows}B` : "";
+var cursorTo = (x, y) => {
+  if (typeof y === "number" && !Number.isNaN(y)) {
+    return `${ESC2}${y + 1};${x + 1}H`;
+  }
+  return `${ESC2}${x + 1}G`;
+};
+var eraseLine = ESC2 + "2K";
+var eraseLines = (lines) => lines > 0 ? (eraseLine + cursorUp(1)).repeat(lines - 1) + eraseLine + cursorLeft : "";
+
+// ../../node_modules/@inquirer/core/dist/lib/screen-manager.js
+var height = (content) => content.split(`
+`).length;
+var lastLine = (content) => content.split(`
+`).pop() ?? "";
+
+class ScreenManager {
+  height = 0;
+  extraLinesUnderPrompt = 0;
+  cursorPos;
+  rl;
+  constructor(rl) {
+    this.rl = rl;
+    this.cursorPos = rl.getCursorPos();
+  }
+  write(content) {
+    this.rl.output.unmute();
+    this.rl.output.write(content);
+    this.rl.output.mute();
+  }
+  render(content, bottomContent = "") {
+    const promptLine = lastLine(content);
+    const rawPromptLine = stripVTControlCharacters(promptLine);
+    let prompt = rawPromptLine;
+    if (this.rl.line.length > 0) {
+      prompt = prompt.slice(0, -this.rl.line.length);
+    }
+    this.rl.setPrompt(prompt);
+    this.cursorPos = this.rl.getCursorPos();
+    const width = readlineWidth();
+    content = breakLines(content, width);
+    bottomContent = breakLines(bottomContent, width);
+    if (rawPromptLine.length % width === 0) {
+      content += `
+`;
+    }
+    let output = content + (bottomContent ? `
+` + bottomContent : "");
+    const promptLineUpDiff = Math.floor(rawPromptLine.length / width) - this.cursorPos.rows;
+    const bottomContentHeight = promptLineUpDiff + (bottomContent ? height(bottomContent) : 0);
+    if (bottomContentHeight > 0)
+      output += cursorUp(bottomContentHeight);
+    output += cursorTo(this.cursorPos.cols);
+    this.write(cursorDown(this.extraLinesUnderPrompt) + eraseLines(this.height) + output);
+    this.extraLinesUnderPrompt = bottomContentHeight;
+    this.height = height(output);
+  }
+  checkCursorPos() {
+    const cursorPos = this.rl.getCursorPos();
+    if (cursorPos.cols !== this.cursorPos.cols) {
+      this.write(cursorTo(cursorPos.cols));
+      this.cursorPos = cursorPos;
+    }
+  }
+  done({ clearContent }) {
+    this.rl.setPrompt("");
+    let output = cursorDown(this.extraLinesUnderPrompt);
+    output += clearContent ? eraseLines(this.height) : `
+`;
+    output += cursorLeft;
+    output += cursorShow;
+    this.write(output);
+    this.rl.close();
+  }
+}
+
+// ../../node_modules/@inquirer/core/dist/lib/promise-polyfill.js
+class PromisePolyfill extends Promise {
+  static withResolver() {
+    let resolve;
+    let reject;
+    const promise = new Promise((res, rej) => {
+      resolve = res;
+      reject = rej;
+    });
+    return { promise, resolve, reject };
+  }
+}
+
+// ../../node_modules/@inquirer/core/dist/lib/create-prompt.js
+import path from "node:path";
+var nativeSetImmediate = globalThis.setImmediate;
+function getCallSites() {
+  const savedPrepareStackTrace = Error.prepareStackTrace;
+  let result = [];
+  try {
+    Error.prepareStackTrace = (_, callSites) => {
+      const callSitesWithoutCurrent = callSites.slice(1);
+      result = callSitesWithoutCurrent;
+      return callSitesWithoutCurrent;
+    };
+    new Error().stack;
+  } catch {
+    return result;
+  }
+  Error.prepareStackTrace = savedPrepareStackTrace;
+  return result;
+}
+function createPrompt(view) {
+  const callSites = getCallSites();
+  const prompt = (config, context = {}) => {
+    const { input = process.stdin, signal } = context;
+    const cleanups = new Set;
+    const output = new import_mute_stream.default;
+    output.pipe(context.output ?? process.stdout);
+    const rl = readline2.createInterface({
+      terminal: true,
+      input,
+      output
+    });
+    output.mute();
+    const screen = new ScreenManager(rl);
+    const { promise, resolve, reject } = PromisePolyfill.withResolver();
+    const cancel = () => reject(new CancelPromptError);
+    if (signal) {
+      const abort = () => reject(new AbortPromptError({ cause: signal.reason }));
+      if (signal.aborted) {
+        abort();
+        return Object.assign(promise, { cancel });
+      }
+      signal.addEventListener("abort", abort);
+      cleanups.add(() => signal.removeEventListener("abort", abort));
+    }
+    cleanups.add(onExit((code, signal2) => {
+      reject(new ExitPromptError(`User force closed the prompt with ${code} ${signal2}`));
+    }));
+    const sigint = () => reject(new ExitPromptError(`User force closed the prompt with SIGINT`));
+    rl.on("SIGINT", sigint);
+    cleanups.add(() => rl.removeListener("SIGINT", sigint));
+    return withHooks(rl, (cycle) => {
+      const hooksCleanup = AsyncResource3.bind(() => effectScheduler.clearAll());
+      rl.on("close", hooksCleanup);
+      cleanups.add(() => rl.removeListener("close", hooksCleanup));
+      const startCycle = () => {
+        const checkCursorPos = () => screen.checkCursorPos();
+        rl.input.on("keypress", checkCursorPos);
+        cleanups.add(() => rl.input.removeListener("keypress", checkCursorPos));
+        let pendingDone = null;
+        cycle(() => {
+          let effectsSettled = false;
+          try {
+            const nextView = view(config, (value) => {
+              if (effectsSettled) {
+                resolve(value);
+              } else {
+                pendingDone = { value };
+              }
+            });
+            if (nextView === undefined) {
+              let callerFilename = callSites[1]?.getFileName();
+              if (callerFilename && !callerFilename.startsWith("file://")) {
+                callerFilename = path.resolve(callerFilename);
+              }
+              throw new Error(`Prompt functions must return a string.
+    at ${callerFilename}`);
+            }
+            const [content, bottomContent] = typeof nextView === "string" ? [nextView] : nextView;
+            screen.render(content, bottomContent);
+            effectScheduler.run();
+          } catch (error) {
+            reject(error);
+          }
+          effectsSettled = true;
+          if (pendingDone !== null) {
+            const { value } = pendingDone;
+            pendingDone = null;
+            resolve(value);
+          }
+        });
+      };
+      if ("readableFlowing" in input) {
+        nativeSetImmediate(startCycle);
+      } else {
+        startCycle();
+      }
+      return Object.assign(promise.then((answer) => {
+        effectScheduler.clearAll();
+        return answer;
+      }, (error) => {
+        effectScheduler.clearAll();
+        throw error;
+      }).finally(() => {
+        cleanups.forEach((cleanup) => cleanup());
+        screen.done({ clearContent: Boolean(context.clearPromptOnDone) });
+        output.end();
+      }).then(() => promise), { cancel });
+    });
+  };
+  return prompt;
+}
+// ../../node_modules/@inquirer/core/dist/lib/Separator.js
+import { styleText as styleText2 } from "node:util";
+class Separator {
+  separator = styleText2("dim", Array.from({ length: 15 }).join(dist_default.line));
+  type = "separator";
+  constructor(separator) {
+    if (separator) {
+      this.separator = separator;
+    }
+  }
+  static isSeparator(choice) {
+    return Boolean(choice && typeof choice === "object" && "type" in choice && choice.type === "separator");
+  }
+}
+// ../../node_modules/@inquirer/confirm/dist/index.js
+function getBooleanValue(value, defaultValue) {
+  let answer = defaultValue !== false;
+  if (/^(y|yes)/i.test(value))
+    answer = true;
+  else if (/^(n|no)/i.test(value))
+    answer = false;
+  return answer;
+}
+function boolToString(value) {
+  return value ? "Yes" : "No";
+}
+var dist_default4 = createPrompt((config, done) => {
+  const { transformer = boolToString } = config;
+  const [status, setStatus] = useState("idle");
+  const [value, setValue] = useState("");
+  const theme = makeTheme(config.theme);
+  const prefix = usePrefix({ status, theme });
+  useKeypress((key, rl) => {
+    if (status !== "idle")
+      return;
+    if (isEnterKey(key)) {
+      const answer = getBooleanValue(value, config.default);
+      setValue(transformer(answer));
+      setStatus("done");
+      done(answer);
+    } else if (isTabKey(key)) {
+      const answer = boolToString(!getBooleanValue(value, config.default));
+      rl.clearLine(0);
+      rl.write(answer);
+      setValue(answer);
+    } else {
+      setValue(rl.line);
+    }
+  });
+  let formattedValue = value;
+  let defaultValue = "";
+  if (status === "done") {
+    formattedValue = theme.style.answer(value);
+  } else {
+    defaultValue = ` ${theme.style.defaultAnswer(config.default === false ? "y/N" : "Y/n")}`;
+  }
+  const message = theme.style.message(config.message, status);
+  return `${prefix} ${message}${defaultValue} ${formattedValue}`;
+});
+// ../../node_modules/@inquirer/input/dist/index.js
+var inputTheme = {
+  validationFailureMode: "keep"
+};
+var dist_default5 = createPrompt((config, done) => {
+  const { prefill = "tab" } = config;
+  const theme = makeTheme(inputTheme, config.theme);
+  const [status, setStatus] = useState("idle");
+  const [defaultValue, setDefaultValue] = useState(String(config.default ?? ""));
+  const [errorMsg, setError] = useState();
+  const [value, setValue] = useState("");
+  const prefix = usePrefix({ status, theme });
+  async function validate(value2) {
+    const { required, pattern, patternError = "Invalid input" } = config;
+    if (required && !value2) {
+      return "You must provide a value";
+    }
+    if (pattern && !pattern.test(value2)) {
+      return patternError;
+    }
+    if (typeof config.validate === "function") {
+      return await config.validate(value2) || "You must provide a valid value";
+    }
+    return true;
+  }
+  useKeypress(async (key, rl) => {
+    if (status !== "idle") {
+      return;
+    }
+    if (isEnterKey(key)) {
+      const answer = value || defaultValue;
+      setStatus("loading");
+      const isValid = await validate(answer);
+      if (isValid === true) {
+        setValue(answer);
+        setStatus("done");
+        done(answer);
+      } else {
+        if (theme.validationFailureMode === "clear") {
+          setValue("");
+        } else {
+          rl.write(value);
+        }
+        setError(isValid);
+        setStatus("idle");
+      }
+    } else if (isBackspaceKey(key) && !value) {
+      setDefaultValue("");
+    } else if (isTabKey(key) && !value) {
+      setDefaultValue("");
+      rl.clearLine(0);
+      rl.write(defaultValue);
+      setValue(defaultValue);
+    } else {
+      setValue(rl.line);
+      setError(undefined);
+    }
+  });
+  useEffect((rl) => {
+    if (prefill === "editable" && defaultValue) {
+      rl.write(defaultValue);
+      setValue(defaultValue);
+    }
+  }, []);
+  const message = theme.style.message(config.message, status);
+  let formattedValue = value;
+  if (typeof config.transformer === "function") {
+    formattedValue = config.transformer(value, { isFinal: status === "done" });
+  } else if (status === "done") {
+    formattedValue = theme.style.answer(value);
+  }
+  let defaultStr;
+  if (defaultValue && status !== "done" && !value) {
+    defaultStr = theme.style.defaultAnswer(defaultValue);
+  }
+  let error = "";
+  if (errorMsg) {
+    error = theme.style.error(errorMsg);
+  }
+  return [
+    [prefix, message, defaultStr, formattedValue].filter((v) => v !== undefined).join(" "),
+    error
+  ];
+});
+// ../../node_modules/@inquirer/password/dist/index.js
+var passwordTheme = {
+  style: {
+    maskedText: "[input is masked]"
+  }
+};
+var dist_default6 = createPrompt((config, done) => {
+  const { validate = () => true } = config;
+  const theme = makeTheme(passwordTheme, config.theme);
+  const [status, setStatus] = useState("idle");
+  const [errorMsg, setError] = useState();
+  const [value, setValue] = useState("");
+  const prefix = usePrefix({ status, theme });
+  useKeypress(async (key, rl) => {
+    if (status !== "idle") {
+      return;
+    }
+    if (isEnterKey(key)) {
+      const answer = value;
+      setStatus("loading");
+      const isValid = await validate(answer);
+      if (isValid === true) {
+        setValue(answer);
+        setStatus("done");
+        done(answer);
+      } else {
+        rl.write(value);
+        setError(isValid || "You must provide a valid value");
+        setStatus("idle");
+      }
+    } else {
+      setValue(rl.line);
+      setError(undefined);
+    }
+  });
+  const message = theme.style.message(config.message, status);
+  let formattedValue = "";
+  let helpTip;
+  if (config.mask) {
+    const maskChar = typeof config.mask === "string" ? config.mask : "*";
+    formattedValue = maskChar.repeat(value.length);
+  } else if (status !== "done") {
+    helpTip = `${theme.style.help(theme.style.maskedText)}${cursorHide}`;
+  }
+  if (status === "done") {
+    formattedValue = theme.style.answer(formattedValue);
+  }
+  let error = "";
+  if (errorMsg) {
+    error = theme.style.error(errorMsg);
+  }
+  return [[prefix, message, config.mask ? formattedValue : helpTip].join(" "), error];
+});
+// ../../node_modules/@inquirer/select/dist/index.js
+import { styleText as styleText3 } from "node:util";
+var selectTheme = {
+  icon: { cursor: dist_default.pointer },
+  style: {
+    disabled: (text) => styleText3("dim", text),
+    description: (text) => styleText3("cyan", text),
+    keysHelpTip: (keys) => keys.map(([key, action]) => `${styleText3("bold", key)} ${styleText3("dim", action)}`).join(styleText3("dim", " • "))
+  },
+  i18n: { disabledError: "This option is disabled and cannot be selected." },
+  indexMode: "hidden",
+  keybindings: []
+};
+function isSelectable(item) {
+  return !Separator.isSeparator(item) && !item.disabled;
+}
+function isNavigable(item) {
+  return !Separator.isSeparator(item);
+}
+function normalizeChoices(choices) {
+  return choices.map((choice) => {
+    if (Separator.isSeparator(choice))
+      return choice;
+    if (typeof choice !== "object" || choice === null || !("value" in choice)) {
+      const name2 = String(choice);
+      return {
+        value: choice,
+        name: name2,
+        short: name2,
+        disabled: false
+      };
+    }
+    const name = choice.name ?? String(choice.value);
+    const normalizedChoice = {
+      value: choice.value,
+      name,
+      short: choice.short ?? name,
+      disabled: choice.disabled ?? false
+    };
+    if (choice.description) {
+      normalizedChoice.description = choice.description;
+    }
+    return normalizedChoice;
+  });
+}
+var dist_default7 = createPrompt((config, done) => {
+  const { loop = true, pageSize = 7 } = config;
+  const theme = makeTheme(selectTheme, config.theme);
+  const { keybindings } = theme;
+  const [status, setStatus] = useState("idle");
+  const prefix = usePrefix({ status, theme });
+  const searchTimeoutRef = useRef();
+  const searchEnabled = !keybindings.includes("vim");
+  const items = useMemo(() => normalizeChoices(config.choices), [config.choices]);
+  const bounds = useMemo(() => {
+    const first = items.findIndex(isNavigable);
+    const last = items.findLastIndex(isNavigable);
+    if (first === -1) {
+      throw new ValidationError("[select prompt] No selectable choices. All choices are disabled.");
+    }
+    return { first, last };
+  }, [items]);
+  const defaultItemIndex = useMemo(() => {
+    if (!("default" in config))
+      return -1;
+    return items.findIndex((item) => isSelectable(item) && item.value === config.default);
+  }, [config.default, items]);
+  const [active, setActive] = useState(defaultItemIndex === -1 ? bounds.first : defaultItemIndex);
+  const selectedChoice = items[active];
+  if (selectedChoice == null || Separator.isSeparator(selectedChoice)) {
+    throw new Error("Active index does not point to a choice");
+  }
+  const [errorMsg, setError] = useState();
+  useKeypress((key, rl) => {
+    clearTimeout(searchTimeoutRef.current);
+    if (errorMsg) {
+      setError(undefined);
+    }
+    if (isEnterKey(key)) {
+      if (selectedChoice.disabled) {
+        setError(theme.i18n.disabledError);
+      } else {
+        setStatus("done");
+        done(selectedChoice.value);
+      }
+    } else if (isUpKey(key, keybindings) || isDownKey(key, keybindings)) {
+      rl.clearLine(0);
+      if (loop || isUpKey(key, keybindings) && active !== bounds.first || isDownKey(key, keybindings) && active !== bounds.last) {
+        const offset = isUpKey(key, keybindings) ? -1 : 1;
+        let next = active;
+        do {
+          next = (next + offset + items.length) % items.length;
+        } while (!isNavigable(items[next]));
+        setActive(next);
+      }
+    } else if (isNumberKey(key) && !Number.isNaN(Number(rl.line))) {
+      const selectedIndex = Number(rl.line) - 1;
+      let selectableIndex = -1;
+      const position = items.findIndex((item2) => {
+        if (Separator.isSeparator(item2))
+          return false;
+        selectableIndex++;
+        return selectableIndex === selectedIndex;
+      });
+      const item = items[position];
+      if (item != null && isSelectable(item)) {
+        setActive(position);
+      }
+      searchTimeoutRef.current = setTimeout(() => {
+        rl.clearLine(0);
+      }, 700);
+    } else if (isBackspaceKey(key)) {
+      rl.clearLine(0);
+    } else if (searchEnabled) {
+      const searchTerm = rl.line.toLowerCase();
+      const matchIndex = items.findIndex((item) => {
+        if (Separator.isSeparator(item) || !isSelectable(item))
+          return false;
+        return item.name.toLowerCase().startsWith(searchTerm);
+      });
+      if (matchIndex !== -1) {
+        setActive(matchIndex);
+      }
+      searchTimeoutRef.current = setTimeout(() => {
+        rl.clearLine(0);
+      }, 700);
+    }
+  });
+  useEffect(() => () => {
+    clearTimeout(searchTimeoutRef.current);
+  }, []);
+  const message = theme.style.message(config.message, status);
+  const helpLine = theme.style.keysHelpTip([
+    ["↑↓", "navigate"],
+    ["⏎", "select"]
+  ]);
+  let separatorCount = 0;
+  const page = usePagination({
+    items,
+    active,
+    renderItem({ item, isActive, index }) {
+      if (Separator.isSeparator(item)) {
+        separatorCount++;
+        return ` ${item.separator}`;
+      }
+      const cursor = isActive ? theme.icon.cursor : " ";
+      const indexLabel = theme.indexMode === "number" ? `${index + 1 - separatorCount}. ` : "";
+      if (item.disabled) {
+        const disabledLabel = typeof item.disabled === "string" ? item.disabled : "(disabled)";
+        const disabledCursor = isActive ? theme.icon.cursor : "-";
+        return theme.style.disabled(`${disabledCursor} ${indexLabel}${item.name} ${disabledLabel}`);
+      }
+      const color = isActive ? theme.style.highlight : (x) => x;
+      return color(`${cursor} ${indexLabel}${item.name}`);
+    },
+    pageSize,
+    loop
+  });
+  if (status === "done") {
+    return [prefix, message, theme.style.answer(selectedChoice.short)].filter(Boolean).join(" ");
+  }
+  const { description } = selectedChoice;
+  const lines = [
+    [prefix, message].filter(Boolean).join(" "),
+    page,
+    " ",
+    description ? theme.style.description(description) : "",
+    errorMsg ? theme.style.error(errorMsg) : "",
+    helpLine
+  ].filter(Boolean).join(`
+`).trimEnd();
+  return `${lines}${cursorHide}`;
+});
 // ../audit-core/src/workos-client.mjs
 import os from "node:os";
-import path from "node:path";
+import path2 from "node:path";
 import { existsSync, readFileSync } from "node:fs";
-import { createRequire } from "node:module";
+import { createRequire as createRequire2 } from "node:module";
 
 // ../../node_modules/eventemitter3/index.mjs
 var import__ = __toESM(require_eventemitter3(), 1);
@@ -3885,9 +5833,9 @@ var HttpClient = class HttpClient2 {
     else
       return `${userAgent}/${this.getClientName()}`;
   }
-  static getResourceURL(baseURL, path, params) {
+  static getResourceURL(baseURL, path2, params) {
     const queryString = HttpClient2.getQueryString(params);
-    return new URL([path, queryString].filter(Boolean).join("?"), baseURL).toString();
+    return new URL([path2, queryString].filter(Boolean).join("?"), baseURL).toString();
   }
   static getQueryString(queryObj) {
     if (!queryObj)
@@ -3908,8 +5856,8 @@ var HttpClient = class HttpClient2 {
       return entity;
     return JSON.stringify(entity);
   }
-  static isPathRetryable(path) {
-    return path.startsWith("/fga/") || path.startsWith("/vault/") || path.startsWith("/audit_logs/events");
+  static isPathRetryable(path2) {
+    return path2.startsWith("/fga/") || path2.startsWith("/vault/") || path2.startsWith("/audit_logs/events");
   }
   getSleepTimeInMilliseconds(retryAttempt) {
     return this.MINIMUM_SLEEP_TIME_IN_MILLISECONDS * Math.pow(this.BACKOFF_MULTIPLIER, retryAttempt) * (Math.random() + 0.5);
@@ -3970,16 +5918,16 @@ var FetchHttpClient = class extends HttpClient {
   getClientName() {
     return "fetch";
   }
-  async get(path, options) {
-    const resourceURL = HttpClient.getResourceURL(this.baseURL, path, options.params);
-    if (HttpClient.isPathRetryable(path))
+  async get(path2, options) {
+    const resourceURL = HttpClient.getResourceURL(this.baseURL, path2, options.params);
+    if (HttpClient.isPathRetryable(path2))
       return await this.fetchRequestWithRetry(resourceURL, "GET", null, options.headers);
     else
       return await this.fetchRequest(resourceURL, "GET", null, options.headers);
   }
-  async post(path, entity, options) {
-    const resourceURL = HttpClient.getResourceURL(this.baseURL, path, options.params);
-    if (HttpClient.isPathRetryable(path))
+  async post(path2, entity, options) {
+    const resourceURL = HttpClient.getResourceURL(this.baseURL, path2, options.params);
+    if (HttpClient.isPathRetryable(path2))
       return await this.fetchRequestWithRetry(resourceURL, "POST", HttpClient.getBody(entity), {
         ...HttpClient.getContentTypeHeader(entity),
         ...options.headers
@@ -3990,9 +5938,9 @@ var FetchHttpClient = class extends HttpClient {
         ...options.headers
       });
   }
-  async put(path, entity, options) {
-    const resourceURL = HttpClient.getResourceURL(this.baseURL, path, options.params);
-    if (HttpClient.isPathRetryable(path))
+  async put(path2, entity, options) {
+    const resourceURL = HttpClient.getResourceURL(this.baseURL, path2, options.params);
+    if (HttpClient.isPathRetryable(path2))
       return await this.fetchRequestWithRetry(resourceURL, "PUT", HttpClient.getBody(entity), {
         ...HttpClient.getContentTypeHeader(entity),
         ...options.headers
@@ -4003,9 +5951,9 @@ var FetchHttpClient = class extends HttpClient {
         ...options.headers
       });
   }
-  async patch(path, entity, options) {
-    const resourceURL = HttpClient.getResourceURL(this.baseURL, path, options.params);
-    if (HttpClient.isPathRetryable(path))
+  async patch(path2, entity, options) {
+    const resourceURL = HttpClient.getResourceURL(this.baseURL, path2, options.params);
+    if (HttpClient.isPathRetryable(path2))
       return await this.fetchRequestWithRetry(resourceURL, "PATCH", HttpClient.getBody(entity), {
         ...HttpClient.getContentTypeHeader(entity),
         ...options.headers
@@ -4016,16 +5964,16 @@ var FetchHttpClient = class extends HttpClient {
         ...options.headers
       });
   }
-  async delete(path, options) {
-    const resourceURL = HttpClient.getResourceURL(this.baseURL, path, options.params);
-    if (HttpClient.isPathRetryable(path))
+  async delete(path2, options) {
+    const resourceURL = HttpClient.getResourceURL(this.baseURL, path2, options.params);
+    if (HttpClient.isPathRetryable(path2))
       return await this.fetchRequestWithRetry(resourceURL, "DELETE", null, options.headers);
     else
       return await this.fetchRequest(resourceURL, "DELETE", null, options.headers);
   }
-  async deleteWithBody(path, entity, options) {
-    const resourceURL = HttpClient.getResourceURL(this.baseURL, path, options.params);
-    if (HttpClient.isPathRetryable(path))
+  async deleteWithBody(path2, entity, options) {
+    const resourceURL = HttpClient.getResourceURL(this.baseURL, path2, options.params);
+    if (HttpClient.isPathRetryable(path2))
       return await this.fetchRequestWithRetry(resourceURL, "DELETE", HttpClient.getBody(entity), {
         ...HttpClient.getContentTypeHeader(entity),
         ...options.headers
@@ -4159,9 +6107,9 @@ var ApiKeyRequiredException = class extends Error {
   status = 403;
   name = "ApiKeyRequiredException";
   path;
-  constructor(path) {
-    super(`API key required for "${path}". For server-side apps, initialize with: new WorkOS("sk_..."). For browser/mobile/CLI apps, use authenticateWithCodeAndVerifier() and authenticateWithRefreshToken() which work without an API key.`);
-    this.path = path;
+  constructor(path2) {
+    super(`API key required for "${path2}". For server-side apps, initialize with: new WorkOS("sk_..."). For browser/mobile/CLI apps, use authenticateWithCodeAndVerifier() and authenticateWithRefreshToken() which work without an API key.`);
+    this.path = path2;
   }
 };
 var GenericServerException = class extends Error {
@@ -4183,15 +6131,15 @@ var BadRequestException = class extends Error {
   code;
   errors;
   requestID;
-  constructor({ code, errors, message: message2, requestID }) {
+  constructor({ code, errors: errors2, message: message2, requestID }) {
     super();
     this.requestID = requestID;
     if (message2)
       this.message = message2;
     if (code)
       this.code = code;
-    if (errors)
-      this.errors = errors;
+    if (errors2)
+      this.errors = errors2;
   }
 };
 var NotFoundException = class extends Error {
@@ -4200,10 +6148,10 @@ var NotFoundException = class extends Error {
   message;
   code;
   requestID;
-  constructor({ code, message: message2, path, requestID }) {
+  constructor({ code, message: message2, path: path2, requestID }) {
     super();
     this.code = code;
-    this.message = message2 ?? `The requested path '${path}' could not be found.`;
+    this.message = message2 ?? `The requested path '${path2}' could not be found.`;
     this.requestID = requestID;
   }
 };
@@ -4254,17 +6202,17 @@ var UnprocessableEntityException = class extends Error {
   message = "Unprocessable entity";
   code;
   requestID;
-  constructor({ code, errors, message: message2, requestID }) {
+  constructor({ code, errors: errors2, message: message2, requestID }) {
     super();
     this.requestID = requestID;
     if (message2)
       this.message = message2;
     if (code)
       this.code = code;
-    if (errors) {
-      this.message = `The following ${errors.length === 1 ? "requirement" : "requirements"} must be met:
+    if (errors2) {
+      this.message = `The following ${errors2.length === 1 ? "requirement" : "requirements"} must be met:
 `;
-      for (const { code: code2 } of errors)
+      for (const { code: code2 } of errors2)
         this.message = this.message.concat(`	${code2}
 `);
     }
@@ -6260,18 +8208,18 @@ var detectedRuntime = null;
 function detectRuntime() {
   if (detectedRuntime)
     return detectedRuntime;
-  const global = globalThis;
+  const global2 = globalThis;
   if (typeof process !== "undefined" && process.release?.name === "node")
     detectedRuntime = "node";
-  else if (typeof global.Deno !== "undefined")
+  else if (typeof global2.Deno !== "undefined")
     detectedRuntime = "deno";
   else if (typeof navigator !== "undefined" && navigator.userAgent?.includes("Bun"))
     detectedRuntime = "bun";
   else if (typeof navigator !== "undefined" && navigator.userAgent?.includes("Cloudflare"))
     detectedRuntime = "cloudflare";
-  else if (typeof global !== "undefined" && "fastly" in global)
+  else if (typeof global2 !== "undefined" && "fastly" in global2)
     detectedRuntime = "fastly";
-  else if (typeof global !== "undefined" && "EdgeRuntime" in global)
+  else if (typeof global2 !== "undefined" && "EdgeRuntime" in global2)
     detectedRuntime = "edge-light";
   else
     detectedRuntime = "other";
@@ -6279,7 +8227,7 @@ function detectRuntime() {
 }
 function getEnvironmentVariable(key) {
   const runtime = detectRuntime();
-  const global = globalThis;
+  const global2 = globalThis;
   try {
     switch (runtime) {
       case "node":
@@ -6287,13 +8235,13 @@ function getEnvironmentVariable(key) {
       case "edge-light":
         return process.env[key];
       case "deno":
-        return global.Deno.env.get(key);
+        return global2.Deno.env.get(key);
       case "cloudflare":
-        return global.env?.[key] ?? global[key];
+        return global2.env?.[key] ?? global2[key];
       case "fastly":
-        return global[key];
+        return global2[key];
       default:
-        return process?.env?.[key] ?? global.env?.[key] ?? global[key];
+        return process?.env?.[key] ?? global2.env?.[key] ?? global2[key];
     }
   } catch {
     return;
@@ -8196,9 +10144,9 @@ var WorkOS = class {
     if (!this.hasApiKey)
       throw new ApiKeyRequiredException(methodName);
   }
-  async post(path, entity, options = {}) {
+  async post(path2, entity, options = {}) {
     if (!options.skipApiKeyCheck)
-      this.requireApiKey(path);
+      this.requireApiKey(path2);
     const requestHeaders = {};
     if (options.idempotencyKey)
       requestHeaders[HEADER_IDEMPOTENCY_KEY] = options.idempotencyKey;
@@ -8206,13 +10154,13 @@ var WorkOS = class {
       requestHeaders[HEADER_WARRANT_TOKEN] = options.warrantToken;
     let res;
     try {
-      res = await this.client.post(path, entity, {
+      res = await this.client.post(path2, entity, {
         params: options.query,
         headers: requestHeaders
       });
     } catch (error) {
       this.handleHttpError({
-        path,
+        path: path2,
         error
       });
       throw error;
@@ -8224,9 +10172,9 @@ var WorkOS = class {
       throw error;
     }
   }
-  async get(path, options = {}) {
+  async get(path2, options = {}) {
     if (!options.skipApiKeyCheck)
-      this.requireApiKey(path);
+      this.requireApiKey(path2);
     const requestHeaders = {};
     if (options.accessToken)
       requestHeaders[HEADER_AUTHORIZATION] = `Bearer ${options.accessToken}`;
@@ -8234,13 +10182,13 @@ var WorkOS = class {
       requestHeaders[HEADER_WARRANT_TOKEN] = options.warrantToken;
     let res;
     try {
-      res = await this.client.get(path, {
+      res = await this.client.get(path2, {
         params: options.query,
         headers: requestHeaders
       });
     } catch (error) {
       this.handleHttpError({
-        path,
+        path: path2,
         error
       });
       throw error;
@@ -8252,21 +10200,21 @@ var WorkOS = class {
       throw error;
     }
   }
-  async put(path, entity, options = {}) {
+  async put(path2, entity, options = {}) {
     if (!options.skipApiKeyCheck)
-      this.requireApiKey(path);
+      this.requireApiKey(path2);
     const requestHeaders = {};
     if (options.idempotencyKey)
       requestHeaders[HEADER_IDEMPOTENCY_KEY] = options.idempotencyKey;
     let res;
     try {
-      res = await this.client.put(path, entity, {
+      res = await this.client.put(path2, entity, {
         params: options.query,
         headers: requestHeaders
       });
     } catch (error) {
       this.handleHttpError({
-        path,
+        path: path2,
         error
       });
       throw error;
@@ -8278,21 +10226,21 @@ var WorkOS = class {
       throw error;
     }
   }
-  async patch(path, entity, options = {}) {
+  async patch(path2, entity, options = {}) {
     if (!options.skipApiKeyCheck)
-      this.requireApiKey(path);
+      this.requireApiKey(path2);
     const requestHeaders = {};
     if (options.idempotencyKey)
       requestHeaders[HEADER_IDEMPOTENCY_KEY] = options.idempotencyKey;
     let res;
     try {
-      res = await this.client.patch(path, entity, {
+      res = await this.client.patch(path2, entity, {
         params: options.query,
         headers: requestHeaders
       });
     } catch (error) {
       this.handleHttpError({
-        path,
+        path: path2,
         error
       });
       throw error;
@@ -8304,25 +10252,25 @@ var WorkOS = class {
       throw error;
     }
   }
-  async delete(path, query) {
-    this.requireApiKey(path);
+  async delete(path2, query) {
+    this.requireApiKey(path2);
     try {
-      await this.client.delete(path, { params: query });
+      await this.client.delete(path2, { params: query });
     } catch (error) {
       this.handleHttpError({
-        path,
+        path: path2,
         error
       });
       throw error;
     }
   }
-  async deleteWithBody(path, entity) {
-    this.requireApiKey(path);
+  async deleteWithBody(path2, entity) {
+    this.requireApiKey(path2);
     try {
-      await this.client.deleteWithBody(path, entity, {});
+      await this.client.deleteWithBody(path2, entity, {});
     } catch (error) {
       this.handleHttpError({
-        path,
+        path: path2,
         error
       });
       throw error;
@@ -8345,14 +10293,14 @@ var WorkOS = class {
       });
     }
   }
-  handleHttpError({ path, error }) {
+  handleHttpError({ path: path2, error }) {
     if (!(error instanceof HttpClientError))
       throw new Error(`Unexpected error: ${error}`, { cause: error });
     const { response } = error;
     if (response) {
       const { status, data, headers } = response;
       const requestID = headers["X-Request-ID"] ?? "";
-      const { code, error_description: errorDescription, error: error2, errors, message: message2 } = data;
+      const { code, error_description: errorDescription, error: error2, errors: errors2, message: message2 } = data;
       switch (status) {
         case 401:
           throw new UnauthorizedException(requestID);
@@ -8365,7 +10313,7 @@ var WorkOS = class {
         case 422:
           throw new UnprocessableEntityException({
             code,
-            errors,
+            errors: errors2,
             message: message2,
             requestID
           });
@@ -8373,7 +10321,7 @@ var WorkOS = class {
           throw new NotFoundException({
             code,
             message: message2,
-            path,
+            path: path2,
             requestID
           });
         case 429: {
@@ -8383,10 +10331,10 @@ var WorkOS = class {
         default:
           if (error2 || errorDescription)
             throw new OauthException(status, requestID, error2, errorDescription, data);
-          else if (code && errors)
+          else if (code && errors2)
             throw new BadRequestException({
               code,
-              errors,
+              errors: errors2,
               message: message2,
               requestID
             });
@@ -8449,7 +10397,7 @@ function maskSecret(value) {
 }
 
 // ../audit-core/src/workos-client.mjs
-var requireFromHere = createRequire(import.meta.url);
+var requireFromHere = createRequire2(import.meta.url);
 var cachedKeyringEntry = null;
 function loadKeyringEntry() {
   if (cachedKeyringEntry !== null)
@@ -8472,7 +10420,7 @@ function readWorkosCliConfig() {
     } catch {}
   }
   try {
-    const filePath = path.join(os.homedir(), ".workos", "config.json");
+    const filePath = path2.join(os.homedir(), ".workos", "config.json");
     if (existsSync(filePath))
       return JSON.parse(readFileSync(filePath, "utf8"));
   } catch {}
@@ -8531,7 +10479,7 @@ function createSdk(config) {
 
 // ../audit-core/src/config.mjs
 import os2 from "node:os";
-import path2 from "node:path";
+import path3 from "node:path";
 import { chmodSync, existsSync as existsSync2, mkdirSync, readFileSync as readFileSync2, rmSync, writeFileSync } from "node:fs";
 var CONFIG_KEYS = [
   "apiKey",
@@ -8570,7 +10518,7 @@ function createConfigLoader({
       if (value)
         return value;
     }
-    return path2.join(os2.homedir(), defaultConfigDir, "workos-audit", "config.json");
+    return path3.join(os2.homedir(), defaultConfigDir, "workos-audit", "config.json");
   }
   function readFileConfig() {
     const filePath = getConfigFilePath();
@@ -8613,7 +10561,7 @@ function createConfigLoader({
           sanitized[key] = parsed;
       }
     }
-    mkdirSync(path2.dirname(filePath), { recursive: true, mode: 448 });
+    mkdirSync(path3.dirname(filePath), { recursive: true, mode: 448 });
     writeFileSync(filePath, `${JSON.stringify(sanitized, null, 2)}
 `, { mode: 384 });
     chmodSync(filePath, 384);
@@ -8761,6 +10709,134 @@ var {
   loadConfig
 } = configLoader;
 
+// scripts/claude-audit-schemas.mjs
+var TOKEN_METADATA = {
+  turn_input_tokens: "number",
+  turn_output_tokens: "number",
+  turn_cache_creation_input_tokens: "number",
+  turn_cache_read_input_tokens: "number",
+  turn_total_tokens: "number",
+  turn_model_calls: "number",
+  session_input_tokens: "number",
+  session_output_tokens: "number",
+  session_cache_creation_input_tokens: "number",
+  session_cache_read_input_tokens: "number",
+  session_total_tokens: "number",
+  session_model_calls: "number"
+};
+function getClaudeAuditSchemaDefinitions(prefix = "claude") {
+  return [
+    {
+      action: `${prefix}.session.started`,
+      note: "Claude Code session start / resume events.",
+      targets: [{ type: "session" }],
+      metadata: {
+        source: "string",
+        cwd: "string",
+        transcript_path: "string",
+        permission_mode: "string"
+      }
+    },
+    {
+      action: `${prefix}.session.ended`,
+      note: "Claude Code session termination events.",
+      targets: [{ type: "session" }],
+      metadata: {
+        reason: "string",
+        cwd: "string",
+        transcript_path: "string",
+        permission_mode: "string",
+        ...TOKEN_METADATA
+      }
+    },
+    {
+      action: `${prefix}.prompt.submitted`,
+      note: "User prompt submission before Claude processes it.",
+      targets: [{ type: "session" }],
+      metadata: {
+        prompt_length: "number",
+        prompt_sha256: "string",
+        prompt_preview: "string",
+        cwd: "string",
+        permission_mode: "string"
+      }
+    },
+    {
+      action: `${prefix}.tool.called`,
+      note: "Before a Claude tool call executes.",
+      targets: [
+        { type: "session" },
+        { type: "tool", metadata: { tool_name: "string" } }
+      ],
+      metadata: {
+        tool_name: "string",
+        tool_input_sha256: "string",
+        tool_input_bytes: "number",
+        command_preview: "string",
+        command_truncated: "boolean",
+        blocked: "boolean",
+        cwd: "string",
+        permission_mode: "string"
+      }
+    },
+    {
+      action: `${prefix}.tool.completed`,
+      note: "After a Claude tool call succeeds.",
+      targets: [
+        { type: "session" },
+        { type: "tool", metadata: { tool_name: "string" } }
+      ],
+      metadata: {
+        tool_name: "string",
+        duration_ms: "number",
+        is_error: "boolean",
+        result_sha256: "string",
+        result_bytes: "number",
+        cwd: "string",
+        permission_mode: "string"
+      }
+    },
+    {
+      action: `${prefix}.tool.failed`,
+      note: "After a Claude tool call fails.",
+      targets: [
+        { type: "session" },
+        { type: "tool", metadata: { tool_name: "string" } }
+      ],
+      metadata: {
+        tool_name: "string",
+        duration_ms: "number",
+        is_error: "boolean",
+        error_preview: "string",
+        error_sha256: "string",
+        cwd: "string",
+        permission_mode: "string"
+      }
+    },
+    {
+      action: `${prefix}.turn.completed`,
+      note: "Claude finished a response turn.",
+      targets: [{ type: "session" }],
+      metadata: {
+        cwd: "string",
+        permission_mode: "string",
+        ...TOKEN_METADATA
+      }
+    },
+    {
+      action: `${prefix}.turn.failed`,
+      note: "Claude turn ended with an API/runtime failure.",
+      targets: [{ type: "session" }],
+      metadata: {
+        error_type: "string",
+        cwd: "string",
+        permission_mode: "string",
+        ...TOKEN_METADATA
+      }
+    }
+  ];
+}
+
 // scripts/configure.mjs
 function usage() {
   console.log(`Usage: node scripts/configure.mjs [--show|--clear|--reconfigure]
@@ -8788,61 +10864,93 @@ function showConfig() {
     recordingEnabled: config.recordingEnabled !== false
   }, null, 2));
 }
-async function hiddenQuestion(rl, prompt, existingValue) {
+async function promptApiKey(existingValue) {
   if (existingValue) {
-    const keep = await rl.question(`${prompt} [currently ${maskSecret(existingValue)}; press Enter to keep]: `);
-    if (!keep.trim())
-      return existingValue;
-    return keep.trim();
-  }
-  output.write(prompt);
-  const canDisableEcho = input.isTTY && output.isTTY;
-  if (canDisableEcho)
-    spawnSync("stty", ["-echo"], { stdio: "inherit" });
-  try {
-    const answer = await rl.question("");
-    output.write(`
-`);
-    return answer.trim();
-  } finally {
-    if (canDisableEcho)
-      spawnSync("stty", ["echo"], { stdio: "inherit" });
-  }
-}
-async function optionalQuestion(rl, prompt, existingValue, fallback) {
-  const suffix = existingValue ? ` [currently ${existingValue}; press Enter to keep]` : fallback ? ` [default ${fallback}]` : " [optional]";
-  const answer = await rl.question(`${prompt}${suffix}: `);
-  return trimToUndefined(answer) || existingValue || fallback;
-}
-async function booleanQuestion(rl, prompt, existingValue, defaultValue) {
-  const current = existingValue === undefined ? defaultValue : existingValue;
-  const hint = current ? "Y/n" : "y/N";
-  const answer = (await rl.question(`${prompt} [${hint}]: `)).trim().toLowerCase();
-  if (!answer)
-    return current;
-  if (["y", "yes", "1", "true", "on"].includes(answer))
-    return true;
-  if (["n", "no", "0", "false", "off"].includes(answer))
-    return false;
-  return current;
-}
-async function choiceQuestion(rl, prompt, choices, defaultIndex = 0) {
-  while (true) {
-    console.log(prompt);
-    choices.forEach((choice, i) => {
-      const marker = i === defaultIndex ? "*" : " ";
-      console.log(`  ${marker} [${i + 1}] ${choice.label}`);
+    const keep = await dist_default4({
+      message: `Keep stored API key (${maskSecret(existingValue)})?`,
+      default: true
     });
-    const raw = (await rl.question(`Select [1-${choices.length}, default ${defaultIndex + 1}]: `)).trim();
-    if (!raw)
-      return choices[defaultIndex];
-    const n = Number.parseInt(raw, 10);
-    if (Number.isInteger(n) && n >= 1 && n <= choices.length)
-      return choices[n - 1];
-    console.log(`  ! Enter a number between 1 and ${choices.length}.`);
+    if (keep)
+      return existingValue;
+  }
+  const value = await dist_default6({
+    message: "WorkOS API key (sk_...)",
+    mask: "*",
+    validate: (v) => v && v.trim() ? true : "API key is required."
+  });
+  return value.trim();
+}
+async function promptOptional(message2, existingValue, fallback) {
+  const defaultValue = existingValue || fallback || "";
+  const value = await dist_default5({ message: message2, default: defaultValue });
+  return trimToUndefined(value) || existingValue || fallback;
+}
+async function checkSchemasSeeded(apiKey, action) {
+  if (!apiKey)
+    return { status: "unknown", reason: "no-credential" };
+  try {
+    const url = new URL(`${DEFAULT_API_BASE_URL}/audit_logs/actions/${encodeURIComponent(action)}/schemas`);
+    url.searchParams.set("limit", "1");
+    const response = await fetch(url, { headers: { Authorization: `Bearer ${apiKey}` } });
+    if (response.status === 404)
+      return { status: "missing" };
+    if (!response.ok) {
+      return { status: "unknown", reason: `${response.status} ${response.statusText}` };
+    }
+    const page = await response.json();
+    return { status: (page.data?.length ?? 0) > 0 ? "seeded" : "missing" };
+  } catch (error) {
+    return { status: "unknown", reason: error?.message || String(error) };
   }
 }
-async function pickOrganization(rl, apiKey, currentOrganizationId) {
+async function seedClaudeSchemas(apiKey, prefix) {
+  const sdk = createSdk({ apiKey });
+  if (!sdk)
+    throw new Error("No WorkOS credential available to seed schemas.");
+  const schemas = getClaudeAuditSchemaDefinitions(prefix);
+  for (const [index, schema] of schemas.entries()) {
+    process.stdout.write(`  [${index + 1}/${schemas.length}] ${schema.action}
+`);
+    await sdk.auditLogs.createSchema({
+      action: schema.action,
+      actor: schema.actor,
+      targets: schema.targets,
+      metadata: schema.metadata
+    });
+  }
+  console.log(`Seeded ${schemas.length} schema(s) for prefix "${prefix}".`);
+}
+async function maybeSeedSchemas(apiKey, actionPrefix) {
+  const probeAction = `${actionPrefix}.session.started`;
+  console.log(`
+Checking whether audit log schemas are seeded for this prefix…`);
+  const result = await checkSchemasSeeded(apiKey, probeAction);
+  if (result.status === "seeded") {
+    console.log(`Schemas already exist for "${actionPrefix}.*" — nothing to seed.`);
+    return;
+  }
+  if (result.status === "unknown") {
+    console.log(`Could not determine schema status (${result.reason}). You can seed manually with: npm run create:schemas`);
+    return;
+  }
+  console.log(`No schemas found for "${probeAction}". Without schemas, recorded events may be rejected by WorkOS.`);
+  const shouldSeed = await dist_default4({
+    message: "Seed Claude audit log schemas now?",
+    default: true
+  });
+  if (!shouldSeed) {
+    console.log("Skipping schema seeding. Run `npm run create:schemas` later when you are ready.");
+    return;
+  }
+  try {
+    await seedClaudeSchemas(apiKey, actionPrefix);
+  } catch (error) {
+    const message2 = error?.message || String(error);
+    console.log(`Failed to seed schemas: ${message2}`);
+    console.log("You can retry later with: npm run create:schemas");
+  }
+}
+async function pickOrganization(apiKey, currentOrganizationId) {
   let organizations = null;
   try {
     const sdk = createSdk({ apiKey });
@@ -8854,119 +10962,128 @@ async function pickOrganization(rl, apiKey, currentOrganizationId) {
     const message2 = error?.message || String(error);
     console.log(`
 Could not list organizations (${message2}).`);
-    return await optionalQuestion(rl, "WorkOS organization ID (org_..., blank uses/creates Audit Log Harness)", currentOrganizationId);
+    return await promptOptional("WorkOS organization ID (org_..., blank uses/creates Audit Log Harness)", currentOrganizationId);
   }
   if (organizations.length === 0) {
     console.log(`
 No organizations found for this credential. Leaving blank will create "Audit Log Harness" on first event.`);
-    return await optionalQuestion(rl, "WorkOS organization ID (org_..., blank uses/creates Audit Log Harness)", currentOrganizationId);
+    return await promptOptional("WorkOS organization ID (org_..., blank uses/creates Audit Log Harness)", currentOrganizationId);
   }
-  console.log(`
-Organizations available to this credential:`);
-  organizations.forEach((org, i) => {
-    const marker = org.id === currentOrganizationId ? "*" : " ";
-    console.log(`  ${marker} [${i + 1}] ${org.name} (${org.id})`);
+  const choices = [
+    { name: 'Leave blank (auto-find/create "Audit Log Harness")', value: "__blank__" },
+    ...organizations.map((org) => ({ name: `${org.name} (${org.id})`, value: org.id })),
+    { name: "Type an organization ID manually", value: "__manual__" }
+  ];
+  const defaultValue = currentOrganizationId && organizations.some((org) => org.id === currentOrganizationId) ? currentOrganizationId : "__blank__";
+  const selection = await dist_default7({
+    message: "Organization",
+    choices,
+    default: defaultValue
   });
-  console.log('    [0] Leave blank (auto-find/create "Audit Log Harness")');
-  console.log("    [m] Type an organization ID manually");
-  while (true) {
-    const defaultLabel = currentOrganizationId ? `default keep ${currentOrganizationId}` : "default 0";
-    const raw = (await rl.question(`Select organization [0-${organizations.length}, m, ${defaultLabel}]: `)).trim();
-    if (!raw)
-      return currentOrganizationId || undefined;
-    if (raw === "0")
-      return;
-    if (raw.toLowerCase() === "m") {
-      return await optionalQuestion(rl, "WorkOS organization ID (org_...)", currentOrganizationId);
-    }
-    const n = Number.parseInt(raw, 10);
-    if (Number.isInteger(n) && n >= 1 && n <= organizations.length) {
-      return organizations[n - 1].id;
-    }
-    console.log(`  ! Enter 0, m, or a number between 1 and ${organizations.length}.`);
+  if (selection === "__blank__")
+    return;
+  if (selection === "__manual__") {
+    return await promptOptional("WorkOS organization ID (org_...)", currentOrganizationId);
   }
+  return selection;
 }
 async function configure() {
   const current = readFileConfig();
   const cliAuth = summarizeWorkosCliAuth();
-  const rl = readline.createInterface({ input, output });
-  try {
-    console.log("Configure WorkOS Audit for Claude Code");
-    console.log(`Config file: ${getConfigFilePath()}`);
-    console.log("");
-    const choices = [];
-    if (cliAuth.loggedIn) {
-      choices.push({
-        key: "cli",
-        label: `Use WorkOS CLI auth (active environment: ${cliAuth.activeEnvironment || "unknown"})`
-      });
-    }
-    choices.push({
-      key: "apiKey",
-      label: "Enter an explicit WorkOS API key (production or staging)"
+  console.log("Configure WorkOS Audit for Claude Code");
+  console.log(`Config file: ${getConfigFilePath()}`);
+  const credentialChoices = [];
+  if (cliAuth.loggedIn) {
+    credentialChoices.push({
+      name: `Use WorkOS CLI auth (active environment: ${cliAuth.activeEnvironment || "unknown"})`,
+      value: "cli"
     });
-    choices.push({
-      key: "env",
-      label: "Skip — use WORKOS_API_KEY at runtime"
-    });
-    let defaultIndex = 0;
-    if (current.apiKey) {
-      defaultIndex = choices.findIndex((c) => c.key === "apiKey");
-    } else if (!cliAuth.loggedIn) {
-      defaultIndex = choices.findIndex((c) => c.key === "env");
-    }
-    if (defaultIndex < 0)
-      defaultIndex = 0;
-    const credentialChoice = await choiceQuestion(rl, `
-Credentials:`, choices, defaultIndex);
-    let apiKey = current.apiKey;
-    if (credentialChoice.key === "apiKey") {
-      console.log("The API key prompt does not echo input.");
-      apiKey = await hiddenQuestion(rl, "WorkOS API key (sk_...): ", current.apiKey);
-    } else if (credentialChoice.key === "cli") {
-      apiKey = undefined;
-    }
-    const apiKeyForListing = credentialChoice.key === "cli" ? undefined : apiKey;
-    const organizationId = await pickOrganization(rl, apiKeyForListing, current.organizationId);
-    console.log("");
-    const recordingEnabled = await booleanQuestion(rl, "Record audit events from this Claude Code install? (answer N for query-only)", current.recordingEnabled, true);
-    console.log(`
-Identity & context (press Enter to accept each default):`);
-    const actionPrefix = await optionalQuestion(rl, "Action prefix", current.actionPrefix, "claude");
-    const actorId = await optionalQuestion(rl, "Actor ID override", current.actorId);
-    const actorType = await optionalQuestion(rl, "Actor type", current.actorType, "user");
-    const actorName = await optionalQuestion(rl, "Actor name override", current.actorName);
-    const location = await optionalQuestion(rl, "Location", current.location, "claude-code");
-    const userAgent = await optionalQuestion(rl, "User agent", current.userAgent, "claude-code-workos-audit/1");
-    const filePath = writeFileConfig({
-      ...apiKey ? { apiKey } : {},
-      ...organizationId ? { organizationId } : {},
-      actionPrefix,
-      actorId,
-      actorType,
-      actorName,
-      location,
-      userAgent,
-      recordingEnabled
-    });
-    console.log(`
-Saved WorkOS Audit config to ${filePath}`);
-    if (!recordingEnabled) {
-      console.log("Recording is OFF — hooks will short-circuit; only the query MCP tool will be active.");
-    }
-    console.log("Restart Claude Code so hooks and MCP servers reload the configuration.");
-  } finally {
-    rl.close();
   }
+  credentialChoices.push({
+    name: "Enter an explicit WorkOS API key (production or staging)",
+    value: "apiKey"
+  });
+  credentialChoices.push({
+    name: "Skip — use WORKOS_API_KEY at runtime",
+    value: "env"
+  });
+  let defaultCredential = credentialChoices[0].value;
+  if (current.apiKey)
+    defaultCredential = "apiKey";
+  else if (!cliAuth.loggedIn)
+    defaultCredential = "env";
+  const credentialKey = await dist_default7({
+    message: "Credentials",
+    choices: credentialChoices,
+    default: defaultCredential
+  });
+  let apiKey = current.apiKey;
+  if (credentialKey === "apiKey") {
+    apiKey = await promptApiKey(current.apiKey);
+  } else if (credentialKey === "cli") {
+    apiKey = undefined;
+  }
+  const apiKeyForListing = credentialKey === "cli" ? undefined : apiKey;
+  const organizationId = await pickOrganization(apiKeyForListing, current.organizationId);
+  const recordingEnabled = await dist_default4({
+    message: "Record audit events from this Claude Code install? (answer No for query-only)",
+    default: current.recordingEnabled !== false
+  });
+  let actionPrefix = current.actionPrefix;
+  let actorId = current.actorId;
+  let actorType = current.actorType;
+  let actorName = current.actorName;
+  let location = current.location;
+  let userAgent = current.userAgent;
+  if (recordingEnabled) {
+    console.log(`
+Identity & context:`);
+    actionPrefix = await promptOptional("Action prefix", current.actionPrefix, "claude");
+    actorId = await promptOptional("Actor ID override", current.actorId);
+    actorType = await promptOptional("Actor type", current.actorType, "user");
+    actorName = await promptOptional("Actor name override", current.actorName);
+    location = await promptOptional("Location", current.location, "claude-code");
+    userAgent = await promptOptional("User agent", current.userAgent, "claude-code-workos-audit/1");
+  }
+  if (recordingEnabled) {
+    const effectiveApiKey = getEffectiveApiKey({ apiKey }) || trimToUndefined(process.env.WORKOS_API_KEY);
+    await maybeSeedSchemas(effectiveApiKey, actionPrefix || "claude");
+  }
+  const filePath = writeFileConfig({
+    ...apiKey ? { apiKey } : {},
+    ...organizationId ? { organizationId } : {},
+    actionPrefix,
+    actorId,
+    actorType,
+    actorName,
+    location,
+    userAgent,
+    recordingEnabled
+  });
+  console.log(`
+Saved WorkOS Audit config to ${filePath}`);
+  if (!recordingEnabled) {
+    console.log("Recording is OFF — hooks will short-circuit; only the query MCP tool will be active.");
+  }
+  console.log("Restart Claude Code so hooks and MCP servers reload the configuration.");
 }
 var args = process.argv.slice(2);
-if (args.includes("--help") || args.includes("-h")) {
-  usage();
-} else if (args.includes("--show")) {
-  showConfig();
-} else if (args.includes("--clear")) {
-  clearFileConfig();
-  console.log(`Removed ${getConfigFilePath()}`);
-} else {
-  await configure();
+try {
+  if (args.includes("--help") || args.includes("-h")) {
+    usage();
+  } else if (args.includes("--show")) {
+    showConfig();
+  } else if (args.includes("--clear")) {
+    clearFileConfig();
+    console.log(`Removed ${getConfigFilePath()}`);
+  } else {
+    await configure();
+  }
+} catch (error) {
+  if (error?.name === "ExitPromptError") {
+    console.log(`
+Cancelled.`);
+    process.exit(130);
+  }
+  throw error;
 }
