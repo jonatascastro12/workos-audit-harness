@@ -242,25 +242,34 @@ export default function Page() {
                 <span>04 — configure</span>
               </div>
               <h2 className="text-[28px] md:text-[34px] leading-[1.15] tracking-[-0.02em] mb-8">
-                Sign in once.<br />
-                <span className="dim">Shared by all three plugins.</span>
+                Run the wizard.<br />
+                <span className="dim">Four prompts, one config file.</span>
               </h2>
 
               <div className="space-y-2 text-[13px]">
-                <Row label="WORKOS_API_KEY" value="sk_…" />
-                <Row label="WORKOS_ORGANIZATION_ID" value="org_…" />
-                <Row label="*_AUDIT_ACTION_PREFIX" value="claude | codex | pi" />
+                <Row label="credential" value="api-key | workos-cli" />
+                <Row label="organization" value="org_…" />
+                <Row label="recordingEnabled" value="true | false" />
+                <Row label="actorName" value="you" />
               </div>
+
+              <p className="mt-6 text-[12px] dim leading-[1.6] max-w-[44ch]">
+                Writes <span className="text-[var(--accent)]">~/.claude/workos-audit/config.json</span> with mode <span className="text-[var(--accent)]">0600</span>. Shared by every plugin. Restart your agent after the wizard exits.
+              </p>
+              <p className="mt-3 text-[12px] dim leading-[1.6] max-w-[44ch]">
+                <span className="text-[var(--accent)]">Note:</span> the native <span className="text-[var(--accent)]">workos-cli</span> credential only supports the staging environment. For production, choose <span className="text-[var(--accent)]">api-key</span>.
+              </p>
             </div>
 
             <div className="space-y-5">
               <CodeBlock
-                label="recommended"
-                code={`$ npm run workos-auth-login
-# opens browser → signs you in → caches creds
-$ workos doctor
-✓ environment: live
-✓ org: Audit Log Harness`}
+                label="recommended · interactive wizard"
+                code={`# inside claude code:
+$ /workos-audit-setup
+✓ credential: workos-cli (live)
+✓ organization: Audit Log Harness
+✓ recording: enabled
+✓ actor: jonatas`}
               />
               <CodeBlock
                 label="alternative · env vars"
@@ -470,11 +479,11 @@ $ npm run create:harness-schemas -- --prefix=pi`}
 function Row({ label, value }: { label: string; value: string }) {
   return (
     <div className="grid grid-cols-[auto_1fr_auto] items-baseline gap-3">
-      <span className="dim">env</span>
+      <span className="dim">›</span>
       <span className="border-b border-dotted rule h-3 self-end" />
       <span>
         <span className="dim">{label}</span>
-        <span className="dim">=</span>
+        <span className="dim">:</span>{" "}
         <span className="text-[var(--accent)]">{value}</span>
       </span>
     </div>
