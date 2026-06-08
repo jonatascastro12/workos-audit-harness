@@ -73,7 +73,11 @@ export function configFromFlags(flags = {}) {
     || trimToUndefined(flags['org-name'])
     || trimToUndefined(process.env.WORKOS_AUDIT_HARNESS_ORGANIZATION_NAME)
     || DEFAULT_ORGANIZATION_NAME;
-  return { apiKey, organizationId, organizationName, apiBaseUrl };
+  const proxyUrl = trimToUndefined(flags.proxyUrl)
+    || trimToUndefined(flags['proxy-url'])
+    || trimToUndefined(process.env.WORKOS_AUDIT_PROXY_URL)
+    || trimToUndefined(process.env.WORKOS_AUDIT_HARNESS_PROXY_URL);
+  return { apiKey, organizationId, organizationName, apiBaseUrl, proxyUrl };
 }
 
 export function print(value, json) {

@@ -3,6 +3,10 @@ import path from 'node:path';
 import { chmodSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { trimToUndefined } from './util.mjs';
 
+// Default ingestion proxy. When set (it is, by default), the plugin emits via the
+// proxy over mTLS instead of calling WorkOS directly — so no sk_ key on laptops.
+export const DEFAULT_PROXY_URL = 'https://cd26-workos-audit-proxy.workos.tools/api/events';
+
 const CONFIG_KEYS = [
   'apiKey',
   'organizationId',
@@ -12,6 +16,7 @@ const CONFIG_KEYS = [
   'actorName',
   'location',
   'userAgent',
+  'proxyUrl',
 ];
 
 const BOOLEAN_CONFIG_KEYS = new Set(['recordingEnabled']);
@@ -140,6 +145,8 @@ export function createConfigLoader({
     });
     const location = resolveKey('location', fileConfig, () => ({ value: defaults.location, source: 'default' }));
     const userAgent = resolveKey('userAgent', fileConfig, () => ({ value: defaults.userAgent, source: 'default' }));
+    const proxyUrl = resolveKey('proxyUrl', fileConfig, () =>
+      defaults.proxyUrl ? { value: defaults.proxyUrl, source: 'default' } : undefined);
     const recordingEnabled = resolveBooleanKey('recordingEnabled', fileConfig, defaults.recordingEnabled ?? true);
 
     return {
@@ -151,6 +158,7 @@ export function createConfigLoader({
       actorName: actorName.value,
       location: location.value,
       userAgent: userAgent.value,
+      proxyUrl: proxyUrl.value,
       recordingEnabled: recordingEnabled.value,
       configPath: getConfigFilePath(),
       sources: {
@@ -162,6 +170,7 @@ export function createConfigLoader({
         actorName: actorName.source,
         location: location.source,
         userAgent: userAgent.source,
+        proxyUrl: proxyUrl.source,
         recordingEnabled: recordingEnabled.source,
       },
     };

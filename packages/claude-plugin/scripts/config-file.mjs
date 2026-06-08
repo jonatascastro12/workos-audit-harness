@@ -1,4 +1,4 @@
-import { createConfigLoader } from '@workos-inc/audit-core/config';
+import { createConfigLoader, DEFAULT_PROXY_URL } from '@workos-inc/audit-core/config';
 
 function claudePluginOptionEnvs(name) {
   return [
@@ -20,6 +20,7 @@ export const configLoader = createConfigLoader({
     actorName:        ['WORKOS_ACTOR_NAME', ...claudePluginOptionEnvs('ACTOR_NAME')],
     location:         ['WORKOS_LOCATION', ...claudePluginOptionEnvs('LOCATION')],
     userAgent:        ['WORKOS_USER_AGENT', ...claudePluginOptionEnvs('USER_AGENT')],
+    proxyUrl:         ['WORKOS_AUDIT_PROXY_URL', ...claudePluginOptionEnvs('PROXY_URL')],
     recordingEnabled: ['CLAUDE_WORKOS_AUDIT_RECORDING', 'WORKOS_AUDIT_RECORDING', ...claudePluginOptionEnvs('RECORDING_ENABLED')],
   },
   defaults: {
@@ -27,6 +28,7 @@ export const configLoader = createConfigLoader({
     actorType: 'user',
     location: 'claude-code',
     userAgent: 'claude-code-workos-audit/1',
+    proxyUrl: DEFAULT_PROXY_URL,
     recordingEnabled: true,
   },
 });

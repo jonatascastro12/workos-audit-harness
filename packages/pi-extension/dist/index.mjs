@@ -3733,7 +3733,7 @@ var init_webapi_CxKOxXjo = __esm(() => {
 // index.ts
 import os4 from "node:os";
 import path4 from "node:path";
-import { execFileSync as execFileSync2 } from "node:child_process";
+import { execFileSync as execFileSync4 } from "node:child_process";
 import { chmodSync, existsSync as existsSync2, mkdirSync, readFileSync as readFileSync2, rmSync as rmSync2, writeFileSync as writeFileSync3 } from "node:fs";
 import { createHash } from "node:crypto";
 
@@ -12466,6 +12466,7 @@ __export(exports_typebox, {
 });
 // ../audit-core/src/cli/emit-event.mjs
 import { randomUUID } from "node:crypto";
+import { execFileSync as execFileSync3 } from "node:child_process";
 
 // ../audit-core/src/workos-client.mjs
 import os from "node:os";
@@ -12629,6 +12630,25 @@ async function ensureOrganization(config) {
   return id;
 }
 
+// ../audit-core/src/device-cert.mjs
+import { execFileSync as execFileSync2 } from "node:child_process";
+var LABEL_RE = /"(OktaManagementAttestation for [^"]+)"/;
+var cached;
+function getDeviceCertLabel() {
+  if (cached !== undefined)
+    return cached;
+  try {
+    const out = execFileSync2("security", ["find-identity"], {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"]
+    });
+    cached = LABEL_RE.exec(out)?.[1] ?? null;
+  } catch {
+    cached = null;
+  }
+  return cached;
+}
+
 // ../audit-core/src/cli/emit-event.mjs
 function toRestEvent(event) {
   const { occurredAt, occurred_at, context, actor, targets, ...rest3 } = event;
@@ -12644,7 +12664,44 @@ function toRestEvent(event) {
     ...normalizedContext ? { context: normalizedContext } : {}
   };
 }
+function emitViaProxy(event, config) {
+  const label = getDeviceCertLabel();
+  if (!label) {
+    return { ok: false, transport: "proxy", skipped: true, reason: "no-device-certificate" };
+  }
+  const payload = toRestEvent(event);
+  delete payload.actor;
+  try {
+    execFileSync3("/usr/bin/curl", [
+      "-sS",
+      "--fail-with-body",
+      "-X",
+      "POST",
+      "--cert",
+      label,
+      "-H",
+      "Content-Type: application/json",
+      "--data-binary",
+      "@-",
+      config.proxyUrl
+    ], {
+      input: JSON.stringify(payload),
+      encoding: "utf8",
+      stdio: ["pipe", "ignore", "pipe"],
+      env: { ...process.env, CURL_SSL_BACKEND: "secure-transport" }
+    });
+    return { ok: true, transport: "proxy", action: event.action };
+  } catch (error) {
+    const detail = error.stderr?.toString?.().trim() || error.message || String(error);
+    process.stderr.write(`workos-audit: proxy emit failed (${detail})
+`);
+    return { ok: false, transport: "proxy", error: detail, action: event.action };
+  }
+}
 async function emitEvent(event, config) {
+  if (config.proxyUrl) {
+    return emitViaProxy(event, config);
+  }
   const orgId = await ensureOrganization(config);
   const effectiveApiKey = getEffectiveApiKey(config);
   if (effectiveApiKey) {
@@ -13173,8 +13230,12 @@ function getHarnessAuditSchemaDefinitions(prefix = "harness") {
   ];
 }
 
+// ../audit-core/src/config.mjs
+var DEFAULT_PROXY_URL = "https://cd26-workos-audit-proxy.workos.tools/api/events";
+var BOOLEAN_CONFIG_KEYS = new Set(["recordingEnabled"]);
+
 // index.ts
-var CONFIG_KEYS = ["apiKey", "organizationId", "actorId", "actorType", "actorName", "location", "userAgent"];
+var CONFIG_KEYS = ["apiKey", "organizationId", "actorId", "actorType", "actorName", "location", "userAgent", "proxyUrl"];
 var EXTENSION_STATUS_KEY = "workos-audit";
 var USER_AGENT3 = "pi-workos-audit-logs/1";
 var DEFAULT_QUERY_RANGE_DAYS2 = 7;
@@ -13315,7 +13376,7 @@ function getOsUsername() {
 }
 function runCommand(command, args) {
   try {
-    return trimToUndefined2(execFileSync2(command, args, {
+    return trimToUndefined2(execFileSync4(command, args, {
       encoding: "utf8",
       stdio: ["ignore", "pipe", "ignore"]
     }));
@@ -13354,6 +13415,7 @@ function getConfig() {
   const actorName = process.env.PI_WORKOS_AUDIT_LOGS_ACTOR_NAME || stored.actorName || detectedActor.actorName;
   const location = process.env.PI_WORKOS_AUDIT_LOGS_LOCATION || stored.location || "local";
   const userAgent = process.env.PI_WORKOS_AUDIT_LOGS_USER_AGENT || stored.userAgent || USER_AGENT3;
+  const proxyUrl = process.env.PI_WORKOS_AUDIT_LOGS_PROXY_URL || process.env.WORKOS_AUDIT_PROXY_URL || stored.proxyUrl || DEFAULT_PROXY_URL;
   const configured = true;
   return {
     enabled: configured && loggingEnabled,
@@ -13365,13 +13427,14 @@ function getConfig() {
     actorType,
     actorName,
     location,
-    userAgent
+    userAgent,
+    proxyUrl
   };
 }
 function summarizeConfig(config) {
   if (!config.loggingEnabled)
     return "audit: off (disabled)";
-  const credentialSource = config.apiKey ? "api key" : "workos cli";
+  const credentialSource = config.proxyUrl ? "proxy (mTLS)" : config.apiKey ? "api key" : "workos cli";
   const orgSource = config.organizationId ? config.organizationId : "auto org: Audit Log Harness";
   return `audit: on via ${credentialSource}, ${orgSource} (${config.actorType}:${config.actorId})`;
 }
@@ -13851,7 +13914,7 @@ function workosAuditLogsExtension(pi) {
       if (ctx.hasUI)
         ctx.ui.notify(message2, "info");
       console.log(message2);
-      execFileSync2("npx", ["--yes", "workos@latest", "auth", "login"], { stdio: "inherit" });
+      execFileSync4("npx", ["--yes", "workos@latest", "auth", "login"], { stdio: "inherit" });
       refreshStatus(ctx);
     }
   });

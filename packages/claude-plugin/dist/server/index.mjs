@@ -38133,6 +38133,7 @@ async function runMcpServer({ configLoader, serverName = "workos-audit", version
 import os3 from "node:os";
 import path3 from "node:path";
 import { chmodSync, existsSync as existsSync2, mkdirSync, readFileSync as readFileSync2, rmSync, writeFileSync as writeFileSync2 } from "node:fs";
+var DEFAULT_PROXY_URL = "https://cd26-workos-audit-proxy.workos.tools/api/events";
 var CONFIG_KEYS = [
   "apiKey",
   "organizationId",
@@ -38141,7 +38142,8 @@ var CONFIG_KEYS = [
   "actorType",
   "actorName",
   "location",
-  "userAgent"
+  "userAgent",
+  "proxyUrl"
 ];
 var BOOLEAN_CONFIG_KEYS = new Set(["recordingEnabled"]);
 function parseBoolean(value) {
@@ -38274,6 +38276,7 @@ function createConfigLoader({
     });
     const location = resolveKey("location", fileConfig, () => ({ value: defaults2.location, source: "default" }));
     const userAgent = resolveKey("userAgent", fileConfig, () => ({ value: defaults2.userAgent, source: "default" }));
+    const proxyUrl = resolveKey("proxyUrl", fileConfig, () => defaults2.proxyUrl ? { value: defaults2.proxyUrl, source: "default" } : undefined);
     const recordingEnabled = resolveBooleanKey("recordingEnabled", fileConfig, defaults2.recordingEnabled ?? true);
     return {
       apiKey: apiKey.value,
@@ -38284,6 +38287,7 @@ function createConfigLoader({
       actorName: actorName.value,
       location: location.value,
       userAgent: userAgent.value,
+      proxyUrl: proxyUrl.value,
       recordingEnabled: recordingEnabled.value,
       configPath: getConfigFilePath(),
       sources: {
@@ -38295,6 +38299,7 @@ function createConfigLoader({
         actorName: actorName.source,
         location: location.source,
         userAgent: userAgent.source,
+        proxyUrl: proxyUrl.source,
         recordingEnabled: recordingEnabled.source
       }
     };
@@ -38343,6 +38348,7 @@ var configLoader = createConfigLoader({
     actorName: ["WORKOS_ACTOR_NAME", ...claudePluginOptionEnvs("ACTOR_NAME")],
     location: ["WORKOS_LOCATION", ...claudePluginOptionEnvs("LOCATION")],
     userAgent: ["WORKOS_USER_AGENT", ...claudePluginOptionEnvs("USER_AGENT")],
+    proxyUrl: ["WORKOS_AUDIT_PROXY_URL", ...claudePluginOptionEnvs("PROXY_URL")],
     recordingEnabled: ["CLAUDE_WORKOS_AUDIT_RECORDING", "WORKOS_AUDIT_RECORDING", ...claudePluginOptionEnvs("RECORDING_ENABLED")]
   },
   defaults: {
@@ -38350,6 +38356,7 @@ var configLoader = createConfigLoader({
     actorType: "user",
     location: "claude-code",
     userAgent: "claude-code-workos-audit/1",
+    proxyUrl: DEFAULT_PROXY_URL,
     recordingEnabled: true
   }
 });

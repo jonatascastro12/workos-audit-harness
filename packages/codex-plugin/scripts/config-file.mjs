@@ -1,4 +1,4 @@
-import { createConfigLoader } from '@workos-inc/audit-core/config';
+import { createConfigLoader, DEFAULT_PROXY_URL } from '@workos-inc/audit-core/config';
 
 export const configLoader = createConfigLoader({
   configFilePathEnvs: ['WORKOS_AUDIT_CONFIG_PATH', 'CODEX_WORKOS_AUDIT_CONFIG_PATH'],
@@ -12,6 +12,7 @@ export const configLoader = createConfigLoader({
     actorName:        ['CODEX_WORKOS_AUDIT_ACTOR_NAME', 'WORKOS_ACTOR_NAME'],
     location:         ['CODEX_WORKOS_AUDIT_LOCATION', 'WORKOS_LOCATION'],
     userAgent:        ['CODEX_WORKOS_AUDIT_USER_AGENT', 'WORKOS_USER_AGENT'],
+    proxyUrl:         ['CODEX_WORKOS_AUDIT_PROXY_URL', 'WORKOS_AUDIT_PROXY_URL'],
     recordingEnabled: ['CODEX_WORKOS_AUDIT_RECORDING', 'WORKOS_AUDIT_RECORDING'],
   },
   defaults: {
@@ -19,6 +20,7 @@ export const configLoader = createConfigLoader({
     actorType: 'user',
     location: 'codex',
     userAgent: 'codex-workos-audit/1',
+    proxyUrl: DEFAULT_PROXY_URL,
     recordingEnabled: true,
   },
 });

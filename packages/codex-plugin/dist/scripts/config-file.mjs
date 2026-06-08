@@ -47,6 +47,7 @@ function maskSecret(value) {
 }
 
 // ../audit-core/src/config.mjs
+var DEFAULT_PROXY_URL = "https://cd26-workos-audit-proxy.workos.tools/api/events";
 var CONFIG_KEYS = [
   "apiKey",
   "organizationId",
@@ -55,7 +56,8 @@ var CONFIG_KEYS = [
   "actorType",
   "actorName",
   "location",
-  "userAgent"
+  "userAgent",
+  "proxyUrl"
 ];
 var BOOLEAN_CONFIG_KEYS = new Set(["recordingEnabled"]);
 function parseBoolean(value) {
@@ -188,6 +190,7 @@ function createConfigLoader({
     });
     const location = resolveKey("location", fileConfig, () => ({ value: defaults.location, source: "default" }));
     const userAgent = resolveKey("userAgent", fileConfig, () => ({ value: defaults.userAgent, source: "default" }));
+    const proxyUrl = resolveKey("proxyUrl", fileConfig, () => defaults.proxyUrl ? { value: defaults.proxyUrl, source: "default" } : undefined);
     const recordingEnabled = resolveBooleanKey("recordingEnabled", fileConfig, defaults.recordingEnabled ?? true);
     return {
       apiKey: apiKey.value,
@@ -198,6 +201,7 @@ function createConfigLoader({
       actorName: actorName.value,
       location: location.value,
       userAgent: userAgent.value,
+      proxyUrl: proxyUrl.value,
       recordingEnabled: recordingEnabled.value,
       configPath: getConfigFilePath(),
       sources: {
@@ -209,6 +213,7 @@ function createConfigLoader({
         actorName: actorName.source,
         location: location.source,
         userAgent: userAgent.source,
+        proxyUrl: proxyUrl.source,
         recordingEnabled: recordingEnabled.source
       }
     };
@@ -250,6 +255,7 @@ var configLoader = createConfigLoader({
     actorName: ["CODEX_WORKOS_AUDIT_ACTOR_NAME", "WORKOS_ACTOR_NAME"],
     location: ["CODEX_WORKOS_AUDIT_LOCATION", "WORKOS_LOCATION"],
     userAgent: ["CODEX_WORKOS_AUDIT_USER_AGENT", "WORKOS_USER_AGENT"],
+    proxyUrl: ["CODEX_WORKOS_AUDIT_PROXY_URL", "WORKOS_AUDIT_PROXY_URL"],
     recordingEnabled: ["CODEX_WORKOS_AUDIT_RECORDING", "WORKOS_AUDIT_RECORDING"]
   },
   defaults: {
@@ -257,6 +263,7 @@ var configLoader = createConfigLoader({
     actorType: "user",
     location: "codex",
     userAgent: "codex-workos-audit/1",
+    proxyUrl: DEFAULT_PROXY_URL,
     recordingEnabled: true
   }
 });

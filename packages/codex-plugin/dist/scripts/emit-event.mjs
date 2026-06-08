@@ -3864,6 +3864,7 @@ function createToolTimingStore({ baseEnvNames, fallbackDirName, timingKeyExtras 
 
 // ../audit-core/src/cli/emit-event.mjs
 import { randomUUID } from "node:crypto";
+import { execFileSync as execFileSync3 } from "node:child_process";
 
 // ../audit-core/src/workos-client.mjs
 import os2 from "node:os";
@@ -8668,6 +8669,25 @@ async function ensureOrganization(config) {
   return id;
 }
 
+// ../audit-core/src/device-cert.mjs
+import { execFileSync as execFileSync2 } from "node:child_process";
+var LABEL_RE = /"(OktaManagementAttestation for [^"]+)"/;
+var cached;
+function getDeviceCertLabel() {
+  if (cached !== undefined)
+    return cached;
+  try {
+    const out = execFileSync2("security", ["find-identity"], {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"]
+    });
+    cached = LABEL_RE.exec(out)?.[1] ?? null;
+  } catch {
+    cached = null;
+  }
+  return cached;
+}
+
 // ../audit-core/src/cli/emit-event.mjs
 function toRestEvent(event) {
   const { occurredAt, occurred_at, context, actor, targets, ...rest } = event;
@@ -8683,7 +8703,44 @@ function toRestEvent(event) {
     ...normalizedContext ? { context: normalizedContext } : {}
   };
 }
+function emitViaProxy(event, config) {
+  const label = getDeviceCertLabel();
+  if (!label) {
+    return { ok: false, transport: "proxy", skipped: true, reason: "no-device-certificate" };
+  }
+  const payload = toRestEvent(event);
+  delete payload.actor;
+  try {
+    execFileSync3("/usr/bin/curl", [
+      "-sS",
+      "--fail-with-body",
+      "-X",
+      "POST",
+      "--cert",
+      label,
+      "-H",
+      "Content-Type: application/json",
+      "--data-binary",
+      "@-",
+      config.proxyUrl
+    ], {
+      input: JSON.stringify(payload),
+      encoding: "utf8",
+      stdio: ["pipe", "ignore", "pipe"],
+      env: { ...process.env, CURL_SSL_BACKEND: "secure-transport" }
+    });
+    return { ok: true, transport: "proxy", action: event.action };
+  } catch (error) {
+    const detail = error.stderr?.toString?.().trim() || error.message || String(error);
+    process.stderr.write(`workos-audit: proxy emit failed (${detail})
+`);
+    return { ok: false, transport: "proxy", error: detail, action: event.action };
+  }
+}
 async function emitEvent(event, config) {
+  if (config.proxyUrl) {
+    return emitViaProxy(event, config);
+  }
   const orgId = await ensureOrganization(config);
   const effectiveApiKey = getEffectiveApiKey(config);
   if (effectiveApiKey) {
@@ -8727,6 +8784,7 @@ async function emitEvent(event, config) {
 import os3 from "node:os";
 import path3 from "node:path";
 import { chmodSync, existsSync as existsSync3, mkdirSync as mkdirSync2, readFileSync as readFileSync3, rmSync as rmSync2, writeFileSync as writeFileSync2 } from "node:fs";
+var DEFAULT_PROXY_URL = "https://cd26-workos-audit-proxy.workos.tools/api/events";
 var CONFIG_KEYS = [
   "apiKey",
   "organizationId",
@@ -8735,7 +8793,8 @@ var CONFIG_KEYS = [
   "actorType",
   "actorName",
   "location",
-  "userAgent"
+  "userAgent",
+  "proxyUrl"
 ];
 var BOOLEAN_CONFIG_KEYS = new Set(["recordingEnabled"]);
 function parseBoolean(value) {
@@ -8868,6 +8927,7 @@ function createConfigLoader({
     });
     const location = resolveKey("location", fileConfig, () => ({ value: defaults2.location, source: "default" }));
     const userAgent = resolveKey("userAgent", fileConfig, () => ({ value: defaults2.userAgent, source: "default" }));
+    const proxyUrl = resolveKey("proxyUrl", fileConfig, () => defaults2.proxyUrl ? { value: defaults2.proxyUrl, source: "default" } : undefined);
     const recordingEnabled = resolveBooleanKey("recordingEnabled", fileConfig, defaults2.recordingEnabled ?? true);
     return {
       apiKey: apiKey.value,
@@ -8878,6 +8938,7 @@ function createConfigLoader({
       actorName: actorName.value,
       location: location.value,
       userAgent: userAgent.value,
+      proxyUrl: proxyUrl.value,
       recordingEnabled: recordingEnabled.value,
       configPath: getConfigFilePath(),
       sources: {
@@ -8889,6 +8950,7 @@ function createConfigLoader({
         actorName: actorName.source,
         location: location.source,
         userAgent: userAgent.source,
+        proxyUrl: proxyUrl.source,
         recordingEnabled: recordingEnabled.source
       }
     };
@@ -8930,6 +8992,7 @@ var configLoader = createConfigLoader({
     actorName: ["CODEX_WORKOS_AUDIT_ACTOR_NAME", "WORKOS_ACTOR_NAME"],
     location: ["CODEX_WORKOS_AUDIT_LOCATION", "WORKOS_LOCATION"],
     userAgent: ["CODEX_WORKOS_AUDIT_USER_AGENT", "WORKOS_USER_AGENT"],
+    proxyUrl: ["CODEX_WORKOS_AUDIT_PROXY_URL", "WORKOS_AUDIT_PROXY_URL"],
     recordingEnabled: ["CODEX_WORKOS_AUDIT_RECORDING", "WORKOS_AUDIT_RECORDING"]
   },
   defaults: {
@@ -8937,6 +9000,7 @@ var configLoader = createConfigLoader({
     actorType: "user",
     location: "codex",
     userAgent: "codex-workos-audit/1",
+    proxyUrl: DEFAULT_PROXY_URL,
     recordingEnabled: true
   }
 });

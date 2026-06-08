@@ -8,6 +8,7 @@ function buildCommand(command, config, extraArgs = []) {
   const args = [command, ...extraArgs];
   if (config.organizationId) args.push('--org', config.organizationId);
   if (config.apiKey) args.push('--api-key', config.apiKey);
+  if (config.proxyUrl) args.push('--proxy-url', config.proxyUrl);
 
   if (target.kind === 'binary') {
     return { bin: target.path, argv: args };

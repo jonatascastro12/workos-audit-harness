@@ -12,6 +12,7 @@ import { queryAuditLogs as auditCoreQuery } from "@workos-inc/audit-core/audit-q
 import { ensureOrganization as auditCoreEnsureOrg } from "@workos-inc/audit-core/workos-client";
 import { createSchema as auditCoreCreateSchema } from "@workos-inc/audit-core/schema";
 import { getHarnessAuditSchemaDefinitions } from "@workos-inc/audit-core/harness-schemas";
+import { DEFAULT_PROXY_URL } from "@workos-inc/audit-core/config";
 
 type MetadataValue = string | number | boolean;
 type Metadata = Record<string, MetadataValue>;
@@ -52,6 +53,7 @@ type Config = {
   actorName?: string;
   location: string;
   userAgent: string;
+  proxyUrl?: string;
 };
 
 type AuditSchemaPrimitive = "string" | "number" | "boolean";
@@ -70,7 +72,7 @@ type AuditSchemaDefinition = {
   note: string;
 };
 
-const CONFIG_KEYS = ["apiKey", "organizationId", "actorId", "actorType", "actorName", "location", "userAgent"] as const;
+const CONFIG_KEYS = ["apiKey", "organizationId", "actorId", "actorType", "actorName", "location", "userAgent", "proxyUrl"] as const;
 type StoredConfigKey = (typeof CONFIG_KEYS)[number];
 type StoredConfig = Partial<Pick<Config, StoredConfigKey>> & {
   enabled?: boolean;
@@ -283,6 +285,7 @@ function getConfig(): Config {
   const actorName = process.env.PI_WORKOS_AUDIT_LOGS_ACTOR_NAME || stored.actorName || detectedActor.actorName;
   const location = process.env.PI_WORKOS_AUDIT_LOGS_LOCATION || stored.location || "local";
   const userAgent = process.env.PI_WORKOS_AUDIT_LOGS_USER_AGENT || stored.userAgent || USER_AGENT;
+  const proxyUrl = process.env.PI_WORKOS_AUDIT_LOGS_PROXY_URL || process.env.WORKOS_AUDIT_PROXY_URL || stored.proxyUrl || DEFAULT_PROXY_URL;
   const configured = true;
 
   return {
@@ -296,12 +299,13 @@ function getConfig(): Config {
     actorName,
     location,
     userAgent,
+    proxyUrl,
   };
 }
 
 function summarizeConfig(config: Config): string {
   if (!config.loggingEnabled) return "audit: off (disabled)";
-  const credentialSource = config.apiKey ? "api key" : "workos cli";
+  const credentialSource = config.proxyUrl ? "proxy (mTLS)" : config.apiKey ? "api key" : "workos cli";
   const orgSource = config.organizationId ? config.organizationId : "auto org: Audit Log Harness";
   return `audit: on via ${credentialSource}, ${orgSource} (${config.actorType}:${config.actorId})`;
 }
