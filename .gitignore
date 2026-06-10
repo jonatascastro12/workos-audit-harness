@@ -24,3 +24,7 @@ packages/audit-core/bin/workos-audit-harness-*
 
 .vercel
 .env*.local
+
+# Proxy worker local state
+packages/proxy/.wrangler/
+packages/proxy/.dev.vars

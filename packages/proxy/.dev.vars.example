@@ -1,0 +1,12 @@
+# Copy to .dev.vars for `npm run dev`. Never commit .dev.vars.
+WORKOS_API_KEY="sk_test_..."
+WORKOS_ORG_ID="org_..."
+
+# Local dev has no Cloudflare edge, so there is no client cert to verify.
+# This treats unauthenticated requests as coming from this serial — pair it
+# with a matching row in the local device_user table. LOCAL DEV ONLY.
+DEV_UNAUTHENTICATED_SERIAL="DEVSERIAL01"
+
+# Optional: live MDM lookups instead of a static device_user table.
+# KANDJI_API_BASE="https://yourtenant.api.kandji.io"
+# KANDJI_API_TOKEN="..."

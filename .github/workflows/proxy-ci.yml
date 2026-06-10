@@ -1,0 +1,25 @@
+name: Proxy CI
+
+on:
+  pull_request:
+    paths:
+      - "packages/proxy/**"
+      - ".github/workflows/proxy-ci.yml"
+  workflow_dispatch:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm install
+        env:
+          WORKOS_AUDIT_HARNESS_SKIP_DOWNLOAD: "1"
+      - name: Typecheck
+        run: npm run verify -w @workos-inc/audit-proxy
+      - name: Validate migrations apply cleanly
+        working-directory: packages/proxy
+        run: CI=1 npx wrangler d1 migrations apply workos-audit-proxy-db --local

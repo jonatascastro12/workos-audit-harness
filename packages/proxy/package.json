@@ -1,0 +1,22 @@
+{
+  "name": "@workos-inc/audit-proxy",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Cloudflare Worker that ingests audit events from device-cert mTLS clients and forwards them to WorkOS Audit Logs with server-side actor attribution.",
+  "scripts": {
+    "predev": "npm run db:migrate:local",
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "db:create": "wrangler d1 create workos-audit-proxy-db",
+    "db:migrate:local": "CI=1 wrangler d1 migrations apply workos-audit-proxy-db --local",
+    "db:migrate:remote": "wrangler d1 migrations apply workos-audit-proxy-db --remote",
+    "logs": "wrangler tail",
+    "verify": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4",
+    "typescript": "^5",
+    "wrangler": "^4"
+  }
+}
