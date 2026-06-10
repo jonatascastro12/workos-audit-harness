@@ -11,6 +11,9 @@ Native OpenClaw plugin that:
 - `openclaw.session.ended`
 - `openclaw.prompt.submitted`
 - `openclaw.message.sent`
+- `openclaw.agent.run.started`
+- `openclaw.llm.input`
+- `openclaw.llm.output`
 - `openclaw.tool.called`
 - `openclaw.tool.completed`
 - `openclaw.tool.failed`
@@ -84,6 +87,6 @@ Set `recordingEnabled` to `false` in `~/.openclaw/workos-audit/config.json`, dis
 From the repo root:
 
 ```bash
-npm run create:openclaw-schemas -- --prefix=openclaw --dry-run
-npm run create:openclaw-schemas -- --prefix=openclaw
+npm run create:openclaw-schemas -- -- --prefix=openclaw --dry-run
+npm run create:openclaw-schemas -- -- --prefix=openclaw
 ```

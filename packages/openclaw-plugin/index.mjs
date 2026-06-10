@@ -1,3 +1,4 @@
+import { definePluginEntry } from 'openclaw/plugin-sdk/core';
 import { Type } from 'typebox';
 import { queryAuditLogs, MAX_QUERY_MAX_ROWS } from '@workos-inc/audit-core/audit-query';
 import { emitEvent } from '@workos-inc/audit-core/emit-event';
@@ -13,12 +14,17 @@ import { configLoader } from './scripts/config-file.mjs';
 
 const PLUGIN_ID = 'workos-audit';
 const PLUGIN_NAME = 'WorkOS Audit';
+const HOOK_TIMEOUT_MS = 15_000;
 
 const { storeToolTiming, consumeToolTiming } = createToolTimingStore({
   baseEnvNames: ['OPENCLAW_WORKOS_AUDIT_DATA', 'OPENCLAW_DATA_DIR', 'OPENCLAW_HOME'],
   fallbackDirName: 'openclaw-workos-audit',
   timingKeyExtras: { run_id: 'run_id' },
 });
+
+function pick(...values) {
+  return values.find((value) => value !== undefined && value !== null && value !== '');
+}
 
 function pluginConfigFrom(context) {
   return context?.pluginConfig || context?.context?.pluginConfig || {};
@@ -34,61 +40,86 @@ function loadHookConfig(context) {
 }
 
 function commonContext(event = {}, context = {}) {
+  const trace = context.trace || event.trace || {};
   return compactMetadata({
-    agent_id: context.agentId,
-    channel_id: context.channelId,
-    message_provider: context.messageProvider,
-    run_id: event.runId || context.runId,
-    job_id: context.jobId,
-    session_key: event.sessionKey || context.sessionKey,
-    session_id: event.sessionId || context.sessionId,
-    model_provider_id: context.modelProviderId,
-    model_id: context.modelId,
-    trigger: context.trigger,
-    trace_id: event.traceId || context.traceId,
-    span_id: event.spanId || context.spanId,
-    parent_span_id: event.parentSpanId || context.parentSpanId,
+    agent_id: pick(event.agentId, event.agent_id, context.agentId, context.agent_id),
+    account_id: pick(event.accountId, event.account_id, context.accountId, context.account_id),
+    channel_id: pick(event.channelId, event.channel_id, context.channelId, context.channel_id),
+    message_provider: pick(event.messageProvider, event.message_provider, context.messageProvider, context.message_provider),
+    run_id: pick(event.runId, event.run_id, context.runId, context.run_id),
+    job_id: pick(event.jobId, event.job_id, context.jobId, context.job_id),
+    session_key: pick(event.sessionKey, event.session_key, context.sessionKey, context.session_key),
+    session_id: pick(event.sessionId, event.session_id, context.sessionId, context.session_id),
+    workspace_dir: pick(event.workspaceDir, event.workspace_dir, context.workspaceDir, context.workspace_dir),
+    model_provider_id: pick(event.modelProviderId, event.model_provider_id, context.modelProviderId, context.model_provider_id),
+    model_id: pick(event.modelId, event.model_id, context.modelId, context.model_id),
+    trigger: pick(event.trigger, context.trigger),
+    trace_id: pick(event.traceId, event.trace_id, context.traceId, context.trace_id, trace.traceId, trace.trace_id),
+    span_id: pick(event.spanId, event.span_id, context.spanId, context.span_id, trace.spanId, trace.span_id),
+    parent_span_id: pick(event.parentSpanId, event.parent_span_id, context.parentSpanId, context.parent_span_id, trace.parentSpanId, trace.parent_span_id),
   });
 }
 
 function sessionTarget(event = {}, context = {}) {
-  const id = event.sessionId || context.sessionId || event.sessionKey || context.sessionKey;
+  const id = pick(event.sessionId, event.session_id, context.sessionId, context.session_id, event.sessionKey, event.session_key, context.sessionKey, context.session_key);
   return id ? { id, type: 'session' } : undefined;
 }
 
-function toolTarget(event = {}) {
-  if (!event.toolName && !event.toolCallId) return undefined;
+function toolNameFrom(event = {}, context = {}) {
+  return pick(event.toolName, event.tool_name, context.toolName, context.tool_name);
+}
+
+function toolCallIdFrom(event = {}, context = {}) {
+  return pick(event.toolCallId, event.tool_call_id, event.toolUseId, event.tool_use_id, context.toolCallId, context.tool_call_id);
+}
+
+function toolTimingPayload(payload = {}, context = {}) {
   return {
-    id: event.toolCallId || `tool_${sha256({ toolName: event.toolName, params: event.params }).slice(0, 24)}`,
+    ...payload,
+    session_id: pick(payload.sessionId, payload.session_id, context.sessionId, context.session_id),
+    tool_name: toolNameFrom(payload, context),
+    tool_use_id: toolCallIdFrom(payload, context),
+    tool_input: payload.params,
+    run_id: pick(payload.runId, payload.run_id, context.runId, context.run_id),
+  };
+}
+
+function toolTarget(event = {}, context = {}) {
+  const toolName = toolNameFrom(event, context);
+  const toolCallId = toolCallIdFrom(event, context);
+  if (!toolName && !toolCallId) return undefined;
+  return {
+    id: toolCallId || `tool_${sha256({ toolName, params: event.params }).slice(0, 24)}`,
     type: 'tool',
-    metadata: compactMetadata({ tool_name: event.toolName }),
+    metadata: compactMetadata({ tool_name: toolName }),
   };
 }
 
 function messageTarget(event = {}) {
-  const id = event.messageId || `msg_${sha256({
+  const id = pick(event.messageId, event.message_id, event.id) || `msg_${sha256({
     from: event.from,
     to: event.to,
-    content: event.content,
+    content: pick(event.content, event.body, event.text, event.prompt),
     timestamp: event.timestamp,
   }).slice(0, 24)}`;
   return {
     id,
     type: 'message',
     metadata: compactMetadata({
-      sender_id: event.senderId,
-      thread_id: event.threadId === undefined ? undefined : String(event.threadId),
+      sender_id: pick(event.senderId, event.sender_id, event.from),
+      thread_id: pick(event.threadId, event.thread_id) === undefined ? undefined : String(pick(event.threadId, event.thread_id)),
     }),
   };
 }
 
 function modelCallTarget(event = {}) {
-  return event.callId ? {
-    id: event.callId,
+  const callId = pick(event.callId, event.call_id);
+  return callId ? {
+    id: callId,
     type: 'model_call',
     metadata: compactMetadata({
-      provider: event.provider,
-      model: event.model,
+      provider: pick(event.provider, event.providerId, event.provider_id),
+      model: pick(event.model, event.modelId, event.model_id),
     }),
   } : undefined;
 }
@@ -96,6 +127,9 @@ function modelCallTarget(event = {}) {
 function buildEvent(kind, payload, context, config) {
   let metadata = {};
   let targets = [sessionTarget(payload, context)].filter(Boolean);
+  const content = pick(payload.content, payload.body, payload.text, payload.prompt);
+  const provider = pick(payload.provider, payload.providerId, payload.provider_id, context.modelProviderId, context.model_provider_id);
+  const model = pick(payload.model, payload.modelId, payload.model_id, context.modelId, context.model_id);
 
   if (kind === 'session.started') {
     metadata = compactMetadata({
@@ -116,12 +150,13 @@ function buildEvent(kind, payload, context, config) {
   } else if (kind === 'prompt.submitted') {
     targets = [sessionTarget(payload, context), messageTarget(payload)].filter(Boolean);
     metadata = compactMetadata({
-      from: payload.from,
-      content_length: typeof payload.content === 'string' ? payload.content.length : undefined,
-      content_sha256: typeof payload.content === 'string' ? sha256(payload.content) : undefined,
+      from: pick(payload.from, payload.senderId, payload.sender_id),
+      content_length: typeof content === 'string' ? content.length : undefined,
+      content_sha256: typeof content === 'string' ? sha256(content) : undefined,
       timestamp: payload.timestamp,
-      thread_id: payload.threadId === undefined ? undefined : String(payload.threadId),
-      reply_to_id: payload.replyToId,
+      thread_id: pick(payload.threadId, payload.thread_id) === undefined ? undefined : String(pick(payload.threadId, payload.thread_id)),
+      reply_to_id: pick(payload.replyToId, payload.reply_to_id),
+      sender_is_owner: payload.senderIsOwner,
       ...commonContext(payload, context),
     });
   } else if (kind === 'message.sent') {
@@ -129,18 +164,59 @@ function buildEvent(kind, payload, context, config) {
     metadata = compactMetadata({
       to: payload.to,
       success: payload.success,
-      content_length: typeof payload.content === 'string' ? payload.content.length : undefined,
-      content_sha256: typeof payload.content === 'string' ? sha256(payload.content) : undefined,
+      content_length: typeof content === 'string' ? content.length : undefined,
+      content_sha256: typeof content === 'string' ? sha256(content) : undefined,
       error_preview: payload.error ? truncateMetadataString(payload.error) : undefined,
       ...commonContext(payload, context),
     });
-  } else if (kind === 'tool.called') {
-    const timingPayload = { ...payload, run_id: payload.runId || context.runId };
-    storeToolTiming(timingPayload);
-    targets = [sessionTarget(payload, context), toolTarget(payload)].filter(Boolean);
+  } else if (kind === 'agent.run.started') {
     metadata = compactMetadata({
-      tool_name: payload.toolName,
-      tool_call_id: payload.toolCallId,
+      prompt_length: typeof payload.prompt === 'string' ? payload.prompt.length : undefined,
+      prompt_sha256: typeof payload.prompt === 'string' ? sha256(payload.prompt) : undefined,
+      system_prompt_sha256: typeof payload.systemPrompt === 'string' ? sha256(payload.systemPrompt) : undefined,
+      history_message_count: Array.isArray(payload.messages) ? payload.messages.length : undefined,
+      sender_id: pick(payload.senderId, payload.sender_id),
+      sender_is_owner: payload.senderIsOwner,
+      ...commonContext(payload, context),
+    });
+  } else if (kind === 'llm.input') {
+    metadata = compactMetadata({
+      provider,
+      model,
+      prompt_length: typeof payload.prompt === 'string' ? payload.prompt.length : undefined,
+      prompt_sha256: typeof payload.prompt === 'string' ? sha256(payload.prompt) : undefined,
+      system_prompt_sha256: typeof payload.systemPrompt === 'string' ? sha256(payload.systemPrompt) : undefined,
+      history_message_count: Array.isArray(payload.historyMessages) ? payload.historyMessages.length : undefined,
+      images_count: payload.imagesCount,
+      tools_count: Array.isArray(payload.tools) ? payload.tools.length : undefined,
+      ...commonContext(payload, context),
+    });
+  } else if (kind === 'llm.output') {
+    metadata = compactMetadata({
+      provider,
+      model,
+      resolved_ref: payload.resolvedRef,
+      harness_id: payload.harnessId,
+      assistant_text_count: Array.isArray(payload.assistantTexts) ? payload.assistantTexts.length : undefined,
+      assistant_text_bytes: Array.isArray(payload.assistantTexts) ? byteLength(payload.assistantTexts.join('\n')) : undefined,
+      usage_input_tokens: payload.usage?.input,
+      usage_output_tokens: payload.usage?.output,
+      usage_cache_read_tokens: payload.usage?.cacheRead,
+      usage_cache_write_tokens: payload.usage?.cacheWrite,
+      usage_total_tokens: payload.usage?.total,
+      context_token_budget: payload.contextTokenBudget,
+      context_window_source: payload.contextWindowSource,
+      context_window_reference_tokens: payload.contextWindowReferenceTokens,
+      ...commonContext(payload, context),
+    });
+  } else if (kind === 'tool.called') {
+    const toolName = toolNameFrom(payload, context);
+    const toolCallId = toolCallIdFrom(payload, context);
+    storeToolTiming(toolTimingPayload(payload, context));
+    targets = [sessionTarget(payload, context), toolTarget(payload, context)].filter(Boolean);
+    metadata = compactMetadata({
+      tool_name: toolName,
+      tool_call_id: toolCallId,
       tool_kind: payload.toolKind,
       tool_input_kind: payload.toolInputKind,
       params_sha256: sha256(payload.params),
@@ -150,12 +226,13 @@ function buildEvent(kind, payload, context, config) {
       ...commonContext(payload, context),
     });
   } else if (kind === 'tool.completed' || kind === 'tool.failed') {
-    const timingPayload = { ...payload, run_id: payload.runId || context.runId };
-    targets = [sessionTarget(payload, context), toolTarget(payload)].filter(Boolean);
+    const toolName = toolNameFrom(payload, context);
+    const toolCallId = toolCallIdFrom(payload, context);
+    targets = [sessionTarget(payload, context), toolTarget(payload, context)].filter(Boolean);
     metadata = compactMetadata({
-      tool_name: payload.toolName,
-      tool_call_id: payload.toolCallId,
-      duration_ms: payload.durationMs ?? consumeToolTiming(timingPayload),
+      tool_name: toolName,
+      tool_call_id: toolCallId,
+      duration_ms: payload.durationMs ?? consumeToolTiming(toolTimingPayload(payload, context)),
       is_error: kind === 'tool.failed',
       result_sha256: payload.result === undefined ? undefined : sha256(payload.result),
       result_bytes: payload.result === undefined ? undefined : byteLength(payload.result),
@@ -165,8 +242,8 @@ function buildEvent(kind, payload, context, config) {
   } else if (kind === 'model.call.started') {
     targets = [sessionTarget(payload, context), modelCallTarget(payload)].filter(Boolean);
     metadata = compactMetadata({
-      provider: payload.provider,
-      model: payload.model,
+      provider,
+      model,
       api: payload.api,
       transport: payload.transport,
       context_token_budget: payload.contextTokenBudget,
@@ -177,8 +254,8 @@ function buildEvent(kind, payload, context, config) {
   } else if (kind === 'model.call.completed' || kind === 'model.call.failed') {
     targets = [sessionTarget(payload, context), modelCallTarget(payload)].filter(Boolean);
     metadata = compactMetadata({
-      provider: payload.provider,
-      model: payload.model,
+      provider,
+      model,
       api: payload.api,
       transport: payload.transport,
       duration_ms: payload.durationMs,
@@ -260,7 +337,7 @@ function statusPayload() {
   };
 }
 
-export default {
+export default definePluginEntry({
   id: PLUGIN_ID,
   name: PLUGIN_NAME,
   description: 'Emit OpenClaw lifecycle events to WorkOS and query audit logs.',
@@ -315,14 +392,17 @@ export default {
       },
     });
 
-    api.on('session_start', (event, context) => record('session.started', event, context), { timeoutMs: 15_000 });
-    api.on('session_end', (event, context) => record('session.ended', event, context), { timeoutMs: 15_000 });
-    api.on('message_received', (event, context) => record('prompt.submitted', event, context), { timeoutMs: 15_000 });
-    api.on('message_sent', (event, context) => record('message.sent', event, context), { timeoutMs: 15_000 });
-    api.on('before_tool_call', (event, context) => record('tool.called', event, context), { timeoutMs: 15_000 });
-    api.on('after_tool_call', (event, context) => record(event.error ? 'tool.failed' : 'tool.completed', event, context), { timeoutMs: 15_000 });
-    api.on('model_call_started', (event, context) => record('model.call.started', event, context), { timeoutMs: 15_000 });
-    api.on('model_call_ended', (event, context) => record(event.outcome === 'error' ? 'model.call.failed' : 'model.call.completed', event, context), { timeoutMs: 15_000 });
-    api.on('agent_end', (event, context) => record(event.success ? 'turn.completed' : 'turn.failed', event, context), { timeoutMs: 15_000 });
+    api.on('session_start', (event, context) => record('session.started', event, context), { timeoutMs: HOOK_TIMEOUT_MS });
+    api.on('session_end', (event, context) => record('session.ended', event, context), { timeoutMs: HOOK_TIMEOUT_MS });
+    api.on('message_received', (event, context) => record('prompt.submitted', event, context), { timeoutMs: HOOK_TIMEOUT_MS });
+    api.on('message_sent', (event, context) => record('message.sent', event, context), { timeoutMs: HOOK_TIMEOUT_MS });
+    api.on('before_agent_run', (event, context) => record('agent.run.started', event, context), { timeoutMs: HOOK_TIMEOUT_MS });
+    api.on('llm_input', (event, context) => record('llm.input', event, context), { timeoutMs: HOOK_TIMEOUT_MS });
+    api.on('llm_output', (event, context) => record('llm.output', event, context), { timeoutMs: HOOK_TIMEOUT_MS });
+    api.on('before_tool_call', (event, context) => record('tool.called', event, context), { timeoutMs: HOOK_TIMEOUT_MS });
+    api.on('after_tool_call', (event, context) => record(event.error ? 'tool.failed' : 'tool.completed', event, context), { timeoutMs: HOOK_TIMEOUT_MS });
+    api.on('model_call_started', (event, context) => record('model.call.started', event, context), { timeoutMs: HOOK_TIMEOUT_MS });
+    api.on('model_call_ended', (event, context) => record(event.outcome === 'error' ? 'model.call.failed' : 'model.call.completed', event, context), { timeoutMs: HOOK_TIMEOUT_MS });
+    api.on('agent_end', (event, context) => record(event.success ? 'turn.completed' : 'turn.failed', event, context), { timeoutMs: HOOK_TIMEOUT_MS });
   },
-};
+});

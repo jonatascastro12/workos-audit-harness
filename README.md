@@ -2,12 +2,13 @@
 
 Ship WorkOS audit logs from your coding agents.
 
-This repo contains three integrations, sharing one CLI harness and one set of audit schemas:
+This repo contains four integrations, sharing one CLI harness and one set of audit schemas:
 
 | Package | What it does |
 |---|---|
 | [`packages/claude-plugin`](packages/claude-plugin) | Claude Code plugin: emits session/prompt/tool/turn events to WorkOS and exposes a `workos_audit_query` MCP tool. |
 | [`packages/codex-plugin`](packages/codex-plugin) | Codex plugin: same lifecycle events + MCP audit query, with Codex's hook model. |
+| [`packages/openclaw-plugin`](packages/openclaw-plugin) | OpenClaw plugin: emits native session/message/agent/LLM/tool/turn events and exposes WorkOS audit query/status tools. |
 | [`packages/pi-extension`](packages/pi-extension) | Extension for [pi-coding-agent](https://github.com/mariozechner/pi) and the `workos-audit-harness` CLI. |
 | [`packages/site`](packages/site) | Marketing & docs site (Next.js 15 + Tailwind v4) — also hosts the `workos-audit-recipe` SKILL.md. |
 
@@ -31,6 +32,19 @@ codex plugin marketplace add .
 ```
 
 Install `workos-audit` from the marketplace inside Codex, then restart. See [packages/codex-plugin/README.md](packages/codex-plugin/README.md).
+
+### OpenClaw
+
+```bash
+git clone https://github.com/workos/workos-audit-harness.git
+cd workos-audit-harness/packages/openclaw-plugin
+npm install
+npm run bundle
+openclaw plugins install .
+openclaw plugins enable workos-audit
+```
+
+Restart the OpenClaw gateway after installing or updating the plugin. See [packages/openclaw-plugin/README.md](packages/openclaw-plugin/README.md).
 
 ### pi-coding-agent
 
@@ -80,6 +94,7 @@ Per-integration legacy schemas are still available:
 ```bash
 npm run create:claude-schemas
 npm run create:codex-schemas
+npm run create:openclaw-schemas
 ```
 
 ## Repository layout
@@ -91,6 +106,7 @@ npm run create:codex-schemas
 ├── packages/
 │   ├── claude-plugin/
 │   ├── codex-plugin/
+│   ├── openclaw-plugin/
 │   ├── pi-extension/
 │   └── site/                            # audit-harness.workos.dev (Next.js, deploys to Vercel)
 └── package.json                          # npm workspaces root
