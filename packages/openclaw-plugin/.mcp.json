@@ -1,0 +1,33 @@
+{
+  "workos-audit": {
+    "command": "node",
+    "args": [
+      "./dist/server/index.mjs"
+    ],
+    "cwd": ".",
+    "startup_timeout_sec": 30,
+    "tool_timeout_sec": 90,
+    "env_vars": [
+      "WORKOS_API_KEY",
+      "WORKOS_ORGANIZATION_ID",
+      "WORKOS_ACTION_PREFIX",
+      "WORKOS_ACTOR_ID",
+      "WORKOS_ACTOR_TYPE",
+      "WORKOS_ACTOR_NAME",
+      "WORKOS_LOCATION",
+      "WORKOS_USER_AGENT",
+      "WORKOS_AUDIT_PROXY_URL",
+      "WORKOS_AUDIT_CONFIG_PATH",
+      "OPENCLAW_WORKOS_AUDIT_API_KEY",
+      "OPENCLAW_WORKOS_AUDIT_ORGANIZATION_ID",
+      "OPENCLAW_WORKOS_AUDIT_ACTION_PREFIX",
+      "OPENCLAW_WORKOS_AUDIT_ACTOR_ID",
+      "OPENCLAW_WORKOS_AUDIT_ACTOR_TYPE",
+      "OPENCLAW_WORKOS_AUDIT_ACTOR_NAME",
+      "OPENCLAW_WORKOS_AUDIT_LOCATION",
+      "OPENCLAW_WORKOS_AUDIT_USER_AGENT",
+      "OPENCLAW_WORKOS_AUDIT_PROXY_URL",
+      "OPENCLAW_WORKOS_AUDIT_CONFIG_PATH"
+    ]
+  }
+}

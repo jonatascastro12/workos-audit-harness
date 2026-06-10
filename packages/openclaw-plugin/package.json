@@ -1,0 +1,33 @@
+{
+  "name": "@workos-inc/openclaw-audit-plugin",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "description": "OpenClaw plugin: emit lifecycle events and query WorkOS audit logs.",
+  "scripts": {
+    "start": "npm install --no-audit --no-fund --silent && node dist/server/index.mjs",
+    "create:schemas": "node dist/scripts/create-openclaw-schemas.mjs",
+    "remove:schemas": "node dist/scripts/remove-openclaw-schemas.mjs",
+    "bundle": "node ../../scripts/bundle-plugins.mjs openclaw-plugin"
+  },
+  "files": [
+    "dist",
+    "openclaw.plugin.json",
+    ".mcp.json",
+    "skills",
+    "README.md"
+  ],
+  "peerDependencies": {
+    "openclaw": ">=2026.6.1"
+  },
+  "dependencies": {
+    "@napi-rs/keyring": "^1.3.0",
+    "typebox": "^1.1.38"
+  },
+  "openclaw": {
+    "extensions": [
+      "./dist/index.mjs"
+    ]
+  }
+}

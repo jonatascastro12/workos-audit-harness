@@ -1,0 +1,41 @@
+{
+  "id": "workos-audit",
+  "name": "WorkOS Audit",
+  "description": "Emit OpenClaw lifecycle events to WorkOS and query audit logs.",
+  "version": "0.1.0",
+  "activation": {
+    "onStartup": true
+  },
+  "contracts": {
+    "tools": [
+      "workos_audit_status",
+      "workos_audit_query"
+    ]
+  },
+  "skills": [
+    "skills/workos-audit"
+  ],
+  "toolMetadata": {
+    "workos_audit_status": {
+      "description": "Show WorkOS audit plugin configuration status."
+    },
+    "workos_audit_query": {
+      "description": "Export filtered WorkOS audit logs and return summaries plus sample rows."
+    }
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "recordingEnabled": {
+        "type": "boolean",
+        "description": "Enable lifecycle audit event recording."
+      }
+    }
+  },
+  "uiHints": {
+    "recordingEnabled": {
+      "label": "Record lifecycle events"
+    }
+  }
+}

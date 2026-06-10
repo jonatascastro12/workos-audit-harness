@@ -10,7 +10,7 @@
 //   node scripts/bundle-plugins.mjs              # build every plugin
 //   node scripts/bundle-plugins.mjs claude       # build a single plugin
 
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { mkdirSync, rmSync, readdirSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -21,6 +21,7 @@ const EXTERNALS = [
   '@napi-rs/keyring',
   '@mariozechner/pi-ai',
   '@mariozechner/pi-coding-agent',
+  'openclaw',
 ];
 
 const PLUGINS = {
@@ -32,6 +33,11 @@ const PLUGINS = {
   'codex-plugin': {
     dir: 'packages/codex-plugin',
     entries: ['server/index.mjs', 'scripts/*.mjs'],
+    keyringPackage: '@napi-rs/keyring',
+  },
+  'openclaw-plugin': {
+    dir: 'packages/openclaw-plugin',
+    entries: ['index.mjs', 'server/index.mjs', 'scripts/*.mjs'],
     keyringPackage: '@napi-rs/keyring',
   },
   'pi-extension': {
@@ -72,6 +78,12 @@ import __preflightPath from 'node:path';
 })();
 `;
 
+function getBunRunner() {
+  const probe = spawnSync('bun', ['--version'], { stdio: 'ignore' });
+  if (probe.status === 0) return { bin: 'bun', argsPrefix: [] };
+  return { bin: 'npx', argsPrefix: ['--yes', 'bun'] };
+}
+
 function expandEntries(pluginDir, patterns) {
   const entries = [];
   for (const pattern of patterns) {
@@ -96,6 +108,7 @@ function bundlePlugin(name, { dir, entries: patterns, preflight = true }) {
   mkdirSync(distRoot, { recursive: true });
 
   const entries = expandEntries(dir, patterns);
+  const bun = getBunRunner();
   for (const entry of entries) {
     const src = path.join(pluginRoot, entry);
     const out = path.join(distRoot, entry.replace(/\.ts$/, '.mjs'));
@@ -107,7 +120,7 @@ function bundlePlugin(name, { dir, entries: patterns, preflight = true }) {
       `--outfile=${out}`,
     ];
     for (const ext of EXTERNALS) args.push('--external', ext);
-    execFileSync('bun', args, { stdio: 'inherit', cwd: pluginRoot });
+    execFileSync(bun.bin, [...bun.argsPrefix, ...args], { stdio: 'inherit', cwd: pluginRoot });
     if (preflight) {
       const bundled = readFileSync(out, 'utf8');
       writeFileSync(out, `${PREFLIGHT}\n${bundled}`, 'utf8');

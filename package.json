@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "license": "MIT",
-  "description": "WorkOS audit logging for Claude Code, Codex, and the pi-coding-agent.",
+  "description": "WorkOS audit logging for Claude Code, Codex, OpenClaw, and the pi-coding-agent.",
   "workspaces": [
     "packages/*"
   ],
@@ -16,6 +16,8 @@
     "create:claude-schemas": "npm run create:schemas -w @workos-inc/claude-audit-plugin",
     "remove:claude-schemas": "npm run remove:schemas -w @workos-inc/claude-audit-plugin",
     "create:codex-schemas": "npm run create:schemas -w @workos-inc/codex-audit-plugin",
-    "remove:codex-schemas": "npm run remove:schemas -w @workos-inc/codex-audit-plugin"
+    "remove:codex-schemas": "npm run remove:schemas -w @workos-inc/codex-audit-plugin",
+    "create:openclaw-schemas": "npm run create:schemas -w @workos-inc/openclaw-audit-plugin",
+    "remove:openclaw-schemas": "npm run remove:schemas -w @workos-inc/openclaw-audit-plugin"
   }
 }

@@ -28,6 +28,13 @@ const CHECKS = [
       { file: 'packages/codex-plugin/.codex-plugin/plugin.json', pick: (json) => json.version },
     ],
   },
+  {
+    plugin: 'openclaw-plugin',
+    sources: [
+      { file: 'packages/openclaw-plugin/package.json', pick: (json) => json.version },
+      { file: 'packages/openclaw-plugin/openclaw.plugin.json', pick: (json) => json.version },
+    ],
+  },
 ];
 
 function readJson(rel) {
