@@ -8491,7 +8491,6 @@ function printConfigStatus({ configLoader }) {
 import os2 from "node:os";
 import path2 from "node:path";
 import { chmodSync, existsSync as existsSync2, mkdirSync, readFileSync as readFileSync2, rmSync, writeFileSync } from "node:fs";
-var DEFAULT_PROXY_URL = "https://cd26-workos-audit-proxy.workos.tools/api/events";
 var CONFIG_KEYS = [
   "apiKey",
   "organizationId",
@@ -8504,6 +8503,50 @@ var CONFIG_KEYS = [
   "proxyUrl"
 ];
 var BOOLEAN_CONFIG_KEYS = new Set(["recordingEnabled"]);
+function getManagedConfigPath() {
+  const override = trimToUndefined(process.env.WORKOS_AUDIT_MANAGED_CONFIG_PATH);
+  if (override)
+    return override;
+  if (process.platform === "win32") {
+    return path2.join(process.env.PROGRAMDATA || "C:\\ProgramData", "workos-audit", "config.json");
+  }
+  if (process.platform === "darwin") {
+    return "/Library/Application Support/workos-audit/config.json";
+  }
+  return "/etc/workos-audit/config.json";
+}
+function sanitizeRawConfig(raw) {
+  if (!raw || typeof raw !== "object")
+    return {};
+  const config = {};
+  for (const key of CONFIG_KEYS) {
+    if (key === "proxyUrl" && Object.hasOwn(raw, key) && raw[key] === null) {
+      config[key] = null;
+      continue;
+    }
+    const value = trimToUndefined(raw[key]);
+    if (value)
+      config[key] = value;
+  }
+  for (const key of BOOLEAN_CONFIG_KEYS) {
+    if (raw[key] !== undefined) {
+      const parsed = parseBoolean(raw[key]);
+      if (parsed !== undefined)
+        config[key] = parsed;
+    }
+  }
+  return config;
+}
+function readManagedConfig() {
+  const filePath = getManagedConfigPath();
+  if (!existsSync2(filePath))
+    return {};
+  try {
+    return sanitizeRawConfig(JSON.parse(readFileSync2(filePath, "utf8")));
+  } catch {
+    return {};
+  }
+}
 function parseBoolean(value) {
   if (typeof value === "boolean")
     return value;
@@ -8537,23 +8580,7 @@ function createConfigLoader({
     if (!existsSync2(filePath))
       return {};
     try {
-      const raw = JSON.parse(readFileSync2(filePath, "utf8"));
-      if (!raw || typeof raw !== "object")
-        return {};
-      const config = {};
-      for (const key of CONFIG_KEYS) {
-        const value = trimToUndefined(raw[key]);
-        if (value)
-          config[key] = value;
-      }
-      for (const key of BOOLEAN_CONFIG_KEYS) {
-        if (raw[key] !== undefined) {
-          const parsed = parseBoolean(raw[key]);
-          if (parsed !== undefined)
-            config[key] = parsed;
-        }
-      }
-      return config;
+      return sanitizeRawConfig(JSON.parse(readFileSync2(filePath, "utf8")));
     } catch {
       return {};
     }
@@ -8591,12 +8618,14 @@ function createConfigLoader({
     }
     return { value: undefined, source: null };
   }
-  function resolveKey(key, fileConfig, fallback) {
+  function resolveKey(key, fileConfig, managedConfig, fallback) {
     const fromEnv = lookupEnv(key);
     if (fromEnv.value)
       return { value: fromEnv.value, source: fromEnv.source };
     if (fileConfig[key] !== undefined)
       return { value: fileConfig[key], source: "config_file" };
+    if (managedConfig[key] !== undefined)
+      return { value: managedConfig[key], source: "managed_config" };
     if (fallback) {
       const fb = fallback();
       if (fb !== undefined)
@@ -8604,7 +8633,7 @@ function createConfigLoader({
     }
     return { value: undefined, source: null };
   }
-  function resolveBooleanKey(key, fileConfig, defaultValue) {
+  function resolveBooleanKey(key, fileConfig, managedConfig, defaultValue) {
     const fromEnv = lookupEnv(key);
     if (fromEnv.value !== undefined) {
       const parsed = parseBoolean(fromEnv.value);
@@ -8614,28 +8643,32 @@ function createConfigLoader({
     if (fileConfig[key] !== undefined) {
       return { value: fileConfig[key], source: "config_file" };
     }
+    if (managedConfig[key] !== undefined) {
+      return { value: managedConfig[key], source: "managed_config" };
+    }
     return { value: defaultValue, source: "default" };
   }
   function loadConfig() {
     const fileConfig = readFileConfig();
-    const apiKey = resolveKey("apiKey", fileConfig);
-    const organizationId = resolveKey("organizationId", fileConfig);
-    const actionPrefix = resolveKey("actionPrefix", fileConfig, () => ({ value: defaults2.actionPrefix, source: "default" }));
-    const actorType = resolveKey("actorType", fileConfig, () => ({ value: defaults2.actorType, source: "default" }));
-    const actorId = resolveKey("actorId", fileConfig, () => {
+    const managedConfig = readManagedConfig();
+    const apiKey = resolveKey("apiKey", fileConfig, managedConfig);
+    const organizationId = resolveKey("organizationId", fileConfig, managedConfig);
+    const actionPrefix = resolveKey("actionPrefix", fileConfig, managedConfig, () => ({ value: defaults2.actionPrefix, source: "default" }));
+    const actorType = resolveKey("actorType", fileConfig, managedConfig, () => ({ value: defaults2.actorType, source: "default" }));
+    const actorId = resolveKey("actorId", fileConfig, managedConfig, () => {
       const user = trimToUndefined(process.env.USER) || trimToUndefined(process.env.USERNAME);
       if (user)
         return { value: user, source: "os_user" };
       return { value: os2.hostname(), source: "hostname" };
     });
-    const actorName = resolveKey("actorName", fileConfig, () => {
+    const actorName = resolveKey("actorName", fileConfig, managedConfig, () => {
       const user = trimToUndefined(process.env.USER) || trimToUndefined(process.env.USERNAME);
       return user ? { value: user, source: "os_user" } : undefined;
     });
-    const location = resolveKey("location", fileConfig, () => ({ value: defaults2.location, source: "default" }));
-    const userAgent = resolveKey("userAgent", fileConfig, () => ({ value: defaults2.userAgent, source: "default" }));
-    const proxyUrl = resolveKey("proxyUrl", fileConfig, () => defaults2.proxyUrl ? { value: defaults2.proxyUrl, source: "default" } : undefined);
-    const recordingEnabled = resolveBooleanKey("recordingEnabled", fileConfig, defaults2.recordingEnabled ?? true);
+    const location = resolveKey("location", fileConfig, managedConfig, () => ({ value: defaults2.location, source: "default" }));
+    const userAgent = resolveKey("userAgent", fileConfig, managedConfig, () => ({ value: defaults2.userAgent, source: "default" }));
+    const proxyUrl = resolveKey("proxyUrl", fileConfig, managedConfig, () => defaults2.proxyUrl ? { value: defaults2.proxyUrl, source: "default" } : undefined);
+    const recordingEnabled = resolveBooleanKey("recordingEnabled", fileConfig, managedConfig, defaults2.recordingEnabled ?? true);
     return {
       apiKey: apiKey.value,
       organizationId: organizationId.value,
@@ -8664,8 +8697,9 @@ function createConfigLoader({
   }
   function loadQueryConfig() {
     const fileConfig = readFileConfig();
-    const apiKey = resolveKey("apiKey", fileConfig);
-    const organizationId = resolveKey("organizationId", fileConfig);
+    const managedConfig = readManagedConfig();
+    const apiKey = resolveKey("apiKey", fileConfig, managedConfig);
+    const organizationId = resolveKey("organizationId", fileConfig, managedConfig);
     return {
       apiKey: apiKey.value,
       organizationId: organizationId.value,
@@ -8714,7 +8748,6 @@ var configLoader = createConfigLoader({
     actorType: "user",
     location: "claude-code",
     userAgent: "claude-code-workos-audit/1",
-    proxyUrl: DEFAULT_PROXY_URL,
     recordingEnabled: true
   }
 });

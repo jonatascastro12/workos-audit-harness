@@ -1,4 +1,4 @@
-import { createConfigLoader, DEFAULT_PROXY_URL } from '@workos-inc/audit-core/config';
+import { createConfigLoader } from '@workos-inc/audit-core/config';
 
 export const configLoader = createConfigLoader({
   configFilePathEnvs: ['WORKOS_AUDIT_CONFIG_PATH', 'OPENCLAW_WORKOS_AUDIT_CONFIG_PATH'],
@@ -20,7 +20,8 @@ export const configLoader = createConfigLoader({
     actorType: 'user',
     location: 'openclaw',
     userAgent: 'openclaw-workos-audit/1',
-    proxyUrl: DEFAULT_PROXY_URL,
+    // No default proxyUrl: a fleet sets it via the MDM-managed machine config
+    // (see audit-core getManagedConfigPath), an individual via env or config file.
     recordingEnabled: true,
   },
 });

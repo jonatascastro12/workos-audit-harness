@@ -3732,9 +3732,9 @@ var init_webapi_CxKOxXjo = __esm(() => {
 
 // index.ts
 import os4 from "node:os";
-import path4 from "node:path";
+import path5 from "node:path";
 import { execFileSync as execFileSync4 } from "node:child_process";
-import { chmodSync, existsSync as existsSync2, mkdirSync, readFileSync as readFileSync2, rmSync as rmSync2, writeFileSync as writeFileSync3 } from "node:fs";
+import { chmodSync as chmodSync2, existsSync as existsSync3, mkdirSync as mkdirSync2, readFileSync as readFileSync3, rmSync as rmSync3, writeFileSync as writeFileSync4 } from "node:fs";
 import { createHash } from "node:crypto";
 
 // ../../node_modules/eventemitter3/index.mjs
@@ -13231,11 +13231,81 @@ function getHarnessAuditSchemaDefinitions(prefix = "harness") {
 }
 
 // ../audit-core/src/config.mjs
-var DEFAULT_PROXY_URL = "https://cd26-workos-audit-proxy.workos.tools/api/events";
+import path4 from "node:path";
+import { chmodSync, existsSync as existsSync2, mkdirSync, readFileSync as readFileSync2, rmSync as rmSync2, writeFileSync as writeFileSync3 } from "node:fs";
+var CONFIG_KEYS = [
+  "apiKey",
+  "organizationId",
+  "actionPrefix",
+  "actorId",
+  "actorType",
+  "actorName",
+  "location",
+  "userAgent",
+  "proxyUrl"
+];
 var BOOLEAN_CONFIG_KEYS = new Set(["recordingEnabled"]);
+function getManagedConfigPath() {
+  const override = trimToUndefined(process.env.WORKOS_AUDIT_MANAGED_CONFIG_PATH);
+  if (override)
+    return override;
+  if (process.platform === "win32") {
+    return path4.join(process.env.PROGRAMDATA || "C:\\ProgramData", "workos-audit", "config.json");
+  }
+  if (process.platform === "darwin") {
+    return "/Library/Application Support/workos-audit/config.json";
+  }
+  return "/etc/workos-audit/config.json";
+}
+function sanitizeRawConfig(raw) {
+  if (!raw || typeof raw !== "object")
+    return {};
+  const config = {};
+  for (const key of CONFIG_KEYS) {
+    if (key === "proxyUrl" && Object.hasOwn(raw, key) && raw[key] === null) {
+      config[key] = null;
+      continue;
+    }
+    const value = trimToUndefined(raw[key]);
+    if (value)
+      config[key] = value;
+  }
+  for (const key of BOOLEAN_CONFIG_KEYS) {
+    if (raw[key] !== undefined) {
+      const parsed = parseBoolean(raw[key]);
+      if (parsed !== undefined)
+        config[key] = parsed;
+    }
+  }
+  return config;
+}
+function readManagedConfig() {
+  const filePath = getManagedConfigPath();
+  if (!existsSync2(filePath))
+    return {};
+  try {
+    return sanitizeRawConfig(JSON.parse(readFileSync2(filePath, "utf8")));
+  } catch {
+    return {};
+  }
+}
+function parseBoolean(value) {
+  if (typeof value === "boolean")
+    return value;
+  if (typeof value !== "string")
+    return;
+  const normalized = value.trim().toLowerCase();
+  if (!normalized)
+    return;
+  if (["1", "true", "yes", "on", "enabled"].includes(normalized))
+    return true;
+  if (["0", "false", "no", "off", "disabled"].includes(normalized))
+    return false;
+  return;
+}
 
 // index.ts
-var CONFIG_KEYS = ["apiKey", "organizationId", "actorId", "actorType", "actorName", "location", "userAgent", "proxyUrl"];
+var CONFIG_KEYS2 = ["apiKey", "organizationId", "actorId", "actorType", "actorName", "location", "userAgent", "proxyUrl"];
 var EXTENSION_STATUS_KEY = "workos-audit";
 var USER_AGENT3 = "pi-workos-audit-logs/1";
 var DEFAULT_QUERY_RANGE_DAYS2 = 7;
@@ -13245,13 +13315,13 @@ var EXPORT_POLL_INTERVAL_MS2 = 1500;
 var EXPORT_POLL_TIMEOUT_MS2 = 60000;
 var detectedActorCache;
 function getConfigFilePath() {
-  return process.env.PI_WORKOS_AUDIT_LOGS_CONFIG_PATH || path4.join(os4.homedir(), ".pi", "agent", "extensions", "workos-audit-logs", "config.json");
+  return process.env.PI_WORKOS_AUDIT_LOGS_CONFIG_PATH || path5.join(os4.homedir(), ".pi", "agent", "extensions", "workos-audit-logs", "config.json");
 }
 function sanitizeStoredConfig(raw) {
   if (!raw || typeof raw !== "object")
     return {};
   const config = {};
-  for (const key of CONFIG_KEYS) {
+  for (const key of CONFIG_KEYS2) {
     const value = raw[key];
     if (typeof value === "string" && value.trim())
       config[key] = value;
@@ -13263,23 +13333,23 @@ function sanitizeStoredConfig(raw) {
 }
 function readStoredConfig() {
   const filePath = getConfigFilePath();
-  if (!existsSync2(filePath))
+  if (!existsSync3(filePath))
     return {};
   try {
-    return sanitizeStoredConfig(JSON.parse(readFileSync2(filePath, "utf8")));
+    return sanitizeStoredConfig(JSON.parse(readFileSync3(filePath, "utf8")));
   } catch {
     return {};
   }
 }
 function writeStoredConfig(config) {
   const filePath = getConfigFilePath();
-  mkdirSync(path4.dirname(filePath), { recursive: true, mode: 448 });
-  writeFileSync3(filePath, `${JSON.stringify(config, null, 2)}
+  mkdirSync2(path5.dirname(filePath), { recursive: true, mode: 448 });
+  writeFileSync4(filePath, `${JSON.stringify(config, null, 2)}
 `, { mode: 384 });
-  chmodSync(filePath, 384);
+  chmodSync2(filePath, 384);
 }
 function clearStoredConfig() {
-  rmSync2(getConfigFilePath(), { force: true });
+  rmSync3(getConfigFilePath(), { force: true });
 }
 function maskSecret(value) {
   if (!value)
@@ -13290,7 +13360,7 @@ function maskSecret(value) {
 }
 function parseConfigKey(value) {
   const normalized = value.trim();
-  return CONFIG_KEYS.find((key) => key === normalized);
+  return CONFIG_KEYS2.find((key) => key === normalized);
 }
 function summarizeStoredConfig(config, stored) {
   const detectedActor = getDetectedActor();
@@ -13415,7 +13485,7 @@ function getConfig() {
   const actorName = process.env.PI_WORKOS_AUDIT_LOGS_ACTOR_NAME || stored.actorName || detectedActor.actorName;
   const location = process.env.PI_WORKOS_AUDIT_LOGS_LOCATION || stored.location || "local";
   const userAgent = process.env.PI_WORKOS_AUDIT_LOGS_USER_AGENT || stored.userAgent || USER_AGENT3;
-  const proxyUrl = process.env.PI_WORKOS_AUDIT_LOGS_PROXY_URL || process.env.WORKOS_AUDIT_PROXY_URL || stored.proxyUrl || DEFAULT_PROXY_URL;
+  const proxyUrl = process.env.PI_WORKOS_AUDIT_LOGS_PROXY_URL || process.env.WORKOS_AUDIT_PROXY_URL || stored.proxyUrl || readManagedConfig().proxyUrl;
   const configured = true;
   return {
     enabled: configured && loggingEnabled,
@@ -13966,7 +14036,7 @@ function workosAuditLogsExtension(pi) {
       if (subcommand === "unset") {
         const key = parseConfigKey(rest3[0] || "");
         if (!key) {
-          const message4 = `Unknown key. Use one of: ${CONFIG_KEYS.join(", ")}`;
+          const message4 = `Unknown key. Use one of: ${CONFIG_KEYS2.join(", ")}`;
           if (ctx.hasUI)
             ctx.ui.notify(message4, "warning");
           console.log(message4);
@@ -13986,7 +14056,7 @@ function workosAuditLogsExtension(pi) {
         const key = parseConfigKey(rest3[0] || "");
         const value = rest3.slice(1).join(" ").trim();
         if (!key) {
-          const message4 = `Unknown key. Use one of: ${CONFIG_KEYS.join(", ")}`;
+          const message4 = `Unknown key. Use one of: ${CONFIG_KEYS2.join(", ")}`;
           if (ctx.hasUI)
             ctx.ui.notify(message4, "warning");
           console.log(message4);
@@ -14222,8 +14292,8 @@ function workosAuditLogsExtension(pi) {
       if (!response.ok)
         throw new Error(`Failed to download audit export ${auditExport.id}: ${response.status} ${response.statusText}`);
       const csv = await response.text();
-      const csvPath = path4.join(os4.tmpdir(), `workos-audit-export-${auditExport.id}.csv`);
-      writeFileSync3(csvPath, csv, "utf8");
+      const csvPath = path5.join(os4.tmpdir(), `workos-audit-export-${auditExport.id}.csv`);
+      writeFileSync4(csvPath, csv, "utf8");
       const rows = parseAuditLogRows2(csv).sort((a, b) => (b.occurredAt || "").localeCompare(a.occurredAt || ""));
       const sampleRows = rows.slice(0, maxRows);
       const actionSummary = summarizeCounts2(rows.map((row) => row.action).filter(Boolean));
