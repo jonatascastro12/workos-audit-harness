@@ -38,7 +38,7 @@ Restart the OpenClaw gateway after installing or updating the plugin so startup 
 
 ## Configure recording
 
-Recording is proxy-first. By default the plugin sends lifecycle audit events to the shared WorkOS audit proxy over device mTLS, so the OpenClaw plugin client does not need a `sk_...` API key for event emission.
+Recording is proxy-first. The plugin should send lifecycle audit events to the shared WorkOS audit proxy over device mTLS, so the OpenClaw plugin client does not need a `sk_...` API key for event emission. In a managed deployment this proxy URL can be shipped by MDM; for local testing, set it manually before starting OpenClaw:
 
 ```bash
 export OPENCLAW_WORKOS_AUDIT_PROXY_URL="https://cd26-workos-audit-proxy.workos.tools/api/events"
@@ -46,9 +46,7 @@ export OPENCLAW_WORKOS_AUDIT_ACTION_PREFIX="openclaw"
 export OPENCLAW_WORKOS_AUDIT_RECORDING="1"
 ```
 
-`OPENCLAW_WORKOS_AUDIT_PROXY_URL` can be omitted when using the default proxy URL. Set it only when testing a different proxy.
-
-Direct WorkOS credentials are still supported as a fallback for development, non-mTLS environments, schema creation, and querying existing audit logs:
+Direct WorkOS credentials are still supported when someone explicitly wants that mode, and are also useful for development, non-mTLS environments, schema creation, and querying existing audit logs:
 
 ```bash
 npm run workos-auth-login
