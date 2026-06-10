@@ -1,6 +1,6 @@
 {
   "name": "workos-audit",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "Query WorkOS audit logs and emit Codex lifecycle events to WorkOS.",
   "author": {
     "name": "WorkOS"

@@ -12,7 +12,7 @@ import { queryAuditLogs as auditCoreQuery } from "@workos-inc/audit-core/audit-q
 import { ensureOrganization as auditCoreEnsureOrg } from "@workos-inc/audit-core/workos-client";
 import { createSchema as auditCoreCreateSchema } from "@workos-inc/audit-core/schema";
 import { getHarnessAuditSchemaDefinitions } from "@workos-inc/audit-core/harness-schemas";
-import { DEFAULT_PROXY_URL } from "@workos-inc/audit-core/config";
+import { readManagedConfig } from "@workos-inc/audit-core/config";
 
 type MetadataValue = string | number | boolean;
 type Metadata = Record<string, MetadataValue>;
@@ -285,7 +285,13 @@ function getConfig(): Config {
   const actorName = process.env.PI_WORKOS_AUDIT_LOGS_ACTOR_NAME || stored.actorName || detectedActor.actorName;
   const location = process.env.PI_WORKOS_AUDIT_LOGS_LOCATION || stored.location || "local";
   const userAgent = process.env.PI_WORKOS_AUDIT_LOGS_USER_AGENT || stored.userAgent || USER_AGENT;
-  const proxyUrl = process.env.PI_WORKOS_AUDIT_LOGS_PROXY_URL || process.env.WORKOS_AUDIT_PROXY_URL || stored.proxyUrl || DEFAULT_PROXY_URL;
+  // Lowest layer is the MDM-managed machine config — how a fleet rollout sets
+  // the proxy URL without baking a company hostname into the source.
+  const proxyUrl =
+    process.env.PI_WORKOS_AUDIT_LOGS_PROXY_URL ||
+    process.env.WORKOS_AUDIT_PROXY_URL ||
+    stored.proxyUrl ||
+    (readManagedConfig() as { proxyUrl?: string }).proxyUrl;
   const configured = true;
 
   return {
