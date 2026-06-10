@@ -28,7 +28,9 @@ A compromised laptop can do exactly one thing: append rate-limited audit events 
                                                  api.workos.com/audit_logs/events
 ```
 
-The clients in this repo ([claude-plugin](../claude-plugin), [codex-plugin](../codex-plugin), [pi-extension](../pi-extension)) already speak this protocol: they discover the device cert in the macOS keychain and POST through it via `curl --cert <label>` on the Secure Transport backend.
+The clients in this repo ([claude-plugin](../claude-plugin), [codex-plugin](../codex-plugin), [openclaw-plugin](../openclaw-plugin), [pi-extension](../pi-extension)) already speak this protocol: they discover the device cert in the macOS keychain and POST through it via `curl --cert <label>` on the Secure Transport backend.
+
+> **macOS only (client side).** The mTLS emission path depends on the macOS keychain and Apple's Secure Transport curl backend — there is no Linux/Windows client support yet. The proxy itself is platform-agnostic; on non-Mac machines the plugins detect that no device cert is available and fall back to the API-key or WorkOS-CLI transport (or skip emission, logging locally).
 
 ## Deploy to your own Cloudflare account
 

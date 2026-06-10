@@ -38,7 +38,7 @@ Restart the OpenClaw gateway after installing or updating the plugin so startup 
 
 ## Configure recording
 
-Recording is proxy-first. The plugin should send lifecycle audit events to your company's [audit ingestion proxy](../proxy) over device mTLS, so the OpenClaw plugin client does not need a `sk_...` API key for event emission. In a managed deployment the proxy URL is shipped by MDM via the machine-wide managed config (see [packages/proxy/README.md](../proxy/README.md#point-the-plugins-at-your-proxy)); for local testing, set it manually before starting OpenClaw:
+Recording is proxy-first. The plugin should send lifecycle audit events to your company's [audit ingestion proxy](../proxy) over device mTLS, so the OpenClaw plugin client does not need a `sk_...` API key for event emission. The mTLS path is **macOS-only** (device cert in the keychain + Secure Transport curl); on other platforms the plugin falls back to the direct-credential mode below. In a managed deployment the proxy URL is shipped by MDM via the machine-wide managed config (see [packages/proxy/README.md](../proxy/README.md#point-the-plugins-at-your-proxy)); for local testing, set it manually before starting OpenClaw:
 
 ```bash
 export OPENCLAW_WORKOS_AUDIT_PROXY_URL="https://audit-proxy.yourcompany.com/api/events"

@@ -71,7 +71,7 @@ Alternatively set `WORKOS_API_KEY` and `WORKOS_ORGANIZATION_ID` env vars.
 
 ### Fleet rollout (no key on laptops)
 
-For rolling out to a whole fleet, don't put API keys on laptops at all — deploy the [ingestion proxy](packages/proxy) to your Cloudflare account and push its URL to every device via your MDM (a machine-wide config file at `/Library/Application Support/workos-audit/config.json` on macOS). Laptops authenticate with a device certificate over mTLS; the proxy holds the key and attributes events server-side. See [packages/proxy/README.md](packages/proxy/README.md).
+For rolling out to a whole fleet, don't put API keys on laptops at all — deploy the [ingestion proxy](packages/proxy) to your Cloudflare account and push its URL to every device via your MDM (a machine-wide config file at `/Library/Application Support/workos-audit/config.json` on macOS). Laptops authenticate with a device certificate over mTLS; the proxy holds the key and attributes events server-side. The mTLS client path is currently **macOS-only** (it relies on the keychain and Secure Transport curl); other platforms fall back to API-key/CLI transport. See [packages/proxy/README.md](packages/proxy/README.md).
 
 ## Self-check from your shell
 
