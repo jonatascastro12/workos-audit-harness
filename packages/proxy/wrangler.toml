@@ -1,0 +1,29 @@
+# Vendor-neutral config: no account_id (wrangler uses your logged-in account)
+# and no zone routes. After your first deploy, attach the Worker to a hostname
+# on your own zone so you can put mTLS in front of it — see README.md.
+name = "workos-audit-proxy"
+main = "src/index.ts"
+compatibility_date = "2026-02-10"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "workos-audit-proxy-db"
+# Placeholder so local dev works out of the box. Before deploying, run
+# `npm run db:create` and replace this with the database_id it prints.
+database_id = "00000000-0000-0000-0000-000000000000"
+migrations_dir = "migrations"
+
+[vars]
+# WorkOS organization the audit events are attributed to (org_...). Not a
+# secret. The WORKOS_API_KEY secret is set separately: `wrangler secret put`.
+WORKOS_ORG_ID = ""
+# Uncomment to override the device-cert common-name pattern (one capture group
+# for the device id). Default matches the Okta device-attestation cert.
+# DEVICE_CERT_CN_PATTERN = "OktaManagementAttestation for ([^,\\s]+)"
+# Uncomment to resolve device→user live from Kandji (also requires the
+# KANDJI_API_TOKEN secret). Without it, the D1 device_user table is the
+# authoritative mapping.
+# KANDJI_API_BASE = "https://yourtenant.api.kandji.io"
+
+[observability]
+enabled = true

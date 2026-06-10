@@ -2,7 +2,7 @@
 
 Ship WorkOS audit logs from your coding agents.
 
-This repo contains four integrations, sharing one CLI harness and one set of audit schemas:
+This repo contains four integrations plus a fleet-deployment proxy, sharing one CLI harness and one set of audit schemas:
 
 | Package | What it does |
 |---|---|
@@ -10,6 +10,7 @@ This repo contains four integrations, sharing one CLI harness and one set of aud
 | [`packages/codex-plugin`](packages/codex-plugin) | Codex plugin: same lifecycle events + MCP audit query, with Codex's hook model. |
 | [`packages/openclaw-plugin`](packages/openclaw-plugin) | OpenClaw plugin: emits native session/message/agent/LLM/tool/turn events and exposes WorkOS audit query/status tools. |
 | [`packages/pi-extension`](packages/pi-extension) | Extension for [pi-coding-agent](https://github.com/mariozechner/pi) and the `workos-audit-harness` CLI. |
+| [`packages/proxy`](packages/proxy) | Cloudflare Worker ingestion proxy: laptops authenticate with a device cert over mTLS instead of carrying a WorkOS API key. Deployable to any Cloudflare account. |
 | [`packages/site`](packages/site) | Marketing & docs site (Next.js 15 + Tailwind v4) — also hosts the `workos-audit-recipe` SKILL.md. |
 
 ## Install
@@ -68,6 +69,10 @@ This runs the WorkOS CLI login flow. If no organization is set, an `Audit Log Ha
 
 Alternatively set `WORKOS_API_KEY` and `WORKOS_ORGANIZATION_ID` env vars.
 
+### Fleet rollout (no key on laptops)
+
+For rolling out to a whole fleet, don't put API keys on laptops at all — deploy the [ingestion proxy](packages/proxy) to your Cloudflare account and push its URL to every device via your MDM (a machine-wide config file at `/Library/Application Support/workos-audit/config.json` on macOS). Laptops authenticate with a device certificate over mTLS; the proxy holds the key and attributes events server-side. See [packages/proxy/README.md](packages/proxy/README.md).
+
 ## Self-check from your shell
 
 The `workos-audit-harness` CLI in `packages/audit-core` is the shared core for all integrations. From the repo root:
@@ -108,6 +113,7 @@ npm run create:openclaw-schemas
 │   ├── codex-plugin/
 │   ├── openclaw-plugin/
 │   ├── pi-extension/
+│   ├── proxy/                           # mTLS ingestion proxy (Cloudflare Worker + D1)
 │   └── site/                            # audit-harness.workos.dev (Next.js, deploys to Vercel)
 └── package.json                          # npm workspaces root
 ```
