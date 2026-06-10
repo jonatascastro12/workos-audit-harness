@@ -1,3 +1,6 @@
+import { existsSync, readFileSync } from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import { definePluginEntry } from 'openclaw/plugin-sdk/core';
 import { Type } from 'typebox';
 import { queryAuditLogs, MAX_QUERY_MAX_ROWS } from '@workos-inc/audit-core/audit-query';
@@ -15,6 +18,7 @@ import { configLoader } from './scripts/config-file.mjs';
 const PLUGIN_ID = 'workos-audit';
 const PLUGIN_NAME = 'WorkOS Audit';
 const HOOK_TIMEOUT_MS = 15_000;
+const workspaceIdentityCache = { loaded: false, value: {} };
 
 const { storeToolTiming, consumeToolTiming } = createToolTimingStore({
   baseEnvNames: ['OPENCLAW_WORKOS_AUDIT_DATA', 'OPENCLAW_DATA_DIR', 'OPENCLAW_HOME'],
@@ -24,6 +28,45 @@ const { storeToolTiming, consumeToolTiming } = createToolTimingStore({
 
 function pick(...values) {
   return values.find((value) => value !== undefined && value !== null && value !== '');
+}
+
+function slug(value) {
+  return String(value || '')
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
+function readMarkdownField(filePath, label) {
+  if (!existsSync(filePath)) return undefined;
+  const content = readFileSync(filePath, 'utf8');
+  const match = content.match(new RegExp(`^- \\*\\*${label}:\\*\\*\\s*(.+)$`, 'mi'));
+  const value = match?.[1]?.trim();
+  return value && !value.startsWith('_(') ? value : undefined;
+}
+
+function workspaceIdentity() {
+  if (workspaceIdentityCache.loaded) return workspaceIdentityCache.value;
+  workspaceIdentityCache.loaded = true;
+
+  const workspaceDir = pick(
+    process.env.OPENCLAW_WORKSPACE_DIR,
+    process.env.OPENCLAW_WORKSPACE,
+    path.join(os.homedir(), '.openclaw', 'workspace'),
+  );
+
+  try {
+    workspaceIdentityCache.value = {
+      assistantName: readMarkdownField(path.join(workspaceDir, 'IDENTITY.md'), 'Name'),
+      userName: readMarkdownField(path.join(workspaceDir, 'USER.md'), 'Name'),
+    };
+  } catch {
+    workspaceIdentityCache.value = {};
+  }
+
+  return workspaceIdentityCache.value;
 }
 
 function pluginConfigFrom(context) {
@@ -37,6 +80,61 @@ function loadHookConfig(context) {
     return { ...config, recordingEnabled: pluginConfig.recordingEnabled };
   }
   return config;
+}
+
+function actorFrom(payload = {}, context = {}, config = {}) {
+  const identity = workspaceIdentity();
+  const explicitActorId = !['os_user', 'hostname', 'default'].includes(config.sources?.actorId)
+    ? config.actorId
+    : undefined;
+  const explicitActorType = !['default'].includes(config.sources?.actorType)
+    ? config.actorType
+    : undefined;
+  const explicitActorName = !['os_user', 'hostname', 'default'].includes(config.sources?.actorName)
+    ? config.actorName
+    : undefined;
+  const agentId = pick(payload.agentId, payload.agent_id, context.agentId, context.agent_id);
+  const assistantName = pick(
+    payload.agentName,
+    payload.agent_name,
+    context.agentName,
+    context.agent_name,
+    identity.assistantName,
+    agentId,
+    'OpenClaw',
+  );
+  const userName = pick(
+    payload.senderName,
+    payload.sender_name,
+    payload.fromName,
+    payload.from_name,
+    context.senderName,
+    context.sender_name,
+    identity.userName,
+  );
+  const userId = pick(
+    payload.senderId,
+    payload.sender_id,
+    payload.from,
+    context.senderId,
+    context.sender_id,
+  );
+  const idParts = [slug(assistantName), slug(userName || userId)].filter(Boolean);
+  const metadata = compactMetadata({
+    machine_user: pick(process.env.USER, process.env.USERNAME),
+    hostname: os.hostname(),
+    platform: process.platform,
+    arch: process.arch,
+    pid: process.pid,
+    node_version: process.version,
+  });
+
+  return {
+    id: explicitActorId || `openclaw:${idParts.join(':') || slug(agentId) || 'agent'}`,
+    type: explicitActorType || 'user',
+    name: explicitActorName || [assistantName, userName].filter(Boolean).join(' / '),
+    metadata,
+  };
 }
 
 function commonContext(event = {}, context = {}) {
@@ -62,7 +160,20 @@ function commonContext(event = {}, context = {}) {
 
 function sessionTarget(event = {}, context = {}) {
   const id = pick(event.sessionId, event.session_id, context.sessionId, context.session_id, event.sessionKey, event.session_key, context.sessionKey, context.session_key);
-  return id ? { id, type: 'session' } : undefined;
+  if (id) return { id, type: 'session' };
+
+  const fallback = compactMetadata({
+    run_id: pick(event.runId, event.run_id, context.runId, context.run_id),
+    job_id: pick(event.jobId, event.job_id, context.jobId, context.job_id),
+    account_id: pick(event.accountId, event.account_id, context.accountId, context.account_id),
+    channel_id: pick(event.channelId, event.channel_id, context.channelId, context.channel_id, event.chatId, event.chat_id, context.chatId, context.chat_id),
+    thread_id: pick(event.threadId, event.thread_id, context.threadId, context.thread_id),
+    provider: pick(event.messageProvider, event.message_provider, context.messageProvider, context.message_provider),
+    agent_id: pick(event.agentId, event.agent_id, context.agentId, context.agent_id),
+  });
+
+  if (!Object.keys(fallback).length) return undefined;
+  return { id: `session_${sha256(fallback).slice(0, 24)}`, type: 'session' };
 }
 
 function toolNameFrom(event = {}, context = {}) {
@@ -281,14 +392,16 @@ function buildEvent(kind, payload, context, config) {
     });
   }
 
+  const actor = actorFrom(payload, context, config);
+
   return {
     action: `${config.actionPrefix}.${kind}`,
     occurred_at: new Date().toISOString(),
     actor: {
-      id: config.actorId,
-      type: config.actorType,
-      ...(config.actorName ? { name: config.actorName } : {}),
-      metadata: {},
+      id: actor.id,
+      type: actor.type,
+      ...(actor.name ? { name: actor.name } : {}),
+      metadata: actor.metadata,
     },
     targets,
     context: {
@@ -311,6 +424,7 @@ async function record(kind, payload, context) {
 
 function statusPayload() {
   const config = configLoader.loadConfig();
+  const actor = actorFrom({}, {}, config);
   const workosCli = summarizeWorkosCliAuth();
   const credentialSource = config.apiKey
     ? 'api-key'
@@ -333,9 +447,9 @@ function statusPayload() {
         : 'auto-find-or-create Audit Log Harness',
     recordingEnabled: config.recordingEnabled !== false,
     actionPrefix: config.actionPrefix,
-    actorId: config.actorId,
-    actorType: config.actorType,
-    actorName: config.actorName,
+    actorId: actor.id,
+    actorType: actor.type,
+    actorName: actor.name,
     location: config.location,
     userAgent: config.userAgent,
     sources: config.sources,

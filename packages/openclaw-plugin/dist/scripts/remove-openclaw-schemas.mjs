@@ -8536,6 +8536,10 @@ function createConfigLoader({
         return {};
       const config = {};
       for (const key of CONFIG_KEYS) {
+        if (key === "proxyUrl" && Object.hasOwn(raw, key) && raw[key] === null) {
+          config[key] = null;
+          continue;
+        }
         const value = trimToUndefined(raw[key]);
         if (value)
           config[key] = value;
