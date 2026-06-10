@@ -13650,15 +13650,18 @@ function statusPayload() {
   const config = configLoader.loadConfig();
   const workosCli = summarizeWorkosCliAuth();
   const credentialSource = config.apiKey ? "api-key" : workosCli.loggedIn ? "workos-cli" : "none";
+  const recordingTransport = config.proxyUrl ? "proxy" : credentialSource;
   return {
     enabled: true,
-    configured: credentialSource !== "none",
+    configured: Boolean(config.proxyUrl || credentialSource !== "none"),
     configPath: configLoader.getConfigFilePath(),
     credentialSource,
+    recordingTransport,
     workosCli,
     apiKey: maskSecret(config.apiKey),
+    proxyUrl: config.proxyUrl || null,
     organizationId: config.organizationId || null,
-    organizationResolution: config.organizationId ? "explicit" : "auto-find-or-create Audit Log Harness",
+    organizationResolution: config.organizationId ? "explicit" : config.proxyUrl ? "proxy-resolved" : "auto-find-or-create Audit Log Harness",
     recordingEnabled: config.recordingEnabled !== false,
     actionPrefix: config.actionPrefix,
     actorId: config.actorId,

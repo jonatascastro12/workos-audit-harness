@@ -36,17 +36,23 @@ openclaw plugins enable workos-audit
 
 Restart the OpenClaw gateway after installing or updating the plugin so startup hook registration is refreshed.
 
-## Configure WorkOS credentials
+## Configure recording
 
-Preferred WorkOS CLI auth. If no organization ID is set, the harness finds or creates an organization named `Audit Log Harness` and uses it automatically:
+Recording is proxy-first. By default the plugin sends lifecycle audit events to the shared WorkOS audit proxy over device mTLS, so the OpenClaw plugin client does not need a `sk_...` API key for event emission.
+
+```bash
+export OPENCLAW_WORKOS_AUDIT_PROXY_URL="https://cd26-workos-audit-proxy.workos.tools/api/events"
+export OPENCLAW_WORKOS_AUDIT_ACTION_PREFIX="openclaw"
+export OPENCLAW_WORKOS_AUDIT_RECORDING="1"
+```
+
+`OPENCLAW_WORKOS_AUDIT_PROXY_URL` can be omitted when using the default proxy URL. Set it only when testing a different proxy.
+
+Direct WorkOS credentials are still supported as a fallback for development, non-mTLS environments, schema creation, and querying existing audit logs:
 
 ```bash
 npm run workos-auth-login
-```
-
-Explicit API key:
-
-```bash
+# or:
 export WORKOS_API_KEY="sk_..."
 export WORKOS_ORGANIZATION_ID="org_..."
 ```
@@ -54,8 +60,8 @@ export WORKOS_ORGANIZATION_ID="org_..."
 OpenClaw-specific environment variables take precedence over generic WorkOS values:
 
 ```bash
-export OPENCLAW_WORKOS_AUDIT_ACTION_PREFIX="openclaw"
-export OPENCLAW_WORKOS_AUDIT_RECORDING="1"
+export OPENCLAW_WORKOS_AUDIT_API_KEY="sk_..."
+export OPENCLAW_WORKOS_AUDIT_ORGANIZATION_ID="org_..."
 ```
 
 Config file:
@@ -64,8 +70,7 @@ Config file:
 mkdir -p ~/.openclaw/workos-audit
 cat > ~/.openclaw/workos-audit/config.json <<'JSON'
 {
-  "apiKey": "sk_...",
-  "organizationId": "org_...",
+  "proxyUrl": "https://cd26-workos-audit-proxy.workos.tools/api/events",
   "actionPrefix": "openclaw",
   "actorId": "your-user-id",
   "actorType": "user",
