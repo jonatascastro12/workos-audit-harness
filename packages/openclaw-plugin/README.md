@@ -38,10 +38,10 @@ Restart the OpenClaw gateway after installing or updating the plugin so startup 
 
 ## Configure recording
 
-Recording is proxy-first. The plugin should send lifecycle audit events to the shared WorkOS audit proxy over device mTLS, so the OpenClaw plugin client does not need a `sk_...` API key for event emission. In a managed deployment this proxy URL can be shipped by MDM; for local testing, set it manually before starting OpenClaw:
+Recording is proxy-first. The plugin should send lifecycle audit events to your company's [audit ingestion proxy](../proxy) over device mTLS, so the OpenClaw plugin client does not need a `sk_...` API key for event emission. In a managed deployment the proxy URL is shipped by MDM via the machine-wide managed config (see [packages/proxy/README.md](../proxy/README.md#point-the-plugins-at-your-proxy)); for local testing, set it manually before starting OpenClaw:
 
 ```bash
-export OPENCLAW_WORKOS_AUDIT_PROXY_URL="https://cd26-workos-audit-proxy.workos.tools/api/events"
+export OPENCLAW_WORKOS_AUDIT_PROXY_URL="https://audit-proxy.yourcompany.com/api/events"
 export OPENCLAW_WORKOS_AUDIT_ACTION_PREFIX="openclaw"
 export OPENCLAW_WORKOS_AUDIT_RECORDING="1"
 ```
@@ -68,7 +68,7 @@ Config file:
 mkdir -p ~/.openclaw/workos-audit
 cat > ~/.openclaw/workos-audit/config.json <<'JSON'
 {
-  "proxyUrl": "https://cd26-workos-audit-proxy.workos.tools/api/events",
+  "proxyUrl": "https://audit-proxy.yourcompany.com/api/events",
   "actionPrefix": "openclaw",
   "actorId": "your-user-id",
   "actorType": "user",
