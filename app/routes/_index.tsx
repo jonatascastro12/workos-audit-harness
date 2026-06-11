@@ -1,118 +1,405 @@
+import { useChat } from "@ai-sdk/react";
+import type { UIMessage } from "ai";
+import { DefaultChatTransport } from "ai";
+import { authkitLoader } from "@workos-inc/authkit-react-router";
+import { useEffect, useRef, useState } from "react";
 import type { LoaderFunctionArgs } from "react-router";
-import { useLoaderData } from "react-router";
+import { Form, useLoaderData } from "react-router";
 import { Badge } from "../vendor/design-system/components/badge";
 import { Box } from "../vendor/design-system/components/box";
+import { Button } from "../vendor/design-system/components/button";
+import { Callout } from "../vendor/design-system/components/callout";
 import { Card } from "../vendor/design-system/components/card";
+import { Code } from "../vendor/design-system/components/code";
 import { Flex } from "../vendor/design-system/components/flex";
 import { Heading } from "../vendor/design-system/components/heading";
-import { Separator } from "../vendor/design-system/components/separator";
+import { Spinner } from "../vendor/design-system/components/spinner";
 import { Text } from "../vendor/design-system/components/text";
+import { TextArea } from "../vendor/design-system/components/text-area";
+import type { AuditLogRow, AuditQueryResult } from "../lib/audit-logs.server";
+import type { AuditChatEnv } from "../lib/config.server";
+import { configureAuthKit, emailAllowed, getTenantConfig } from "../lib/config.server";
 
-interface AppStateRow {
-  key: string;
-  value: string;
-  updated_at: string;
+export async function loader(args: LoaderFunctionArgs) {
+  const env = args.context.cloudflare.env as AuditChatEnv;
+  configureAuthKit(env);
+  const tenant = getTenantConfig(env);
+  return authkitLoader(
+    args,
+    async ({ auth }) => {
+      if (!emailAllowed(auth.user.email, tenant)) {
+        throw new Response("This account is not allowed to use the audit console.", {
+          status: 403,
+        });
+      }
+      return {
+        organizationId: tenant.organizationId,
+        environmentLabel: tenant.environmentLabel,
+        publicHostname: tenant.publicHostname,
+        modelId: tenant.modelId,
+      };
+    },
+    { ensureSignedIn: true },
+  );
 }
 
-function getTimeAgo(timestamp: string): string {
-  const diffMs = Date.now() - new Date(timestamp).getTime();
-  const diffMins = Math.floor(diffMs / 60000);
-  if (diffMins < 1) return "just now";
-  if (diffMins === 1) return "1 minute ago";
-  if (diffMins < 60) return `${diffMins} minutes ago`;
-  const diffHours = Math.floor(diffMins / 60);
-  return diffHours === 1 ? "1 hour ago" : `${diffHours} hours ago`;
-}
+const SUGGESTIONS = [
+  {
+    label: "Fleet overview",
+    question: "What happened across the agent fleet in the last 24 hours?",
+  },
+  {
+    label: "Shell activity",
+    question: "Who ran bash commands this week, and what did they run?",
+  },
+  {
+    label: "Failures",
+    question: "Which tool calls failed in the last 7 days, and for whom?",
+  },
+  {
+    label: "Actor trace",
+    question: "Show me the latest actions of the most active user this week.",
+  },
+];
 
-export async function loader({ context }: LoaderFunctionArgs) {
-  const { env } = context.cloudflare;
-
-  const { results } = await env.DB.prepare(
-    "SELECT key, value FROM app_state WHERE key IN ('last_updated', 'fun_fact')",
-  ).all<AppStateRow>();
-
-  const lastUpdatedRaw = results.find((r: AppStateRow) => r.key === "last_updated")?.value ?? null;
-
-  const lastUpdated = lastUpdatedRaw ?? "Unknown";
-  const timeAgo = lastUpdatedRaw ? getTimeAgo(lastUpdatedRaw) : "";
-  const funFact =
-    results.find((r: AppStateRow) => r.key === "fun_fact")?.value ?? "No fun fact yet.";
-
-  const imageUrl =
-    funFact !== "No fun fact yet. The workflow runs every 15 minutes."
-      ? `/api/image?v=${encodeURIComponent(lastUpdatedRaw ?? "")}`
-      : null;
-
-  return {
-    environment: env.ENVIRONMENT ?? "unknown",
-    funFact,
-    lastUpdated,
-    timeAgo,
-    imageUrl,
+interface QueryToolPart {
+  type: "tool-query_audit_logs";
+  toolCallId: string;
+  state: "input-streaming" | "input-available" | "output-available" | "output-error";
+  input?: {
+    range_start?: string;
+    range_end?: string;
+    actions?: string[];
+    actor_ids?: string[];
+    actor_names?: string[];
+    targets?: string[];
+    max_rows?: number;
   };
+  output?: AuditQueryResult;
+  errorText?: string;
+}
+
+function formatStamp(iso?: string): string {
+  if (!iso) return "····-··-·· ··:··:··";
+  return iso
+    .replace("T", " ")
+    .replace(/\.\d+Z?$/, "")
+    .slice(0, 19);
+}
+
+function describeActor(row: AuditLogRow): string {
+  return row.actor.id || row.actor.name || "unknown actor";
+}
+
+function describeTargets(row: AuditLogRow): string {
+  if (row.targets.length === 0) return "";
+  return row.targets
+    .map((target) => `${target.type ?? "?"}:${target.name || target.id || "?"}`)
+    .join(", ");
+}
+
+function EventRow({ row }: { row: AuditLogRow }) {
+  return (
+    <Flex align="start" gap="3" className="event-row">
+      <Text size="1" className="font-mono event-stamp">
+        {formatStamp(row.occurredAt)}
+      </Text>
+      <Flex direction="column" gap="0" className="min-w-0">
+        <Flex align="center" gap="2" wrap="wrap">
+          <Code size="1" color="purple" variant="ghost">
+            {row.action}
+          </Code>
+          <Text size="1" color="gray" truncate>
+            {describeActor(row)}
+          </Text>
+        </Flex>
+        {describeTargets(row) ? (
+          <Text size="1" color="gray" className="font-mono event-targets" truncate>
+            → {describeTargets(row)}
+          </Text>
+        ) : null}
+      </Flex>
+    </Flex>
+  );
+}
+
+function FilterChips({ values, color }: { values?: string[]; color: "purple" | "gray" }) {
+  if (!values?.length) return null;
+  return (
+    <>
+      {values.map((value) => (
+        <Code key={value} size="1" color={color} variant="soft">
+          {value}
+        </Code>
+      ))}
+    </>
+  );
+}
+
+function QueryCard({ part }: { part: QueryToolPart }) {
+  const [expanded, setExpanded] = useState(false);
+  const input = part.input ?? {};
+  const output = part.state === "output-available" ? part.output : undefined;
+  const pending = part.state === "input-streaming" || part.state === "input-available";
+  const visibleRows = output ? (expanded ? output.rows : output.rows.slice(0, 6)) : [];
+
+  return (
+    <Card size="2" className="query-card">
+      <Flex direction="column" gap="3">
+        <Flex align="center" justify="between" gap="3" wrap="wrap">
+          <Flex align="center" gap="2">
+            <Text size="1" weight="medium" className="font-mono query-label">
+              AUDIT EXPORT
+            </Text>
+            {pending ? <Spinner size="1" /> : null}
+            {part.state === "output-error" ? (
+              <Badge color="red" size="1">
+                failed
+              </Badge>
+            ) : null}
+            {output ? (
+              <Badge color="green" size="1">
+                {output.rowCount} event{output.rowCount === 1 ? "" : "s"}
+              </Badge>
+            ) : null}
+          </Flex>
+          <Text size="1" color="gray" className="font-mono">
+            {formatStamp(input.range_start)} →{" "}
+            {input.range_end ? formatStamp(input.range_end) : "now"}
+          </Text>
+        </Flex>
+
+        <Flex gap="2" wrap="wrap">
+          <FilterChips values={input.actions} color="purple" />
+          <FilterChips values={input.actor_ids} color="gray" />
+          <FilterChips values={input.actor_names} color="gray" />
+          <FilterChips values={input.targets} color="gray" />
+        </Flex>
+
+        {part.state === "output-error" ? (
+          <Text size="1" color="red">
+            {part.errorText || "Export failed."}
+          </Text>
+        ) : null}
+
+        {output ? (
+          output.rowCount === 0 ? (
+            <Text size="1" color="gray">
+              No events matched this export.
+            </Text>
+          ) : (
+            <Flex direction="column" gap="2">
+              <Text size="1" color="gray" className="font-mono query-counts">
+                actions: {output.counts.actions}
+              </Text>
+              <Flex direction="column" gap="2" className="event-list">
+                {visibleRows.map((row, index) => (
+                  <EventRow key={`${row.occurredAt}-${index}`} row={row} />
+                ))}
+              </Flex>
+              {output.rows.length > 6 ? (
+                <Button
+                  size="1"
+                  variant="ghost"
+                  color="gray"
+                  onClick={() => setExpanded(!expanded)}
+                >
+                  {expanded ? "Collapse" : `Show all ${output.rows.length} sampled events`}
+                </Button>
+              ) : null}
+            </Flex>
+          )
+        ) : null}
+      </Flex>
+    </Card>
+  );
+}
+
+function MessageParts({ message }: { message: UIMessage }) {
+  return (
+    <>
+      {message.parts.map((part, index) => {
+        if (part.type === "text") {
+          return (
+            <Text key={index} as="p" size="2" className="message-text">
+              {part.text}
+            </Text>
+          );
+        }
+        if (part.type === "tool-query_audit_logs") {
+          return <QueryCard key={index} part={part as unknown as QueryToolPart} />;
+        }
+        return null;
+      })}
+    </>
+  );
 }
 
 export default function Home() {
-  const { environment, funFact, lastUpdated, timeAgo, imageUrl } = useLoaderData<typeof loader>();
+  const { user, organizationId, environmentLabel, publicHostname, modelId } =
+    useLoaderData<typeof loader>();
+  const [input, setInput] = useState("");
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const { messages, sendMessage, status, error } = useChat({
+    transport: new DefaultChatTransport({ api: "/api/chat" }),
+  });
+
+  const busy = status === "submitted" || status === "streaming";
+
+  useEffect(() => {
+    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
+  }, [messages, status]);
+
+  function submit(text: string) {
+    const trimmed = text.trim();
+    if (!trimmed || busy) return;
+    void sendMessage({ text: trimmed });
+    setInput("");
+  }
 
   return (
-    <Box className="min-h-screen">
-      <Flex align="center" justify="center" minHeight="100vh" px="6" py="9">
-        <Flex direction="column" gap="6" maxWidth="640px" width="100%">
-          <Flex direction="column" gap="2">
-            <Badge color="purple" size="2">
-              {environment}
-            </Badge>
-            <Heading as="h1" size="8">
-              Cloudflare Internal App Example
+    <Flex direction="column" className="console-root">
+      <header className="console-header">
+        <Flex align="center" justify="between" px="5" py="3" gap="4">
+          <Flex align="center" gap="3">
+            <span className="console-glyph" aria-hidden />
+            <Heading as="h1" size="3" className="console-title">
+              Audit Chat
             </Heading>
-            <Text color="gray" size="3">
-              Example internal app using D1, Workers AI, R2, and Workflows on Cloudflare.
-            </Text>
+            <Badge color={environmentLabel === "production" ? "purple" : "yellow"} size="1">
+              {environmentLabel}
+            </Badge>
+            <Code size="1" color="gray" variant="ghost" className="console-org">
+              {organizationId}
+            </Code>
           </Flex>
+          <Flex align="center" gap="3">
+            <Code size="1" color="gray" variant="ghost">
+              {modelId}
+            </Code>
+            <Text size="1" color="gray">
+              {user.email}
+            </Text>
+            <Form method="post" action="/logout">
+              <Button size="1" variant="ghost" color="gray" type="submit">
+                Sign out
+              </Button>
+            </Form>
+          </Flex>
+        </Flex>
+      </header>
 
-          <Card size="4">
-            <Flex direction="column" gap="5">
-              <Flex direction="column" gap="2">
-                <Text color="gray" size="2" weight="medium">
-                  Fun fact
+      <div className="console-scroll" ref={scrollRef}>
+        <Flex direction="column" gap="5" className="console-thread">
+          {messages.length === 0 ? (
+            <Flex direction="column" gap="6" className="console-hero">
+              <Flex direction="column" gap="3">
+                <Text size="1" className="font-mono hero-kicker">
+                  {publicHostname} · every agent action, on the record
                 </Text>
-                <Text as="p" size="4">
-                  {funFact}
+                <Heading as="h2" size="8" className="hero-title">
+                  Ask the audit trail.
+                </Heading>
+                <Text size="3" color="gray" className="hero-sub">
+                  Every session, prompt, tool call, and shell command from the agent fleet lands in
+                  WorkOS Audit Logs. Ask who did what, when, and to which file — answers cite the
+                  events.
                 </Text>
               </Flex>
+              <div className="suggestion-grid">
+                {SUGGESTIONS.map((suggestion, index) => (
+                  <button
+                    key={suggestion.label}
+                    type="button"
+                    className="suggestion-card"
+                    style={{ animationDelay: `${120 + index * 70}ms` }}
+                    onClick={() => submit(suggestion.question)}
+                  >
+                    <Text size="1" weight="medium" className="font-mono suggestion-label">
+                      {suggestion.label}
+                    </Text>
+                    <Text size="2">{suggestion.question}</Text>
+                  </button>
+                ))}
+              </div>
+            </Flex>
+          ) : (
+            messages.map((message) => (
+              <Flex
+                key={message.id}
+                direction="column"
+                gap="3"
+                className={message.role === "user" ? "msg msg-user" : "msg msg-assistant"}
+              >
+                {message.role === "user" ? (
+                  <Card size="2" className="user-bubble">
+                    <MessageParts message={message} />
+                  </Card>
+                ) : (
+                  <Flex direction="column" gap="3">
+                    <Text size="1" className="font-mono analyst-label">
+                      ANALYST
+                    </Text>
+                    <MessageParts message={message} />
+                  </Flex>
+                )}
+              </Flex>
+            ))
+          )}
 
-              {imageUrl && (
-                <img
-                  src={imageUrl}
-                  alt="AI-generated illustration of the fun fact"
-                  width={1024}
-                  height={1024}
-                  loading="lazy"
-                  decoding="async"
-                  className="h-auto w-full rounded-[var(--radius-4)]"
-                />
-              )}
+          {status === "submitted" ? (
+            <Flex align="center" gap="2" className="msg">
+              <Spinner size="1" />
+              <Text size="1" color="gray" className="font-mono">
+                opening export…
+              </Text>
+            </Flex>
+          ) : null}
 
-              <Separator size="4" />
+          {error ? (
+            <Callout.Root color="red" size="1">
+              <Callout.Text>{error.message || "Something went wrong. Try again."}</Callout.Text>
+            </Callout.Root>
+          ) : null}
+        </Flex>
+      </div>
 
-              <Flex direction="column" gap="2">
-                <Text color="gray" size="2" weight="medium">
-                  Last updated
+      <footer className="console-footer">
+        <Box className="composer">
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              submit(input);
+            }}
+          >
+            <Flex direction="column" gap="2">
+              <TextArea
+                value={input}
+                onChange={(event) => setInput(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" && !event.shiftKey) {
+                    event.preventDefault();
+                    submit(input);
+                  }
+                }}
+                placeholder="Who deleted that file? When? Ask the trail…"
+                rows={2}
+                size="3"
+                disabled={busy}
+              />
+              <Flex align="center" justify="between">
+                <Text size="1" color="gray" className="font-mono">
+                  enter to send · shift+enter for a new line
                 </Text>
-                <Text as="p" color="gray" size="2">
-                  {lastUpdated}
-                  {timeAgo && ` (${timeAgo})`}
-                </Text>
+                <Button size="2" type="submit" disabled={busy || !input.trim()}>
+                  {busy ? <Spinner size="1" /> : null}
+                  Investigate
+                </Button>
               </Flex>
             </Flex>
-          </Card>
-
-          <Text as="p" color="gray" size="2">
-            Updated every hour by a Cloudflare Workflow using Workers AI. Images stored in R2.
-          </Text>
-        </Flex>
-      </Flex>
-    </Box>
+          </form>
+        </Box>
+      </footer>
+    </Flex>
   );
 }

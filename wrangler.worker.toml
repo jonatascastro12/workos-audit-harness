@@ -22,8 +22,10 @@ bucket_name = "cd26-workos-audit-chat-images"
 binding = "AI"
 remote = true
 
+# The template's hourly fun-fact workflow is not used by the audit chat app;
+# no cron triggers so the workflow only runs if started manually.
 [triggers]
-crons = ["0 * * * *"]
+crons = []
 
 [observability]
 enabled = true
