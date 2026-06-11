@@ -3,7 +3,7 @@
  * importing it here (through the Tailwind pipeline) hangs `vite build`. */
 
 :root {
-  --background: #f9f9fb;
+  --background: var(--gray-1);
   --foreground: var(--slate-12);
 }
 
@@ -14,13 +14,6 @@
   --font-mono: var(--code-font-family);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: var(--gray-1);
-    --foreground: var(--slate-12);
-  }
-}
-
 body {
   background: var(--background);
   color: var(--foreground);
@@ -28,4 +21,224 @@ body {
 
 .radix-themes {
   --font-size-2: 13px;
+}
+
+/* ── Audit console ─────────────────────────────────────────────────────── */
+
+.console-root {
+  height: 100dvh;
+  /* Dotted evidence-board grid with a purple investigation glow up top. */
+  background:
+    radial-gradient(
+      900px 420px at 50% -120px,
+      color-mix(in srgb, var(--purple-9) 16%, transparent),
+      transparent 70%
+    ),
+    radial-gradient(circle, var(--gray-4) 1px, transparent 1px) 0 0 / 26px 26px,
+    var(--gray-1);
+}
+
+.console-header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  border-bottom: 1px solid var(--gray-4);
+  background: color-mix(in srgb, var(--gray-1) 82%, transparent);
+  backdrop-filter: blur(10px);
+}
+
+.console-glyph {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--purple-9);
+  box-shadow: 0 0 12px 2px color-mix(in srgb, var(--purple-9) 55%, transparent);
+  animation: glyph-pulse 3.2s ease-in-out infinite;
+}
+
+@keyframes glyph-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 6px 1px color-mix(in srgb, var(--purple-9) 35%, transparent);
+  }
+  50% {
+    box-shadow: 0 0 14px 3px color-mix(in srgb, var(--purple-9) 65%, transparent);
+  }
+}
+
+.console-title {
+  letter-spacing: 0.01em;
+}
+
+.console-org {
+  letter-spacing: 0.02em;
+}
+
+@media (max-width: 720px) {
+  .console-org {
+    display: none;
+  }
+}
+
+.console-scroll {
+  flex: 1;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--gray-6) transparent;
+}
+
+.console-thread {
+  max-width: 780px;
+  margin: 0 auto;
+  padding: 32px 20px 24px;
+  width: 100%;
+}
+
+/* ── Hero / empty state ────────────────────────────────────────────────── */
+
+.console-hero {
+  padding-top: 9vh;
+  animation: fade-up 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.hero-kicker {
+  color: var(--purple-11);
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+}
+
+.hero-title {
+  letter-spacing: -0.02em;
+}
+
+.hero-sub {
+  max-width: 56ch;
+}
+
+.suggestion-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+@media (max-width: 640px) {
+  .suggestion-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.suggestion-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  text-align: left;
+  padding: 16px;
+  border: 1px solid var(--gray-5);
+  border-radius: var(--radius-4);
+  background: color-mix(in srgb, var(--gray-2) 80%, transparent);
+  cursor: pointer;
+  animation: fade-up 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease,
+    transform 0.15s ease;
+}
+
+.suggestion-card:hover {
+  border-color: var(--purple-8);
+  background: color-mix(in srgb, var(--purple-9) 7%, var(--gray-2));
+  transform: translateY(-2px);
+}
+
+.suggestion-label {
+  color: var(--purple-11);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+
+/* ── Messages ──────────────────────────────────────────────────────────── */
+
+.msg {
+  animation: fade-up 0.35s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.msg-user {
+  align-items: flex-end;
+}
+
+.user-bubble {
+  max-width: 85%;
+  background: color-mix(in srgb, var(--purple-9) 10%, var(--gray-2)) !important;
+  border: 1px solid color-mix(in srgb, var(--purple-9) 35%, var(--gray-5));
+}
+
+.analyst-label {
+  color: var(--gray-9);
+  letter-spacing: 0.14em;
+}
+
+.message-text {
+  white-space: pre-wrap;
+  line-height: 1.65;
+  max-width: 70ch;
+}
+
+/* ── Query (tool) cards ────────────────────────────────────────────────── */
+
+.query-card {
+  border-left: 2px solid var(--purple-9) !important;
+  background: color-mix(in srgb, var(--gray-2) 88%, transparent) !important;
+}
+
+.query-label {
+  color: var(--purple-11);
+  letter-spacing: 0.14em;
+}
+
+.query-counts {
+  overflow-wrap: anywhere;
+}
+
+.event-list {
+  border-top: 1px dashed var(--gray-5);
+  padding-top: 10px;
+}
+
+.event-row {
+  min-width: 0;
+}
+
+.event-stamp {
+  color: var(--gray-9);
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.event-targets {
+  color: var(--gray-10);
+}
+
+/* ── Composer ──────────────────────────────────────────────────────────── */
+
+.console-footer {
+  border-top: 1px solid var(--gray-4);
+  background: color-mix(in srgb, var(--gray-1) 88%, transparent);
+  backdrop-filter: blur(10px);
+}
+
+.composer {
+  max-width: 780px;
+  margin: 0 auto;
+  padding: 14px 20px 18px;
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }

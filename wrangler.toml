@@ -24,5 +24,15 @@ migrations_dir = "migrations"
 binding = "IMAGE_BUCKET"
 bucket_name = "cd26-workos-audit-chat-images"
 
+# Workers AI binding used for AI Gateway access (`env.AI.gateway(...)`); the
+# gateway holds the stored Anthropic/OpenAI provider keys.
+[ai]
+binding = "AI"
+remote = true
+
+[vars]
+# Hostname shown in the UI and used for the AuthKit redirect URI default.
+AUDIT_CHAT_PUBLIC_HOSTNAME = "cd26-workos-audit-chat.workos.tools"
+
 [observability]
 enabled = true

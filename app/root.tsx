@@ -6,10 +6,10 @@ import "./app.css";
 import "./design-system.css";
 
 export const meta: MetaFunction = () => [
-  { title: "Cloudflare Internal App Example" },
+  { title: "Audit Chat · WorkOS" },
   {
     name: "description",
-    content: "Example internal app using D1, Workers AI, and Workflows on Cloudflare",
+    content: "Ask questions about the AI agent fleet's WorkOS audit trail.",
   },
 ];
 
@@ -17,7 +17,7 @@ export const links: LinksFunction = () => [{ rel: "icon", href: "/favicon.ico" }
 
 export default function App() {
   return (
-    <html lang="en">
+    <html lang="en" className="dark">
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -25,7 +25,7 @@ export default function App() {
         <Links />
       </head>
       <body>
-        <Theme hasBackground={false}>
+        <Theme appearance="dark" hasBackground={false}>
           <Outlet />
         </Theme>
         <ScrollRestoration />
