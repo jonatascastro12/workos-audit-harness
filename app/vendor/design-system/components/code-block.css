@@ -1,0 +1,300 @@
+.CodeBlockRoot {
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  counter-reset: CodeBlockLine;
+  border-radius: var(--radius-4);
+  position: relative;
+  /* Ensure code block colors are correct when nested inside other components (like definition lists) */
+  color: var(--gray-12);
+}
+
+.CodeBlockRoot::after {
+  content: "";
+  position: absolute;
+  border-radius: inherit;
+  pointer-events: none;
+  box-shadow: inset 0 0 0 1px var(--gray-a5);
+  inset: 0;
+}
+
+.CodeBlockHeader,
+.CodeBlockFooter {
+  --code-block-header-height: var(--space-7);
+  position: relative;
+  flex-shrink: 0;
+  display: flex;
+  overflow-x: auto;
+  scrollbar-width: none;
+  align-items: center;
+  justify-content: space-between;
+  box-sizing: border-box;
+  background-color: var(--color-panel);
+  background-image: linear-gradient(to right, var(--gray-a2), var(--gray-a2));
+  padding-left: var(--space-3);
+  padding-right: var(--space-3);
+  white-space: nowrap;
+}
+
+.CodeBlockHeader {
+  height: var(--code-block-header-height);
+  border-top-left-radius: var(--radius-4);
+  border-top-right-radius: var(--radius-4);
+}
+
+.CodeBlockFooter {
+  min-height: var(--code-block-header-height);
+  border-bottom-left-radius: var(--radius-4);
+  border-bottom-right-radius: var(--radius-4);
+}
+
+.CodeBlockHeader::before,
+.CodeBlockFooter::before {
+  content: "";
+  position: absolute;
+  box-shadow: inset 0 -1px var(--gray-a5);
+  left: 1px;
+  right: 1px;
+  height: 1px;
+}
+
+.CodeBlockHeader::before {
+  bottom: 0;
+}
+
+.CodeBlockFooter::before {
+  top: 0;
+}
+
+.CodeBlockHeader::-webkit-scrollbar,
+.CodeBlockFooter::-webkit-scrollbar {
+  display: none;
+}
+
+.CodeBlockOutput {
+  display: block;
+  position: relative;
+  overflow: hidden;
+  background-color: var(--gray-a1);
+  border-top-left-radius: var(--radius-4);
+  border-top-right-radius: var(--radius-4);
+  flex-shrink: 0;
+}
+
+.CodeBlockOutput::after {
+  content: "";
+  position: absolute;
+  box-shadow: inset 0 -1px var(--gray-a5);
+  bottom: 0;
+  left: 1px;
+  right: 1px;
+  height: 1px;
+}
+
+.CodeBlockOutput:last-child::after {
+  content: none;
+}
+
+.CodeBlockContent {
+  background-color: var(--color-panel);
+  border-radius: var(--radius-4);
+  counter-reset: CodeBlockLine;
+  word-break: break-all;
+  overflow: hidden;
+  margin: 0;
+}
+
+.CodeBlockContent.ws-pre {
+  white-space: pre;
+}
+
+.CodeBlockContent.ws-pre-wrap {
+  white-space: pre-wrap;
+}
+
+.CodeBlockContent ::selection {
+  background-color: var(--focus-a5);
+}
+
+/* Remove top border radius from Header, Output, or Content when there's a Header or Output before them */
+:is(.CodeBlockHeader, .CodeBlockOutput)
+  ~ :is(.CodeBlockHeader, .CodeBlockOutput, .CodeBlockContent),
+:is(.CodeBlockHeader, .CodeBlockOutput)
+  ~ *
+  :is(.CodeBlockHeader, .CodeBlockOutput, .CodeBlockContent) {
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+}
+
+/* Note: this is a public class re-used in other components */
+.CodeBlockCode {
+  display: block;
+  font-family: var(--code-font-family);
+  font-size: 12px;
+  line-height: 20px;
+}
+
+.CodeBlockContentInner {
+  --code-block-pad-top: var(--space-2);
+  --code-block-pad-bottom: var(--space-2);
+  --code-block-pad-y: calc(var(--code-block-pad-top) + var(--code-block-pad-bottom));
+  --code-block-pad-left: var(--space-3);
+  --code-block-pad-right: var(--space-1);
+  --code-block-pad-x: calc(var(--code-block-pad-left) + var(--code-block-pad-right));
+  display: block;
+  padding-top: var(--code-block-pad-top);
+  padding-bottom: var(--code-block-pad-bottom);
+  padding-left: var(--code-block-pad-left);
+  padding-right: var(--code-block-pad-right);
+  height: var(--code-block-height, initial);
+  max-height: var(--code-block-max-height, none);
+}
+
+.CodeBlockLineGroup {
+  margin-left: calc(-1 * var(--space-3));
+  margin-right: calc(-1 * var(--space-1));
+  border-spacing: 0;
+
+  /* Makes short lines stretch to full width in Safari */
+  width: min-intrinsic;
+}
+
+.CodeBlockLine {
+  --code-block-line-border-top: transparent;
+  --code-block-line-border-bottom: transparent;
+  box-shadow:
+    0 -1px var(--code-block-line-border-top),
+    0 1px var(--code-block-line-border-bottom);
+}
+
+.CodeBlockLine.yellow {
+  background-color: var(--yellow-a2);
+}
+
+.CodeBlockLine.yellow ::selection {
+  background-color: var(--gray-a5);
+}
+
+.CodeBlockLine.yellow,
+.CodeBlockLine.yellow + .CodeBlockLine:not(.yellow) {
+  --code-block-line-border-top: var(--yellow-a5);
+}
+
+.CodeBlockLine.yellow:last-child {
+  --code-block-line-border-bottom: var(--yellow-a5);
+}
+
+.CodeBlockLine.blue {
+  background-color: var(--blue-a2);
+}
+
+.CodeBlockLine.blue ::selection {
+  background-color: var(--gray-a5);
+}
+
+.CodeBlockLine.blue,
+.CodeBlockLine.blue + .CodeBlockLine:not(.blue) {
+  --code-block-line-border-top: var(--blue-a5);
+}
+
+.CodeBlockLine.blue:last-child {
+  --code-block-line-border-bottom: var(--blue-a5);
+}
+
+.CodeBlockLine.green {
+  background-color: var(--green-3);
+}
+
+.CodeBlockLine.green ::selection {
+  background-color: var(--gray-a5);
+}
+
+.CodeBlockLine.green,
+.CodeBlockLine.green + .CodeBlockLine:not(.green) {
+  --code-block-line-border-top: var(--green-a5);
+}
+
+.CodeBlockLine.green:last-child {
+  --code-block-line-border-bottom: var(--green-a5);
+}
+
+.CodeBlockLine.red {
+  background-color: var(--red-3);
+  counter-increment: CodeBlockLine -1;
+}
+
+.CodeBlockLine.red ::selection {
+  background-color: var(--gray-a5);
+}
+
+.CodeBlockLine.red,
+.CodeBlockLine.red + .CodeBlockLine:not(.red) {
+  --code-block-line-border-top: var(--red-a5);
+}
+
+.CodeBlockLine.red:last-child {
+  --code-block-line-border-bottom: var(--red-a5);
+}
+
+.CodeBlockLine:is(.yellow, .blue, .green, .red) + .CodeBlockLine:is(.yellow, .blue, .green, .red) {
+  --code-block-line-border-top: transparent;
+}
+
+.CodeBlockLineGroup:has(.CodeBlockLine.focused) .CodeBlockLine:not(.focused) {
+  .CodeBlockLineContent * {
+    color: var(--gray-a9);
+  }
+}
+
+.CodeBlockLineGutter {
+  display: none;
+  text-align: left;
+  color: var(--gray-a9);
+  counter-increment: CodeBlockLine;
+  padding: 0;
+}
+
+.CodeBlockLineGroup.gutter-numbers .CodeBlockLineGutter,
+.CodeBlockLineGroup.gutter-cli .CodeBlockLineGutter {
+  display: initial;
+}
+
+.CodeBlockLine.red .CodeBlockLineGutter,
+.CodeBlockLine.green .CodeBlockLineGutter,
+.CodeBlockLine.yellow .CodeBlockLineGutter,
+.CodeBlockLine.gray .CodeBlockLineGutter {
+  color: var(--gray-a12);
+}
+
+.CodeBlockLineGroup .CodeBlockLineGutter::before {
+  display: block;
+  padding-left: var(--space-3);
+}
+
+.CodeBlockLineGroup.gutter-cli .CodeBlockLine:first-child .CodeBlockLineGutter::before {
+  content: "$";
+}
+
+.CodeBlockLineGroup.gutter-cli .CodeBlockLine:nth-child(n + 2) .CodeBlockLineGutter::before {
+  content: ">";
+}
+
+.CodeBlockLineGroup.gutter-numbers .CodeBlockLineGutter::before {
+  content: counter(CodeBlockLine);
+}
+
+.CodeBlockLine.green .CodeBlockLineGutter::before {
+  content: "+";
+}
+
+.CodeBlockLine.red .CodeBlockLineGutter::before {
+  content: "−";
+}
+
+.CodeBlockLineContent {
+  width: 100%;
+  padding-top: 0;
+  padding-bottom: 0;
+  padding-left: var(--space-3);
+  padding-right: var(--space-1);
+}

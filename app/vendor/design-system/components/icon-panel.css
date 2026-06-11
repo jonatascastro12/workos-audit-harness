@@ -1,0 +1,154 @@
+.IconPanel {
+  --icon-panel-shadow: 0px 0.5px 2px 0px rgba(0, 0, 0, 0.2), 0px 2px 3px 0px rgba(0, 0, 0, 0.1);
+}
+
+:is(.dark, .dark-theme) .IconPanel,
+:is(.dark, .dark-theme) .radix-themes:not(.light, .light-theme) .IconPanel {
+  --icon-panel-shadow:
+    0px 0.5px 2px 0px rgba(0, 0, 0, 0.2), 0px 2px 3px 0px rgba(0, 0, 0, 0.1),
+    inset 0 0 0 1px hsla(0, 100%, 100%, 0.05);
+}
+
+/* Classic variant */
+.IconPanel.variant-classic {
+  background: linear-gradient(to bottom, var(--gray-1), var(--gray-3));
+  box-shadow: var(--icon-panel-shadow);
+}
+
+:is(.dark, .dark-theme) .IconPanel.variant-classic,
+:is(.dark, .dark-theme) .radix-themes:not(.light, .light-theme) .IconPanel.variant-classic {
+  background: linear-gradient(to bottom, var(--gray-6), var(--gray-3));
+}
+
+/* Solid variant */
+.IconPanel.variant-solid {
+  box-shadow: var(--icon-panel-shadow);
+  background-color: var(--color-panel-solid);
+}
+
+:is(.dark, .dark-theme) .IconPanel.variant-solid,
+:is(.dark, .dark-theme) .radix-themes:not(.light, .light-theme) .IconPanel.variant-solid {
+  background-color: var(--gray-4);
+}
+
+/* Surface variant */
+.IconPanel.variant-surface {
+  --icon-panel-gradient-top: transparent;
+  --icon-panel-gradient-bottom: transparent;
+  box-shadow: inset 0 0 0 1px var(--accent-a4);
+  background-color: var(--accent-a2);
+  color: var(--accent-11);
+}
+
+/* Table variant */
+.IconPanel.variant-table {
+  background-color: var(--accent-a1);
+  color: var(--accent-a1);
+  border: 1px solid var(--gray-6);
+  --icon-panel-size: var(--space-5);
+  --icon-panel-radius: var(--radius-2);
+  --icon-panel-children-size: 18px;
+  --icon-panel-svg-size: 18px;
+}
+
+.IconPanel:where([data-accent-color]) {
+  color: var(--accent-9);
+}
+
+.IconPanel {
+  --icon-panel-radius: 0;
+  --icon-panel-size: 0;
+  --icon-panel-children-size: 0;
+  --icon-panel-svg-size: 0;
+
+  display: grid;
+  align-items: center;
+  justify-content: center;
+  grid-template-columns: 1fr;
+  grid-template-rows: 1fr;
+  flex-shrink: 0;
+  flex-grow: 0;
+  user-select: none;
+  border-radius: var(--icon-panel-radius);
+  width: var(--icon-panel-size);
+  height: var(--icon-panel-size);
+  aspect-ratio: 1 / 1;
+  font-weight: var(--font-weight-medium);
+}
+
+.IconPanel.size-1 {
+  --icon-panel-size: var(--space-6);
+  --icon-panel-radius: 8px;
+  --icon-panel-children-size: 20px;
+  --icon-panel-svg-size: 18px;
+  font-size: var(--font-size-2);
+}
+
+.IconPanel.size-2 {
+  --icon-panel-size: var(--space-7);
+  --icon-panel-radius: 10px;
+  --icon-panel-children-size: 26px;
+  --icon-panel-svg-size: 22px;
+  font-size: var(--font-size-4);
+}
+
+.IconPanel.size-3 {
+  --icon-panel-size: var(--space-8);
+  --icon-panel-radius: 12px;
+  --icon-panel-children-size: 32px;
+  --icon-panel-svg-size: 26px;
+  font-size: var(--font-size-5);
+  letter-spacing: -0.2px;
+}
+
+.IconPanel.size-4 {
+  --icon-panel-size: 56px;
+  --icon-panel-radius: 14px;
+  --icon-panel-children-size: 34px;
+  --icon-panel-svg-size: 32px;
+  font-size: var(--font-size-6);
+  letter-spacing: -0.432px;
+}
+
+.IconPanel.size-5 {
+  --icon-panel-size: var(--space-9);
+  --icon-panel-radius: 16px;
+  --icon-panel-children-size: 42px;
+  --icon-panel-svg-size: 40px;
+  font-size: var(--font-size-7);
+  letter-spacing: -0.78px;
+}
+
+.IconPanel.size-6 {
+  --icon-panel-size: 88px;
+  --icon-panel-radius: 20px;
+  --icon-panel-children-size: 58px;
+  --icon-panel-svg-size: 55px;
+  font-size: var(--font-size-8);
+  letter-spacing: -1.44px;
+}
+
+.IconPanelBackground {
+  width: 125%;
+  height: 125%;
+  grid-column: 1;
+  grid-row: 1;
+  place-self: center;
+}
+
+.IconPanelChildren {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  grid-column: 1;
+  grid-row: 1;
+  place-self: center;
+  width: var(--icon-panel-children-size);
+  height: var(--icon-panel-children-size);
+}
+
+.IconPanelChildren svg {
+  display: block;
+  width: var(--icon-panel-svg-size);
+  height: var(--icon-panel-svg-size);
+}

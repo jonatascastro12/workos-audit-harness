@@ -1,0 +1,172 @@
+:root {
+  --workos-purple: hsl(240, 78%, 66%);
+  --workos-default-font-family:
+    "Untitled Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif,
+    "Apple Color Emoji", "Segoe UI Emoji";
+}
+
+.radix-themes:not(.branded, .dark, .dark-theme),
+.radix-themes:not(.branded):is(.light, .light-theme) {
+  --slate-12: hsl(210, 16%, 20%);
+  --slate-a12: hsla(210, 98%, 3.8%, 0.832);
+  --color-panel-translucent: rgba(255, 255, 255, 0.8);
+}
+
+:is(.dark, .dark-theme) .radix-themes:not(.branded, .light, .light-theme) {
+  --slate-12: hsl(220, 7%, 93.5%);
+  --slate-a12: hsla(220, 87.4%, 99.3%, 0.936);
+  --color-panel-translucent: var(--gray-a2);
+}
+
+.radix-themes:not(.branded) {
+  --red-1: var(--ruby-1);
+  --red-2: var(--ruby-2);
+  --red-3: var(--ruby-3);
+  --red-4: var(--ruby-4);
+  --red-5: var(--ruby-5);
+  --red-6: var(--ruby-6);
+  --red-7: var(--ruby-7);
+  --red-8: var(--ruby-8);
+  --red-9: var(--ruby-9);
+  --red-10: var(--ruby-10);
+  --red-11: var(--ruby-11);
+  --red-12: var(--ruby-12);
+
+  --red-a1: var(--ruby-a1);
+  --red-a2: var(--ruby-a2);
+  --red-a3: var(--ruby-a3);
+  --red-a4: var(--ruby-a4);
+  --red-a5: var(--ruby-a5);
+  --red-a6: var(--ruby-a6);
+  --red-a7: var(--ruby-a7);
+  --red-a8: var(--ruby-a8);
+  --red-a9: var(--ruby-a9);
+  --red-a10: var(--ruby-a10);
+  --red-a11: var(--ruby-a11);
+  --red-a12: var(--ruby-a12);
+
+  --red-contrast: var(--ruby-contrast);
+  --red-surface: var(--ruby-surface);
+  --red-indicator: var(--ruby-indicator);
+  --red-track: var(--ruby-track);
+
+  --purple-1: var(--iris-1);
+  --purple-2: var(--iris-2);
+  --purple-3: var(--iris-3);
+  --purple-4: var(--iris-4);
+  --purple-5: var(--iris-5);
+  --purple-6: var(--iris-6);
+  --purple-7: var(--iris-7);
+  --purple-8: var(--iris-8);
+  --purple-9: var(--workos-purple);
+  --purple-10: var(--iris-10);
+  --purple-11: var(--iris-11);
+  --purple-12: var(--iris-12);
+
+  --purple-a1: var(--iris-a1);
+  --purple-a2: var(--iris-a2);
+  --purple-a3: var(--iris-a3);
+  --purple-a4: var(--iris-a4);
+  --purple-a5: var(--iris-a5);
+  --purple-a6: var(--iris-a6);
+  --purple-a7: var(--iris-a7);
+  --purple-a8: var(--iris-a8);
+  --purple-a9: var(--workos-purple);
+  --purple-a10: var(--iris-a10);
+  --purple-a11: var(--iris-a11);
+  --purple-a12: var(--iris-a12);
+
+  --purple-contrast: var(--iris-contrast);
+  --purple-surface: var(--iris-surface);
+  --purple-indicator: var(--iris-indicator);
+  --purple-track: var(--iris-track);
+
+  --green-1: var(--jade-1);
+  --green-2: var(--jade-2);
+  --green-3: var(--jade-3);
+  --green-4: var(--jade-4);
+  --green-5: var(--jade-5);
+  --green-6: var(--jade-6);
+  --green-7: var(--jade-7);
+  --green-8: var(--jade-8);
+  --green-9: var(--jade-9);
+  --green-10: var(--jade-10);
+  --green-11: var(--jade-11);
+  --green-12: var(--jade-12);
+
+  --green-a1: var(--jade-a1);
+  --green-a2: var(--jade-a2);
+  --green-a3: var(--jade-a3);
+  --green-a4: var(--jade-a4);
+  --green-a5: var(--jade-a5);
+  --green-a6: var(--jade-a6);
+  --green-a7: var(--jade-a7);
+  --green-a8: var(--jade-a8);
+  --green-a9: var(--jade-a9);
+  --green-a10: var(--jade-a10);
+  --green-a11: var(--jade-a11);
+  --green-a12: var(--jade-a12);
+
+  --green-contrast: var(--jade-contrast);
+  --green-surface: var(--jade-surface);
+  --green-indicator: var(--jade-indicator);
+  --green-track: var(--jade-track);
+
+  --yellow-1: var(--amber-1);
+  --yellow-2: var(--amber-2);
+  --yellow-3: var(--amber-3);
+  --yellow-4: var(--amber-4);
+  --yellow-5: var(--amber-5);
+
+  --yellow-a1: var(--amber-a1);
+  --yellow-a2: var(--amber-a2);
+  --yellow-a3: var(--amber-a3);
+  --yellow-a4: var(--amber-a4);
+  --yellow-a5: var(--amber-a5);
+
+  --yellow-surface: var(--amber-surface);
+
+  /*
+   * Consistent-ish vertical alignment of Untitled Sans:
+   * - in buttons and text inputs
+   * - across @1x and @2x screens
+   * - across browsers
+   */
+  --font-size-2: 13.8px;
+
+  --letter-spacing-1: 0.005em;
+  --letter-spacing-2: 0em;
+  --letter-spacing-3: 0em;
+  --letter-spacing-4: -0.005em;
+  --letter-spacing-5: -0.01em;
+  --letter-spacing-6: -0.0125em;
+  --letter-spacing-7: -0.015em;
+  --letter-spacing-8: -0.02em;
+  --letter-spacing-9: -0.05em;
+
+  --code-padding-top: 0em;
+  --code-padding-bottom: 0.075em;
+
+  --font-weight-medium: 700;
+
+  --default-leading-trim-start: 0.42em;
+  --default-leading-trim-end: 0.38em;
+
+  --default-font-family: var(--workos-default-font-family);
+  --code-font-family: "IBM Plex Mono", "Menlo", monospace, "Apple Color Emoji", "Segoe UI Emoji";
+
+  --em-font-family: "Source Serif Pro", Georgia, "Times New Roman", serif;
+  --em-font-size-adjust: 1.08;
+  --em-letter-spacing: 0em;
+
+  --marker-font-size-adjust: 1;
+  --marker-font-weight: bold;
+
+  --cursor-button: pointer;
+  --cursor-disabled: default;
+  --cursor-link: pointer;
+  --cursor-menu-item: pointer;
+  --cursor-slider-thumb: pointer;
+  --cursor-slider-thumb-active: pointer;
+  --cursor-switch: pointer;
+}

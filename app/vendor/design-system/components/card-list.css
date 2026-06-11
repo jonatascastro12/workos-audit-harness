@@ -1,0 +1,183 @@
+.CardListRoot {
+  --card-padding: var(--space-4);
+}
+
+.CardListRoot:has(.ListCellRoot.size-3) {
+  --card-padding: var(--space-5);
+}
+
+.CardListRoot {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--card-border-radius);
+  background: var(--color-panel);
+  backdrop-filter: var(--backdrop-filter-panel);
+
+  /* The outline around the box */
+  &::after {
+    content: "";
+    position: absolute;
+    inset: 1px;
+    border-radius: inherit;
+    box-shadow: var(--base-card-surface-box-shadow);
+    pointer-events: none;
+    z-index: 3;
+  }
+}
+
+/* The dividers between header, body, footer */
+.CardListRoot > :where(*:not(:first-child)) {
+  &::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    inset-inline: 1px;
+    height: 1px;
+    background: var(--gray-5);
+  }
+}
+
+.CardListHeader {
+  position: relative;
+  flex: 0 0 auto;
+  padding-inline: var(--card-padding);
+  padding-block: var(--card-padding);
+}
+
+.CardListScrollRoot {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+
+  /* Divider must appear above the ScrollArea viewport content */
+  &::before {
+    z-index: 1;
+  }
+}
+
+.CardListBody {
+  position: relative;
+  min-height: 0;
+  padding-inline: 1px;
+}
+
+.CardListFooter {
+  position: relative;
+  padding-inline: var(--card-padding);
+  border-bottom-left-radius: var(--card-border-radius);
+  border-bottom-right-radius: var(--card-border-radius);
+  height: var(--space-7);
+  font-size: var(--font-size-1);
+  flex: 0 0 auto;
+  margin-top: -1px;
+  z-index: 2;
+  background-color: var(--color-panel);
+
+  /* Divider must appear above the preceding ScrollArea viewport content */
+  &::before {
+    z-index: 1;
+  }
+
+  &:has(button) {
+    background-color: var(--gray-a2);
+  }
+}
+
+/**
+ * Search input
+ */
+.CardListSearch {
+  --card-list-search-icon-size: 15px;
+
+  position: relative;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  background-color: var(--color-panel);
+  z-index: 2;
+
+  /* Use a pseudo selector so we can overlap the bottom divider */
+  &:after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    bottom: -1px;
+    border-radius: inherit;
+    outline: 2px solid var(--focus-8);
+    outline-offset: -2px;
+    display: none;
+    pointer-events: none;
+  }
+
+  &:has(.CardListSearchInput:focus-visible) {
+    box-shadow: none;
+
+    &:after {
+      display: block;
+    }
+  }
+}
+
+.CardListSearch:first-child {
+  border-top-left-radius: var(--card-border-radius);
+  border-top-right-radius: var(--card-border-radius);
+}
+
+.CardListSearchInput {
+  all: unset;
+  box-sizing: border-box;
+  grid-column: -1 / 1;
+  grid-row: 1 / 1;
+  background-color: transparent;
+  padding-left: calc(var(--card-list-search-icon-size) + var(--card-padding) + var(--space-2));
+  padding-right: var(--card-padding);
+  height: var(--space-7);
+  font-size: var(--font-size-2);
+  border-radius: inherit;
+  font-family: inherit;
+  color: var(--gray-a12);
+  outline: 0;
+
+  &::placeholder {
+    color: var(--gray-a9);
+  }
+}
+
+.CardListSearch:has(.CardListSearchClear) .CardListSearchInput {
+  padding-right: calc(var(--card-list-search-icon-size) + var(--card-padding) + var(--space-2));
+}
+
+.CardListSearchIcon {
+  grid-column: 1 / 1;
+  grid-row: 1 / 1;
+  pointer-events: none;
+  place-self: center;
+  margin-left: var(--card-padding);
+  color: var(--gray-a11);
+  width: var(--card-list-search-icon-size);
+  height: var(--card-list-search-icon-size);
+  overflow: visible;
+}
+
+.CardListSearchClear {
+  all: unset;
+  box-sizing: border-box;
+  grid-column: 3 / 3;
+  grid-row: 1 / 1;
+  place-self: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: var(--card-padding);
+  color: var(--gray-a11);
+  cursor: pointer;
+  border-radius: var(--radius-1);
+  width: var(--card-list-search-icon-size);
+  height: var(--card-list-search-icon-size);
+
+  &:hover {
+    color: var(--gray-a12);
+  }
+}

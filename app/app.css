@@ -1,0 +1,31 @@
+@import "tailwindcss";
+/* The WorkOS design system is imported separately in ./design-system.css —
+ * importing it here (through the Tailwind pipeline) hangs `vite build`. */
+
+:root {
+  --background: #f9f9fb;
+  --foreground: var(--slate-12);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--workos-default-font-family);
+  --font-mono: var(--code-font-family);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: var(--gray-1);
+    --foreground: var(--slate-12);
+  }
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+}
+
+.radix-themes {
+  --font-size-2: 13px;
+}

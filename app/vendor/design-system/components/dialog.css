@@ -1,0 +1,69 @@
+.rt-DialogOverlay {
+  --dialog-content-height: 80vh;
+  --dialog-content-max-height: 1080px;
+}
+
+.rt-DialogContent:has(.DialogHeader):has(.DialogFooter) {
+  display: flex;
+  flex-direction: column;
+  gap: var(--dialog-content-padding);
+  height: 100%;
+  overflow: visible;
+
+  &:where([data-state="open"]) {
+    /* Override radix-themes animation to increase the animation slightly */
+    animation-duration: 300ms;
+  }
+
+  @media (--sm) {
+    height: min(100%, var(--dialog-content-height));
+    max-height: var(--dialog-content-max-height);
+  }
+}
+
+.rt-DialogOverlay:has(.DialogHeader):has(.DialogFooter) {
+  display: grid;
+  justify-content: center;
+  align-content: center;
+  padding: var(--space-4);
+
+  @media (--sm) {
+    padding-block: 0;
+  }
+
+  &:where([data-state="closed"]) {
+    /* Override the radix-themes animation duration to avoid Safari flashing issue */
+    animation-duration: 100ms;
+  }
+  .rt-DialogScroll,
+  .rt-DialogScrollPadding {
+    display: contents;
+  }
+}
+
+.DialogBody {
+  flex: 1;
+}
+
+.DialogHeader,
+.DialogFooter {
+  flex: 0 0 auto;
+}
+
+/*
+ * Add extra padding to the content so elements at the edges of the dialog body
+ * don't have their focus ring cropped, like inputs, links and buttons.
+ * We then set a negative margin in the elements above and below to compensate for this change.
+ */
+.DialogBodyContent {
+  padding-inline: var(--dialog-content-padding);
+  padding-block: var(--space-1);
+}
+
+.DialogHeader {
+  margin-bottom: calc(var(--space-1) * -1);
+}
+
+.DialogFooter {
+  margin-top: calc(var(--space-1) * -1);
+}

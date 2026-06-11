@@ -1,0 +1,29 @@
+name = "cd26-workos-audit-chat-workflow"
+main = "./workers/workflow.ts"
+compatibility_date = "2025-12-30"
+compatibility_flags = ["nodejs_compat"]
+account_id = "7e7fcec4d315661895440b439328033d"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "cd26-workos-audit-chat-db"
+database_id = "bf601292-5ee6-435f-8f94-58608fb31dd4"
+
+[[workflows]]
+name = "cd26-workos-audit-chat-update-workflow"
+binding = "UPDATE_WORKFLOW"
+class_name = "UpdateWorkflow"
+
+[[r2_buckets]]
+binding = "IMAGE_BUCKET"
+bucket_name = "cd26-workos-audit-chat-images"
+
+[ai]
+binding = "AI"
+remote = true
+
+[triggers]
+crons = ["0 * * * *"]
+
+[observability]
+enabled = true

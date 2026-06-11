@@ -1,0 +1,37 @@
+.PermanentLink {
+  position: relative;
+}
+
+.PermanentLinkInner {
+  position: relative;
+}
+
+.PermanentLink::before {
+  content: "";
+  position: absolute;
+  inset: calc(-1 * var(--space-3));
+}
+
+.PermanentLink:hover .PermanentLinkIcon {
+  transition-duration: 0ms;
+  opacity: 1;
+}
+
+.PermanentLinkIcon {
+  height: max-content;
+  opacity: 0;
+  color: var(--gray-a9);
+  position: absolute;
+  transition: opacity 100ms cubic-bezier(0.33, 1, 0.68, 1);
+  outline: none;
+  border-radius: var(--radius-3);
+  left: -32px;
+  top: 50%;
+  transform: translateY(-50%);
+  padding: var(--space-2);
+}
+
+.PermanentLinkIcon:focus-visible {
+  opacity: 1;
+  box-shadow: inset 0 0 0 2px var(--focus-8);
+}

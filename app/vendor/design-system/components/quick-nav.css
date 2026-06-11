@@ -1,0 +1,14 @@
+.QuickNavItem {
+  margin-bottom: var(--space-2);
+}
+
+.QuickNavSub {
+  /* Unlike most other display values, `display: inline` keeps copy-paste into rich text editors clean */
+  display: inline;
+}
+
+.QuickNavSub > .QuickNavList {
+  /* Marker width plus an extra gap */
+  padding-left: calc(1em + var(--space-2));
+  margin-top: var(--space-2);
+}

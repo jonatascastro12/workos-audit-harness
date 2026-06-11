@@ -1,0 +1,28 @@
+name = "cd26-workos-audit-chat"
+main = "./workers/app.ts"
+compatibility_date = "2026-02-10"
+compatibility_flags = ["nodejs_compat"]
+workers_dev = false
+account_id = "7e7fcec4d315661895440b439328033d"
+
+[assets]
+directory = "./build/client"
+binding = "ASSETS"
+
+# Dispatch-native: no custom_domain route. This app deploys into the
+# workos-tools-apps dispatch namespace and is served via the zone wildcard
+# route + workos-tools-dispatch + ROUTES KV.
+# Deploy: wrangler deploy --dispatch-namespace workos-tools-apps
+
+[[d1_databases]]
+binding = "DB"
+database_name = "cd26-workos-audit-chat-db"
+database_id = "bf601292-5ee6-435f-8f94-58608fb31dd4"
+migrations_dir = "migrations"
+
+[[r2_buckets]]
+binding = "IMAGE_BUCKET"
+bucket_name = "cd26-workos-audit-chat-images"
+
+[observability]
+enabled = true

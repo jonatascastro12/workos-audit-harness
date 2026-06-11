@@ -1,0 +1,30 @@
+@import "../generated/icons.generated.css";
+
+.ProviderIcon {
+  flex-shrink: 0;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: contain;
+  max-width: 100%;
+  max-height: 100%;
+}
+
+.ProviderIcon.size-1 {
+  width: 20px;
+  height: 20px;
+}
+
+.ProviderIcon.size-2 {
+  width: var(--space-5);
+  height: var(--space-5);
+}
+
+.ProviderIcon.size-3 {
+  width: var(--space-6);
+  height: var(--space-6);
+}
+
+.ProviderIcon.size-4 {
+  width: var(--space-8);
+  height: var(--space-8);
+}

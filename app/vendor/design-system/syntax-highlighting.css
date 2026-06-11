@@ -1,0 +1,88 @@
+.token.comment,
+.token.prolog,
+.token.doctype,
+.token.cdata {
+  color: var(--gray-11);
+}
+
+.token.namespace {
+  color: var(--purple-11);
+}
+
+.token.property,
+.token.tag,
+.token.boolean,
+.token.number,
+.token.constant,
+.token.deleted {
+  color: var(--blue-11);
+}
+
+.token.selector,
+.token.attr-name,
+.token.string,
+.token.char,
+.token.inserted {
+  color: var(--blue-12);
+}
+
+.token.builtin,
+.token.go {
+  color: var(--green-11);
+}
+
+.token.operator,
+.token.entity,
+.token.url,
+.language-css .token.string,
+.style .token.string {
+  color: var(--red-11);
+}
+
+.token.atrule,
+.token.attr-value,
+.token.keyword {
+  color: var(--green-11);
+}
+
+.token.function,
+.token.class-name,
+.token.maybe-class-name {
+  color: var(--purple-11);
+}
+
+.token.important {
+  color: var(--gray-11);
+}
+
+.token.bold {
+  font-weight: bolder;
+}
+
+.token.italic {
+  font-style: italic;
+}
+
+.token.entity {
+  cursor: help;
+}
+
+.token.punctuation,
+.token.symbol,
+.token.regex,
+.token.variable,
+.token.literal-property {
+  color: inherit;
+}
+
+[data-language="url"] .token.query-delimiter,
+[data-language="url"] .token.pair-delimiter {
+  color: var(--red-11);
+}
+[data-language="url"] .token.key,
+[data-language="url"] .token.pair {
+  color: var(--blue-11);
+}
+[data-language="url"] .token.value {
+  color: var(--blue-12);
+}

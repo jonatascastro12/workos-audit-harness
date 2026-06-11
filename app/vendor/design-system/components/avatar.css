@@ -1,0 +1,73 @@
+.AvatarRoot {
+  display: flex;
+  flex-shrink: 0;
+  flex-grow: 0;
+
+  overflow: hidden;
+  border-radius: 100%;
+  user-select: none;
+  background-color: var(--gray-a5);
+  background-size: cover;
+  cursor: default;
+}
+
+.AvatarRoot.size-1 {
+  width: var(--space-5);
+  height: var(--space-5);
+}
+
+.AvatarRoot.size-2 {
+  width: var(--space-7);
+  height: var(--space-7);
+}
+
+.AvatarRoot.size-3 {
+  width: 56px;
+  height: 56px;
+}
+
+.AvatarRoot.size-4 {
+  width: var(--space-9);
+  height: var(--space-9);
+}
+
+.AvatarRoot.size-5 {
+  width: 100px;
+  height: 100px;
+}
+
+.AvatarText {
+  line-height: 1;
+  font-weight: bold;
+  color: var(--gray-12);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-transform: uppercase;
+  flex: 1;
+}
+
+.AvatarRoot.has-image .AvatarText {
+  color: white;
+  background-color: rgba(0, 0, 0, 0.2);
+}
+
+.AvatarRoot.size-1 .AvatarText {
+  font-size: var(--font-size-2);
+}
+
+.AvatarRoot.size-2 .AvatarText {
+  font-size: var(--font-size-5);
+}
+
+.AvatarRoot.size-3 .AvatarText {
+  font-size: var(--font-size-7);
+}
+
+.AvatarRoot.size-4 .AvatarText {
+  font-size: var(--font-size-8);
+}
+
+.AvatarRoot.size-5 .AvatarText {
+  font-size: var(--font-size-9);
+}

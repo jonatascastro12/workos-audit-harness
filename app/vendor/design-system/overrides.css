@@ -1,0 +1,134 @@
+/* Override heading line height for size 6. This better aligns our page titles with buttons and keeps them consistent across pages. */
+.radix-themes {
+  --heading-line-height-6: calc(32px * var(--scaling));
+  --space-4-5: 20px;
+}
+
+/* Remove backdrop filter from panels to improve performance and avoid visual bugs */
+.radix-themes[data-panel-background="translucent"] {
+  --backdrop-filter-panel: none;
+}
+
+/* Integrate tabs into the codeblock header */
+.CodeEditorHeader .rt-TabsList,
+.CodeBlockHeader .rt-TabsList {
+  box-shadow: none;
+  margin-left: calc(-1 * var(--space-3) + 1px);
+}
+
+/* Highlight hover card triggers */
+.rt-HoverCardTrigger:where(.rt-Text) {
+  border-radius: var(--radius-1);
+  background-image: radial-gradient(var(--accent-a3), var(--accent-a2));
+}
+
+.rt-Badge[data-accent-color="gray"] {
+  color: var(--gray-12);
+}
+.rt-Badge[data-low-contrast] {
+  background-color: var(--color-surface);
+  color: var(--gray-a9);
+  box-shadow: inset 0 0 0 1px var(--gray-a5);
+}
+
+/* Make sure that hidden until found elements don't affect page layout */
+[hidden="until-found"] {
+  position: absolute;
+}
+
+/* Use current text color for autofill buttons in Safari */
+input::-webkit-contacts-auto-fill-button {
+  background-color: var(--gray-11, currentColor);
+}
+
+/* Hide the native password reveal button in Microsoft Edge */
+input[type="password"]::-ms-reveal {
+  display: none;
+}
+
+/* Prevents border chop when zooming out in browser */
+.rt-RadioCardsItem {
+  contain: layout;
+  overflow: visible;
+}
+
+/* Add accent outline on checked Checkbox Cards for visual consistency */
+.rt-CheckboxCardsItem:has([data-state="checked"])::after {
+  outline: 2px solid var(--accent-indicator);
+  outline-offset: -1px;
+}
+
+/* Add focus styles on Checkbox Cards to match Radio Cards behavior */
+.rt-CheckboxCardsItem:has([data-state="checked"]):has(:focus-visible) {
+  outline: none;
+}
+
+.rt-CheckboxCardsItem:has([data-state="checked"]):has(:focus-visible)::before {
+  background-image: linear-gradient(var(--focus-a3), var(--focus-a3));
+}
+
+.rt-CheckboxCardsItem:has([data-state="checked"]):has(:focus-visible)::after {
+  outline-color: var(--focus-10);
+}
+
+/* Override soft menu item highlighted background to use scale 3 instead of 4 */
+.rt-BaseMenuContent:where(.rt-variant-soft) :where(.rt-BaseMenuItem[data-highlighted]) {
+  background: var(--accent-a3);
+}
+
+/* Add disable state to tab trigger */
+.rt-TabsTrigger[disabled] {
+  pointer-events: none;
+  .rt-TabsTriggerInner {
+    color: var(--gray-a8);
+  }
+}
+
+/* Override select item styling */
+.rt-SelectLabel,
+.rt-SelectItem {
+  padding-left: var(--space-2);
+  padding-right: var(--space-1);
+}
+
+.rt-SelectSeparator {
+  margin-left: var(--space-2);
+  margin-right: var(--space-2);
+}
+
+.rt-SelectItem {
+  gap: var(--space-1);
+  justify-content: space-between;
+}
+
+/* Ensure all items have space for indicator, even when not selected */
+.rt-SelectItem::after {
+  content: "";
+  min-width: calc(var(--select-item-indicator-width));
+}
+
+.rt-SelectItem .rt-SelectItemIndicator {
+  position: relative;
+  min-width: var(--select-item-indicator-width);
+}
+
+.rt-SelectItem:has(.rt-SelectItemIndicator)::after {
+  display: none;
+}
+
+/* Override Select and DropdownMenu item hover to use gray instead of purple */
+.rt-SelectContent .rt-SelectItem[data-highlighted],
+.rt-DropdownMenuContent .rt-DropdownMenuItem[data-highlighted] {
+  background: var(--gray-a3);
+}
+
+/* Override solid menu item highlighted color to remove accent-contrast */
+.rt-BaseMenuContent:where(.rt-variant-solid) :where(.rt-BaseMenuItem[data-highlighted]) {
+  color: inherit;
+}
+
+/* Ensure data-accent-color still works on highlighted items */
+.rt-BaseMenuContent:where(.rt-variant-solid)
+  :where(.rt-BaseMenuItem[data-highlighted][data-accent-color]) {
+  color: var(--accent-a11);
+}

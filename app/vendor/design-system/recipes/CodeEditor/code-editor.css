@@ -1,0 +1,27 @@
+.CodeEditorFrame {
+  border: 1px solid var(--gray-a6);
+  border-radius: var(--radius-4);
+  overflow: hidden;
+}
+
+.CodeEditor .cm-editor {
+  height: 100%;
+}
+
+.CodeEditorHeader,
+.CodeEditorFooter {
+  background-image: linear-gradient(to right, var(--gray-a2), var(--gray-a2));
+}
+
+.CodeEditorHeader {
+  border-bottom: 1px solid var(--gray-a6);
+}
+
+.CodeEditorFooter {
+  border-top: 1px solid var(--gray-a6);
+}
+
+.Diagnostics {
+  display: inline-flex;
+  align-items: center;
+}

@@ -1,0 +1,18 @@
+/*
+ * Vendored WorkOS design system, loaded as its OWN stylesheet (separate from
+ * app.css) and intentionally containing no Tailwind directives.
+ *
+ * Why separate: importing this bundle through app.css — which starts with
+ * `@import "tailwindcss"` — makes @tailwindcss/vite try to process the entire
+ * Radix Themes CSS, which hangs `vite build` indefinitely. Keeping it out of
+ * the Tailwind pipeline lets the normal Vite CSS pipeline handle it (including
+ * postcss-workds, which compiles the WorkDS `@breakpoints` at-rule).
+ *
+ * styles.css carries the Radix Themes core (tokens/components/utilities) plus
+ * breakpoints, fonts, reset, overrides, and every component stylesheet —
+ * without it the Radix tokens and component styles are undefined and the UI
+ * renders unstyled. theme.css remaps Radix tokens (ruby→red, slate-12, …) and
+ * is loaded after styles.css so its overrides win the cascade.
+ */
+@import "./vendor/design-system/styles.css";
+@import "./vendor/design-system/theme.css";
