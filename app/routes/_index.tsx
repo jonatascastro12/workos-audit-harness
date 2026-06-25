@@ -16,7 +16,9 @@ import { Heading } from "../vendor/design-system/components/heading";
 import { Spinner } from "../vendor/design-system/components/spinner";
 import { Text } from "../vendor/design-system/components/text";
 import { TextArea } from "../vendor/design-system/components/text-area";
+import * as Select from "../vendor/design-system/components/select";
 import type { AuditLogRow, AuditQueryResult } from "../lib/audit-logs.server";
+import { listOrganizations } from "../lib/audit-logs.server";
 import type { AuditChatEnv } from "../lib/config.server";
 import { configureAuthKit, emailAllowed, getTenantConfig } from "../lib/config.server";
 
@@ -32,8 +34,15 @@ export async function loader(args: LoaderFunctionArgs) {
           status: 403,
         });
       }
+      const organizations = await listOrganizations(tenant.apiKey);
+      const defaultOrganizationId =
+        (tenant.defaultOrganizationId &&
+        organizations.some((org) => org.id === tenant.defaultOrganizationId)
+          ? tenant.defaultOrganizationId
+          : organizations[0]?.id) ?? null;
       return {
-        organizationId: tenant.organizationId,
+        organizations,
+        defaultOrganizationId,
         environmentLabel: tenant.environmentLabel,
         publicHostname: tenant.publicHostname,
         modelId: tenant.modelId,
@@ -42,6 +51,8 @@ export async function loader(args: LoaderFunctionArgs) {
     { ensureSignedIn: true },
   );
 }
+
+const ORG_STORAGE_KEY = "audit-chat.organizationId";
 
 const SUGGESTIONS = [
   {
@@ -236,9 +247,10 @@ function MessageParts({ message }: { message: UIMessage }) {
 }
 
 export default function Home() {
-  const { user, organizationId, environmentLabel, publicHostname, modelId } =
+  const { user, organizations, defaultOrganizationId, environmentLabel, publicHostname, modelId } =
     useLoaderData<typeof loader>();
   const [input, setInput] = useState("");
+  const [organizationId, setOrganizationId] = useState(defaultOrganizationId ?? "");
   const scrollRef = useRef<HTMLDivElement>(null);
   const { messages, sendMessage, status, error } = useChat({
     transport: new DefaultChatTransport({ api: "/api/chat" }),
@@ -246,14 +258,25 @@ export default function Home() {
 
   const busy = status === "submitted" || status === "streaming";
 
+  // Restore the last-used org after mount (avoids an SSR/client hydration mismatch).
+  useEffect(() => {
+    const stored = window.localStorage.getItem(ORG_STORAGE_KEY);
+    if (stored && organizations.some((org) => org.id === stored)) setOrganizationId(stored);
+  }, [organizations]);
+
+  function selectOrganization(id: string) {
+    setOrganizationId(id);
+    window.localStorage.setItem(ORG_STORAGE_KEY, id);
+  }
+
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [messages, status]);
 
   function submit(text: string) {
     const trimmed = text.trim();
-    if (!trimmed || busy) return;
-    void sendMessage({ text: trimmed });
+    if (!trimmed || busy || !organizationId) return;
+    void sendMessage({ text: trimmed }, { body: { organizationId } });
     setInput("");
   }
 
@@ -269,9 +292,26 @@ export default function Home() {
             <Badge color={environmentLabel === "production" ? "purple" : "yellow"} size="1">
               {environmentLabel}
             </Badge>
-            <Code size="1" color="gray" variant="ghost" className="console-org">
-              {organizationId}
-            </Code>
+            {organizations.length > 0 ? (
+              <Select.Root
+                value={organizationId}
+                onValueChange={selectOrganization}
+                disabled={busy}
+              >
+                <Select.Trigger ghost className="console-org" aria-label="Organization" />
+                <Select.Content>
+                  {organizations.map((org) => (
+                    <Select.Item key={org.id} value={org.id}>
+                      {org.name || org.id}
+                    </Select.Item>
+                  ))}
+                </Select.Content>
+              </Select.Root>
+            ) : (
+              <Code size="1" color="gray" variant="ghost" className="console-org">
+                no organizations
+              </Code>
+            )}
           </Flex>
           <Flex align="center" gap="3">
             <Code size="1" color="gray" variant="ghost">

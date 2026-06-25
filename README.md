@@ -10,6 +10,7 @@ The app represents the same WorkOS tenant/environment the audit ingestion proxy 
 
 - **React Router 7** on Cloudflare Workers (standard `wow app create` internal-app stack, WorkOS design system, dispatch namespace + `workos.tools` route).
 - **AuthKit** (`@workos-inc/authkit-react-router`) gates every route; the chat API additionally re-checks the session and the optional allowed-email-domain.
+- **Organization picker** — the app lists the environment's organizations (`GET /organizations`) and the admin selects which org's audit logs to investigate from a header dropdown (persisted per browser). `AUDIT_CHAT_WORKOS_ORG_ID`, if set, only pre-selects the default; each chat request's org is validated server-side against the live list.
 - **AI SDK v6** (`ai` + `@ai-sdk/react`) streams the chat. The model runs tools server-side:
   - `query_audit_logs` — creates an Audit Logs export (range + action/actor/target filters), polls it, downloads and parses the CSV, and returns events plus action/actor/target-type counts.
   - `list_known_actions` — the harness action catalog (`claude.tool.called`, `codex.session.started`, …).
@@ -24,7 +25,7 @@ Secrets live in the shared `claude-day` Doppler project (`dev` for local, `prd` 
 | `AUDIT_CHAT_WORKOS_CLIENT_ID` | yes | AuthKit client for the **same WorkOS environment** as the API key below. |
 | `AUDIT_CHAT_WORKOS_COOKIE_PASSWORD` | yes | 32+ chars (already set in dev + prd). |
 | `AUDIT_CHAT_WORKOS_API_KEY` | no | Falls back to the proxy's `AUDIT_HARNESS_WORKOS_API_KEY`. |
-| `AUDIT_CHAT_WORKOS_ORG_ID` | no | Falls back to `AUDIT_HARNESS_WORKOS_ORG_ID`. |
+| `AUDIT_CHAT_WORKOS_ORG_ID` | no | Pre-selects the default org in the picker; falls back to `AUDIT_HARNESS_WORKOS_ORG_ID`. Unset = first org in the list. |
 | `AUDIT_CHAT_WORKOS_REDIRECT_URI` | dev only | `http://localhost:5173/callback` in dev; production defaults to `https://<AUDIT_CHAT_PUBLIC_HOSTNAME>/callback`. |
 | `AUDIT_CHAT_ALLOWED_EMAIL_DOMAIN` | no | e.g. `workos.com` to restrict who may use the console. |
 | `AUDIT_CHAT_MODEL` | no | Default `anthropic/claude-sonnet-4-6`. |

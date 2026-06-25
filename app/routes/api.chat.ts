@@ -10,6 +10,7 @@ import { z } from "zod";
 import {
   HARNESS_PREFIXES,
   KNOWN_ACTION_SUFFIXES,
+  listOrganizations,
   MAX_MAX_ROWS,
   queryAuditLogs,
 } from "../lib/audit-logs.server";
@@ -31,13 +32,13 @@ function resolveModel(env: AuditChatEnv, tenant: TenantConfig): LanguageModel {
   return aigateway(createUnified()(tenant.modelId));
 }
 
-function systemPrompt(tenant: TenantConfig, userEmail: string): string {
+function systemPrompt(tenant: TenantConfig, organizationId: string, userEmail: string): string {
   return [
     "You are the audit investigator for a WorkOS Audit Logs tenant. Admins ask you questions about",
     "what happened in their fleet of AI coding agents (Claude Code, Codex, OpenClaw, pi) whose audit",
     "events are ingested through a device-attested proxy into WorkOS Audit Logs.",
     "",
-    `Organization: ${tenant.organizationId} (${tenant.environmentLabel} environment).`,
+    `Organization: ${organizationId} (${tenant.environmentLabel} environment).`,
     `Current time: ${new Date().toISOString()}. Signed-in admin: ${userEmail}.`,
     "",
     "Event shape: occurred_at (ISO timestamp), action, actor (id = user email, name, metadata with",
@@ -72,11 +73,24 @@ export async function action(args: ActionFunctionArgs) {
   if (!auth.user) return new Response("Unauthorized", { status: 401 });
   if (!emailAllowed(auth.user.email, tenant)) return new Response("Forbidden", { status: 403 });
 
-  const { messages } = (await args.request.json()) as { messages: UIMessage[] };
+  const { messages, organizationId: requestedOrg } = (await args.request.json()) as {
+    messages: UIMessage[];
+    organizationId?: string;
+  };
+
+  // The org comes from the user's selection; fall back to the configured default.
+  // Validate against the live org list so a stale/forged id can't reach the export API.
+  const organizations = await listOrganizations(tenant.apiKey);
+  const organizationId = requestedOrg ?? tenant.defaultOrganizationId ?? organizations[0]?.id;
+  if (!organizationId || !organizations.some((org) => org.id === organizationId)) {
+    return new Response(`Unknown organization: ${organizationId ?? "(none selected)"}`, {
+      status: 400,
+    });
+  }
 
   const result = streamText({
     model: resolveModel(env, tenant),
-    system: systemPrompt(tenant, auth.user.email),
+    system: systemPrompt(tenant, organizationId, auth.user.email),
     messages: await convertToModelMessages(messages),
     stopWhen: stepCountIs(10),
     tools: {
@@ -112,7 +126,7 @@ export async function action(args: ActionFunctionArgs) {
             .optional(),
         }),
         execute: async (input) =>
-          queryAuditLogs(tenant.apiKey, tenant.organizationId, {
+          queryAuditLogs(tenant.apiKey, organizationId, {
             rangeStart: input.range_start,
             rangeEnd: input.range_end,
             actions: input.actions,

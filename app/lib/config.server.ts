@@ -32,7 +32,8 @@ export type AuditChatEnv = Env & AuditChatSecrets;
 
 export interface TenantConfig {
   apiKey: string;
-  organizationId: string;
+  /** Optional pre-selected org; the user picks from the live org list otherwise. */
+  defaultOrganizationId: string | null;
   environmentLabel: "sandbox" | "production";
   publicHostname: string;
   modelId: string;
@@ -55,13 +56,9 @@ export function getTenantConfig(env: AuditChatEnv): TenantConfig {
     env.AUDIT_CHAT_WORKOS_API_KEY ?? env.AUDIT_HARNESS_WORKOS_API_KEY,
     "AUDIT_CHAT_WORKOS_API_KEY (or AUDIT_HARNESS_WORKOS_API_KEY)",
   );
-  const organizationId = required(
-    env.AUDIT_CHAT_WORKOS_ORG_ID ?? env.AUDIT_HARNESS_WORKOS_ORG_ID,
-    "AUDIT_CHAT_WORKOS_ORG_ID (or AUDIT_HARNESS_WORKOS_ORG_ID)",
-  );
   return {
     apiKey,
-    organizationId,
+    defaultOrganizationId: env.AUDIT_CHAT_WORKOS_ORG_ID ?? env.AUDIT_HARNESS_WORKOS_ORG_ID ?? null,
     environmentLabel: apiKey.startsWith("sk_test_") ? "sandbox" : "production",
     publicHostname: env.AUDIT_CHAT_PUBLIC_HOSTNAME,
     modelId: env.AUDIT_CHAT_MODEL ?? DEFAULT_MODEL,

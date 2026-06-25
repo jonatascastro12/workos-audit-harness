@@ -197,6 +197,36 @@ async function workosFetch(apiKey: string, path: string, init?: RequestInit): Pr
   });
 }
 
+export interface WorkOSOrganization {
+  id: string;
+  name: string;
+}
+
+/**
+ * List every organization in the API key's environment (paginated). The user
+ * picks which org's audit logs to investigate.
+ */
+export async function listOrganizations(apiKey: string): Promise<WorkOSOrganization[]> {
+  const organizations: WorkOSOrganization[] = [];
+  let after: string | undefined;
+  do {
+    const params = new URLSearchParams({ limit: "100", order: "asc" });
+    if (after) params.set("after", after);
+    const response = await workosFetch(apiKey, `/organizations?${params.toString()}`);
+    if (!response.ok) {
+      const body = await response.text();
+      throw new Error(`List organizations failed (${response.status}): ${body.slice(0, 500)}`);
+    }
+    const page = (await response.json()) as {
+      data: { id: string; name: string }[];
+      list_metadata?: { after?: string | null };
+    };
+    for (const org of page.data) organizations.push({ id: org.id, name: org.name });
+    after = page.list_metadata?.after ?? undefined;
+  } while (after);
+  return organizations;
+}
+
 async function createExport(
   apiKey: string,
   organizationId: string,
