@@ -6,7 +6,7 @@ import remarkGfm from "remark-gfm";
 import { authkitLoader } from "@workos-inc/authkit-react-router";
 import { useEffect, useRef, useState } from "react";
 import type { LoaderFunctionArgs } from "react-router";
-import { Form, useLoaderData } from "react-router";
+import { Form, Link, useLoaderData } from "react-router";
 import { Badge } from "../vendor/design-system/components/badge";
 import { Box } from "../vendor/design-system/components/box";
 import { Button } from "../vendor/design-system/components/button";
@@ -326,6 +326,9 @@ export default function Home() {
             <Code size="1" color="gray" variant="ghost">
               {modelId}
             </Code>
+            <Button asChild size="1" variant="ghost" color="gray">
+              <Link to="/settings">Settings</Link>
+            </Button>
             <Text size="1" color="gray">
               {user.email}
             </Text>
