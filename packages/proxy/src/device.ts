@@ -80,29 +80,76 @@ export function serialFromRequest(request: Request, env: Env): string | Response
   return new Response("client certificate required", { status: 401 });
 }
 
+// A cached device_user row, pre-fetched by the caller (batched with the
+// runtime-settings read so the hot path stays at one D1 round trip).
+export interface CachedDeviceUser {
+  email: string;
+  name: string;
+  updated: number;
+}
+
+// How long a negative-cache sentinel (an authoritatively unassigned device,
+// stored with email = "") is trusted before re-asking the MDM. Capped well
+// below the regular TTL so a reassigned loaner laptop is picked up promptly.
+const SENTINEL_TTL_CAP_SECONDS = 60 * 60;
+
 // Resolve a device serial to its assigned user.
 //
 // With an MDM configured (KANDJI_API_BASE + KANDJI_API_TOKEN), the MDM owns the
 // device→user assignment and the D1 `device_user` table is a read-through
 // cache. Without one, the table is the authoritative mapping: rows never go
 // stale, and unknown serials are rejected until an admin inserts them.
-export async function resolveDeviceUser(env: Env, serial: string): Promise<DeviceUser | null> {
+//
+// `ttlOverride` comes from the runtime settings document (null = not
+// overridden); the env var and built-in default remain the fallbacks.
+export async function resolveDeviceUser(
+  env: Env,
+  serial: string,
+  cached: CachedDeviceUser | null,
+  ttlOverride: number | null,
+): Promise<DeviceUser | null> {
   const now = Math.floor(Date.now() / 1000);
-  const ttl = Number(env.DEVICE_CACHE_TTL_SECONDS) || DEFAULT_CACHE_TTL_SECONDS;
+  const ttl = ttlOverride ?? (Number(env.DEVICE_CACHE_TTL_SECONDS) || DEFAULT_CACHE_TTL_SECONDS);
 
-  const cached = await env.DB.prepare(
-    "SELECT email, name, updated FROM device_user WHERE serial = ?",
-  )
-    .bind(serial)
-    .first<{ email: string; name: string; updated: number }>();
+  // A sentinel row (email === "") is a NEGATIVE cache entry: the MDM has
+  // authoritatively reported this serial as unassigned/unknown, so events
+  // under the "placeholder" policy don't trigger a live MDM call every time.
+  // It is never a real actor — no path below may serve it as a user.
+  const isSentinel = (row: { email: string } | null): boolean => !!row && row.email === "";
 
   const mdmConfigured = Boolean(env.KANDJI_API_BASE && env.KANDJI_API_TOKEN);
   if (!mdmConfigured) {
-    return cached ? { email: cached.email, name: cached.name } : null;
+    // Static mode: the table is authoritative; TTLs and sentinels don't apply
+    // (a leftover sentinel from a previous MDM-mode deployment is not a user).
+    return cached && !isSentinel(cached) ? { email: cached.email, name: cached.name } : null;
   }
 
-  if (cached && now - cached.updated < ttl) {
-    return { email: cached.email, name: cached.name };
+  // Serve a stale cache entry rather than drop the event when the MDM is
+  // unreachable or its response is unusable — but never serve the sentinel.
+  const staleServe = (): DeviceUser | null =>
+    cached && !isSentinel(cached) ? { email: cached.email, name: cached.name } : null;
+
+  // Persist the resolution (a real user, or a sentinel with empty email/name).
+  // The cache write is an optimization, never load-bearing: a D1 failure here
+  // must not lose an event we could otherwise forward.
+  const writeBack = async (email: string, name: string): Promise<void> => {
+    try {
+      await env.DB.prepare(
+        "INSERT INTO device_user (serial, email, name, updated) VALUES (?, ?, ?, ?) " +
+          "ON CONFLICT(serial) DO UPDATE SET email = excluded.email, name = excluded.name, updated = excluded.updated",
+      )
+        .bind(serial, email, name, now)
+        .run();
+    } catch (err) {
+      console.error("device_user write-back failed", { serial, error: String(err) });
+    }
+  };
+
+  if (cached) {
+    const effectiveTtl = isSentinel(cached) ? Math.min(ttl, SENTINEL_TTL_CAP_SECONDS) : ttl;
+    if (now - cached.updated < effectiveTtl) {
+      return isSentinel(cached) ? null : { email: cached.email, name: cached.name };
+    }
   }
 
   // Cache miss or stale — ask the MDM.
@@ -114,32 +161,35 @@ export async function resolveDeviceUser(env: Env, serial: string): Promise<Devic
     );
   } catch (err) {
     console.error("mdm request failed", { serial, error: String(err) });
-    // Serve a stale entry rather than drop the event if the MDM is unreachable.
-    return cached ? { email: cached.email, name: cached.name } : null;
+    return staleServe();
   }
 
   if (!res.ok) {
     console.error("mdm lookup rejected", { serial, status: res.status });
-    return cached ? { email: cached.email, name: cached.name } : null;
+    return staleServe();
   }
 
-  const devices = (await res.json().catch(() => null)) as Array<{
-    user?: { email?: string; name?: string } | null;
-  }> | null;
-  const user = devices?.[0]?.user;
-  // Some laptops are unassigned (conference/loaner), so user can be null.
+  const body = await res.json().catch(() => null);
+  // A well-formed response is an ARRAY of devices. Anything else (an HTML
+  // maintenance page behind a proxy, a foreign JSON object, a parse failure)
+  // is not authoritative evidence that the device is unassigned — treat it
+  // like an error and stale-serve rather than discarding a valid cache row.
+  if (!Array.isArray(body)) {
+    console.error("mdm returned unusable body", { serial });
+    return staleServe();
+  }
+
+  const user = (body[0] as { user?: { email?: string; name?: string } | null } | undefined)?.user;
+  // An empty array or a first device with no user is a genuine
+  // unassigned/unknown device (conference/loaner). Record the sentinel so the
+  // next events skip the MDM call, and return null so the caller applies its
+  // unassigned-device policy.
   if (!user?.email) {
+    await writeBack("", "");
     return null;
   }
 
   const resolved: DeviceUser = { email: user.email, name: user.name ?? user.email };
-
-  await env.DB.prepare(
-    "INSERT INTO device_user (serial, email, name, updated) VALUES (?, ?, ?, ?) " +
-      "ON CONFLICT(serial) DO UPDATE SET email = excluded.email, name = excluded.name, updated = excluded.updated",
-  )
-    .bind(serial, resolved.email, resolved.name, now)
-    .run();
-
+  await writeBack(resolved.email, resolved.name);
   return resolved;
 }
