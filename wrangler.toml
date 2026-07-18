@@ -20,6 +20,17 @@ database_name = "cd26-workos-audit-chat-db"
 database_id = "bf601292-5ee6-435f-8f94-58608fb31dd4"
 migrations_dir = "migrations"
 
+# The audit ingestion proxy's database (same Cloudflare account). The /settings
+# page reads/writes the proxy's runtime settings (app_state key "proxy_settings")
+# and its device_user cache through this binding — no HTTP admin API on the proxy.
+# Deliberately NO migrations_dir: the proxy repo owns this database's schema;
+# this app only reads/writes rows. All access goes through
+# app/lib/proxy-settings.server.ts.
+[[d1_databases]]
+binding = "PROXY_DB"
+database_name = "cd26-workos-audit-proxy-db"
+database_id = "19133f64-d804-45be-9c50-c3d67db67f4b"
+
 [[r2_buckets]]
 binding = "IMAGE_BUCKET"
 bucket_name = "cd26-workos-audit-chat-images"

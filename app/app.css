@@ -344,3 +344,21 @@ body {
     transform: translateY(0);
   }
 }
+
+/* ── Settings ──────────────────────────────────────────────────────────── */
+
+.settings-column {
+  width: 100%;
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 28px 20px 48px;
+}
+
+.device-row {
+  padding: 4px 0;
+  border-bottom: 1px solid var(--gray-3);
+}
+
+.device-row:last-child {
+  border-bottom: none;
+}
