@@ -59,8 +59,10 @@ function systemPrompt(tenant: TenantConfig, organizationId: string, userEmail: s
     "",
     "Answer rules: cite concrete events (timestamp + actor + action) for every claim. If the export",
     "has no matching events, say so plainly — never invent activity. Distinguish 'no events recorded'",
-    "from 'the event exists but lacks detail'. Answer in plain prose; short lists are fine, no",
-    "markdown headers or tables.",
+    "from 'the event exists but lacks detail'. Format answers in Markdown: use short bullet lists,",
+    "**bold** for key findings, and `inline code` for actions, emails, and file paths. Use a compact",
+    "table when comparing actors or tallying counts. Keep prose tight; skip headers unless the answer",
+    "has distinct sections.",
   ].join("\n");
 }
 

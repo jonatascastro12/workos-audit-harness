@@ -1,6 +1,8 @@
 import { useChat } from "@ai-sdk/react";
 import type { UIMessage } from "ai";
 import { DefaultChatTransport } from "ai";
+import Markdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { authkitLoader } from "@workos-inc/authkit-react-router";
 import { useEffect, useRef, useState } from "react";
 import type { LoaderFunctionArgs } from "react-router";
@@ -231,6 +233,13 @@ function MessageParts({ message }: { message: UIMessage }) {
     <>
       {message.parts.map((part, index) => {
         if (part.type === "text") {
+          if (message.role === "assistant") {
+            return (
+              <div key={index} className="message-markdown">
+                <Markdown remarkPlugins={[remarkGfm]}>{part.text}</Markdown>
+              </div>
+            );
+          }
           return (
             <Text key={index} as="p" size="2" className="message-text">
               {part.text}
