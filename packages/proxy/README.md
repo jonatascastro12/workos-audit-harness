@@ -97,7 +97,44 @@ The cert identifies the **device** (serial in the CN), not the user. The Worker 
 
   Sync it from whatever owns your device inventory (Okta, Jamf, Intune, a CSV) on your own schedule.
 
-Unknown or unassigned devices get a 403 — events from them are never attributed to anyone.
+Unknown or unassigned devices get a 403 by default — events from them are never attributed to anyone. If loaner/conference machines should still land in the log, opt into the `placeholder` policy via [runtime settings](#runtime-settings): their events are attributed to a fixed synthetic actor (`unassigned-device`) with the serial preserved in metadata.
+
+## Runtime settings
+
+Operational settings can be changed **without a redeploy** by writing one JSON document into the Worker's D1 database — `app_state` key `proxy_settings` (table created by migration `0002`). The proxy reads it per ingested event (batched with the device lookup, so no extra D1 round trip) and applies it on the next event. Anything that can write the D1 database can manage it: `wrangler d1 execute`, a CLI, or a companion admin app with a direct D1 binding.
+
+```jsonc
+{
+  "version": 3,                        // integer, bump on every write (for CAS writers)
+  "updated_at": "2026-07-18T17:03:00Z",
+  "updated_by": "admin@yourcompany.com",
+  "workos_org_id": "org_01ABC...",     // optional: overrides the WORKOS_ORG_ID var
+  "device_cache_ttl_seconds": 3600,    // optional: overrides DEVICE_CACHE_TTL_SECONDS (clamped 300–604800; MDM mode only)
+  "unassigned_device_policy": "reject",// optional: "reject" (default) | "placeholder"
+  "pause": {                           // optional: kill switch — proxy answers 503 + Retry-After while paused
+    "paused": true,
+    "reason": "Rotating the WorkOS key",
+    "paused_by": "admin@yourcompany.com",
+    "paused_at": "2026-07-18T14:02:11Z",
+    "auto_resume_at": "2026-07-18T18:02:11Z"  // ISO time or null (= until removed)
+  }
+}
+```
+
+Example — pause ingestion for four hours:
+
+```bash
+npx wrangler d1 execute workos-audit-proxy-db --remote --command \
+  "INSERT INTO app_state (key, value) VALUES ('proxy_settings', '{\"version\":1,\"pause\":{\"paused\":true,\"reason\":\"maintenance\",\"auto_resume_at\":\"2026-07-18T18:00:00Z\"}}') ON CONFLICT(key) DO UPDATE SET value = excluded.value"
+```
+
+Semantics, all deliberate (see `src/settings.ts`):
+
+- **Absence means default.** A missing row/field falls back to the env var or built-in default, so this is a no-op until you write it, and deleting a field un-overrides it.
+- **Per-field tolerance.** Every field is validated independently on read; a malformed field degrades to its default rather than breaking ingest. Unknown fields are ignored.
+- **The kill switch fails open.** If D1 is unreachable the proxy cannot see `paused: true` and keeps ingesting — a control-plane outage must never silently drop the fleet's audit events. The hard stop remains removing the mTLS/Access policy in front of `/api/events`.
+- **Pausing loses events from clients that don't retry.** The proxy answers 503 with `Retry-After: 300`; whether events are lost depends on the harness client's retry behavior.
+- `app_state` and `device_user` are a **write interface**: renaming their columns or the `proxy_settings` fields breaks external writers (e.g. the WorkOS-internal audit-chat admin app manages these over a direct D1 binding).
 
 ## Using a different device certificate
 

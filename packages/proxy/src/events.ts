@@ -1,4 +1,6 @@
+import type { CachedDeviceUser } from "./device";
 import { resolveDeviceUser, serialFromRequest } from "./device";
+import { PLACEHOLDER_ACTOR_ID, PROXY_SETTINGS_KEY, parseProxySettings } from "./settings";
 import type { Env } from "./types";
 
 // WorkOS Audit Logs ingestion: authenticate the device, attribute the event to
@@ -54,17 +56,60 @@ export async function handleEvents(request: Request, env: Env): Promise<Response
   }
 
   // 1. Read the device serial from the mTLS-verified client certificate.
+  //    Auth-first: unauthenticated traffic never touches D1.
   const serialOrError = serialFromRequest(request, env);
   if (serialOrError instanceof Response) return serialOrError;
   const serial = serialOrError;
 
-  // 2. Resolve serial -> assigned user (MDM-backed cache, or static D1 table).
-  const user = await resolveDeviceUser(env, serial);
-  if (!user) {
+  // 2. One batched D1 round trip: the optional runtime-settings row (see
+  //    src/settings.ts) + the device_user row. Batching keeps the hot path at
+  //    exactly one D1 round trip. If D1 is down we fail OPEN (env defaults +
+  //    a live MDM lookup) rather than drop the event just because the control
+  //    plane is unreachable.
+  let settingsRaw: string | null = null;
+  let cached: CachedDeviceUser | null = null;
+  try {
+    const [settingsRow, deviceRow] = await env.DB.batch([
+      env.DB.prepare("SELECT value FROM app_state WHERE key = ?").bind(PROXY_SETTINGS_KEY),
+      env.DB.prepare("SELECT email, name, updated FROM device_user WHERE serial = ?").bind(serial),
+    ]);
+    settingsRaw = (settingsRow.results[0] as { value?: string } | undefined)?.value ?? null;
+    cached = (deviceRow.results[0] as CachedDeviceUser | undefined) ?? null;
+  } catch (err) {
+    console.error("settings/cache read failed", { serial, error: String(err) });
+  }
+  const settings = parseProxySettings(settingsRaw);
+
+  // 2a. Kill switch. When paused we reject with a 503 + Retry-After so clients
+  //     back off; the pause reason (if any) is surfaced to the caller.
+  if (settings.paused) {
+    return new Response(
+      `audit ingestion is paused${settings.pauseReason ? ": " + settings.pauseReason : ""}`,
+      { status: 503, headers: { "Retry-After": "300" } },
+    );
+  }
+
+  // 3. Resolve serial -> assigned user (MDM-backed cache, or static D1 table).
+  const user = await resolveDeviceUser(env, serial, cached, settings.deviceCacheTtlSeconds);
+  // An unassigned/unknown device is rejected by default. Under the
+  // "placeholder" policy the event is instead attributed to a synthetic actor
+  // so loaner/conference laptops still land in the audit log.
+  let actor: { type: "user"; id: string; name: string; metadata: Record<string, unknown> };
+  if (user) {
+    actor = { type: "user", id: user.email, name: user.name, metadata: { device_serial: serial } };
+  } else if (settings.unassignedDevicePolicy === "placeholder") {
+    console.log("unassigned device attributed to placeholder", { serial });
+    actor = {
+      type: "user",
+      id: PLACEHOLDER_ACTOR_ID,
+      name: `Unassigned device ${serial}`,
+      metadata: { device_serial: serial, unassigned: true },
+    };
+  } else {
     return new Response("unknown or unassigned device", { status: 403 });
   }
 
-  // 3. Parse + validate the body, stamping the authoritative actor + device serial.
+  // 4. Parse + validate the body, stamping the authoritative actor + device serial.
   let body: unknown;
   try {
     body = await request.json();
@@ -72,25 +117,24 @@ export async function handleEvents(request: Request, env: Env): Promise<Response
     return new Response("invalid JSON body", { status: 400 });
   }
 
-  const event = toRestEvent(
-    body,
-    {
-      type: "user",
-      id: user.email,
-      name: user.name,
-      metadata: { device_serial: serial },
-    },
-    {
-      // Authoritative source — the real connecting IP, not a client claim.
-      location: request.headers.get("CF-Connecting-IP") ?? "0.0.0.0",
-      user_agent: request.headers.get("User-Agent") ?? undefined,
-    },
-  );
+  const event = toRestEvent(body, actor, {
+    // Authoritative source — the real connecting IP, not a client claim.
+    location: request.headers.get("CF-Connecting-IP") ?? "0.0.0.0",
+    user_agent: request.headers.get("User-Agent") ?? undefined,
+  });
   if (!event) {
     return new Response("invalid audit event payload", { status: 422 });
   }
 
-  // 4. Forward to WorkOS with the real key + server-set organization_id.
+  // 5. Resolve the WorkOS organization: the runtime setting overrides the env
+  //    default. If neither is configured we cannot attribute the event.
+  const organizationId = settings.workosOrgId ?? env.WORKOS_ORG_ID;
+  if (!organizationId) {
+    console.error("organization not configured", { serial });
+    return new Response("organization not configured", { status: 500 });
+  }
+
+  // 6. Forward to WorkOS with the real key + server-set organization_id.
   let upstream: Response;
   try {
     upstream = await fetch(env.WORKOS_AUDIT_LOGS_URL ?? DEFAULT_WORKOS_AUDIT_LOGS_URL, {
@@ -100,17 +144,17 @@ export async function handleEvents(request: Request, env: Env): Promise<Response
         "Content-Type": "application/json",
         "Idempotency-Key": crypto.randomUUID(),
       },
-      body: JSON.stringify({ organization_id: env.WORKOS_ORG_ID, event }),
+      body: JSON.stringify({ organization_id: organizationId, event }),
     });
   } catch (err) {
     console.error("audit forward failed", { serial, action: event.action, error: String(err) });
     return new Response("upstream request failed", { status: 502 });
   }
 
-  // 5. Log the ingest (serial + resolved user) — the audit trail of the audit trail.
+  // 7. Log the ingest (serial + resolved actor) — the audit trail of the audit trail.
   console.log("audit ingest", {
     serial,
-    user: user.email,
+    user: actor.id,
     action: event.action,
     upstreamStatus: upstream.status,
   });
