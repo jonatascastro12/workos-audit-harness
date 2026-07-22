@@ -8,25 +8,33 @@ import type { Env } from "./types";
 // 1. Cloudflare Access (Zero Trust) mTLS — Access terminates and chain-verifies
 //    the cert at the edge, then forwards the verified identity in the
 //    `Cf-Access-Jwt-Assertion` header; its `common_name` claim is the cert
-//    subject CN. Cloudflare strips any client-supplied `Cf-Access-*` header on
-//    ingress, so the Worker can trust it. This is the only mode that works
-//    inside a Workers-for-Platforms dispatch namespace (request.cf.tlsClientAuth
-//    does not survive the dispatcher hop — verified empirically).
+//    subject CN. This is the only mode that works inside a
+//    Workers-for-Platforms dispatch namespace (request.cf.tlsClientAuth does
+//    not survive the dispatcher hop — verified empirically).
+//
+//    The header is only trusted after its signature is verified against the
+//    Access team's public keys and its `aud`/`iss` claims are checked (see
+//    `verifyAccessAssertion`). "Cloudflare strips inbound Cf-Access-* headers"
+//    only holds for requests that actually traverse the Access-protected
+//    hostname; on the `workers.dev` URL (or any origin-exposed path) a client
+//    can supply the header verbatim, so signature verification is what makes
+//    it trustworthy. Mode 1 is therefore opt-in: it requires ACCESS_TEAM_DOMAIN
+//    and ACCESS_AUD to be configured. When they are absent the header is
+//    ignored entirely and only genuine mTLS (Mode 2) is honored.
 //
 // 2. Direct mTLS (API Shield / "Client Certificates") — for a plain Worker on
 //    your own zone, Cloudflare populates `request.cf.tlsClientAuth` with the
 //    verification result and subject DN. Simpler to set up: no Zero Trust
 //    account needed, just upload your CA and enable mTLS on the hostname.
-//
-// TODO(hardening): verify the Cf-Access-Jwt-Assertion signature against the
-// Access team's certs endpoint for full defense in depth (Access already
-// validates it upstream; this would protect against a future origin-exposure).
 
 // Default matches the Okta device-attestation cert present on Okta-managed
 // machines: "CN=OktaManagementAttestation for KXVJ32DH30". The serial stops at
 // the first comma/space so a full DN string can't bleed in.
 const DEFAULT_CN_PATTERN = "OktaManagementAttestation for ([^,\\s]+)";
 const DEFAULT_CACHE_TTL_SECONDS = 24 * 60 * 60;
+
+// How long fetched Access signing keys are cached in the isolate.
+const JWKS_CACHE_TTL_MS = 60 * 60 * 1000;
 
 export interface DeviceUser {
   email: string;
@@ -38,19 +46,128 @@ function serialFromCommonName(env: Env, commonName: string): string | null {
   return pattern.exec(commonName)?.[1] ?? null;
 }
 
+// Normalize a configured team value ("yourteam" or "yourteam.cloudflareaccess.com")
+// to the canonical Access issuer origin.
+function accessIssuer(teamDomain: string): string {
+  const host = teamDomain.includes(".") ? teamDomain : `${teamDomain}.cloudflareaccess.com`;
+  return `https://${host}`;
+}
+
+function base64UrlToBytes(input: string): Uint8Array {
+  const b64 = input.replace(/-/g, "+").replace(/_/g, "/");
+  const padded = b64 + "=".repeat((4 - (b64.length % 4)) % 4);
+  const binary = atob(padded);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return bytes;
+}
+
+function base64UrlToJson<T>(input: string): T {
+  return JSON.parse(new TextDecoder().decode(base64UrlToBytes(input))) as T;
+}
+
+interface Jwk extends JsonWebKey {
+  kid?: string;
+}
+
+// In-isolate cache of the Access team's signing keys, keyed by issuer.
+const jwksCache = new Map<string, { keys: Jwk[]; fetchedAt: number }>();
+
+async function fetchAccessKeys(issuer: string): Promise<Jwk[]> {
+  const cached = jwksCache.get(issuer);
+  if (cached && Date.now() - cached.fetchedAt < JWKS_CACHE_TTL_MS) {
+    return cached.keys;
+  }
+  const res = await fetch(`${issuer}/cdn-cgi/access/certs`);
+  if (!res.ok) throw new Error(`access certs fetch failed: ${res.status}`);
+  const body = (await res.json()) as { keys?: Jwk[] };
+  const keys = Array.isArray(body.keys) ? body.keys : [];
+  jwksCache.set(issuer, { keys, fetchedAt: Date.now() });
+  return keys;
+}
+
+// Verify the Cf-Access-Jwt-Assertion: RS256 signature against the team's
+// published keys, plus `iss`/`aud`/`exp` claims. Returns the decoded payload
+// on success, or null on any failure (unknown alg, bad signature, wrong
+// audience, expired, malformed). Never trusts an unverified assertion.
+async function verifyAccessAssertion(
+  assertion: string,
+  env: Env,
+): Promise<{ common_name?: string } | null> {
+  const teamDomain = env.ACCESS_TEAM_DOMAIN;
+  const aud = env.ACCESS_AUD;
+  if (!teamDomain || !aud) return null;
+
+  const parts = assertion.split(".");
+  if (parts.length !== 3) return null;
+  const [rawHeader, rawPayload, rawSig] = parts;
+
+  let header: { alg?: string; kid?: string };
+  let payload: { common_name?: string; iss?: string; aud?: unknown; exp?: unknown; nbf?: unknown };
+  try {
+    header = base64UrlToJson(rawHeader);
+    payload = base64UrlToJson(rawPayload);
+  } catch {
+    return null;
+  }
+
+  // Only RS256 (what Cloudflare Access signs with). Reject "none", HS*, etc.
+  if (header.alg !== "RS256" || !header.kid) return null;
+
+  const issuer = accessIssuer(teamDomain);
+  if (payload.iss !== issuer) return null;
+
+  const audiences = Array.isArray(payload.aud) ? payload.aud : [payload.aud];
+  if (!audiences.includes(aud)) return null;
+
+  const now = Math.floor(Date.now() / 1000);
+  if (typeof payload.exp !== "number" || payload.exp <= now) return null;
+  if (typeof payload.nbf === "number" && payload.nbf > now + 60) return null;
+
+  let keys: Jwk[];
+  try {
+    keys = await fetchAccessKeys(issuer);
+  } catch (err) {
+    console.error("access keys fetch failed", { error: String(err) });
+    return null;
+  }
+
+  const jwk = keys.find((k) => k.kid === header.kid);
+  if (!jwk) return null;
+
+  let ok = false;
+  try {
+    const key = await crypto.subtle.importKey(
+      "jwk",
+      jwk,
+      { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
+      false,
+      ["verify"],
+    );
+    const data = new TextEncoder().encode(`${rawHeader}.${rawPayload}`);
+    ok = await crypto.subtle.verify(
+      "RSASSA-PKCS1-v1_5",
+      key,
+      base64UrlToBytes(rawSig),
+      data,
+    );
+  } catch (err) {
+    console.error("access assertion verify error", { error: String(err) });
+    return null;
+  }
+
+  return ok ? payload : null;
+}
+
 // Returns the device serial on success, or a Response describing the rejection.
-export function serialFromRequest(request: Request, env: Env): string | Response {
-  // Mode 1: Cloudflare Access mTLS.
+export async function serialFromRequest(request: Request, env: Env): Promise<string | Response> {
+  // Mode 1: Cloudflare Access mTLS. Only honored when Access verification is
+  // configured; the signed assertion is verified before it is trusted.
   const assertion = request.headers.get("Cf-Access-Jwt-Assertion");
-  if (assertion) {
-    // Decode the JWT payload (base64url). Trusted because Access strips
-    // inbound Cf-Access-* headers and signs this one. See TODO(hardening).
-    let payload: { common_name?: string };
-    try {
-      const part = assertion.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
-      payload = JSON.parse(atob(part + "=".repeat((4 - (part.length % 4)) % 4)));
-    } catch {
-      return new Response("malformed access assertion", { status: 400 });
+  if (assertion && env.ACCESS_TEAM_DOMAIN && env.ACCESS_AUD) {
+    const payload = await verifyAccessAssertion(assertion, env);
+    if (!payload) {
+      return new Response("invalid access assertion", { status: 403 });
     }
     const serial = serialFromCommonName(env, payload.common_name ?? "");
     if (!serial) {

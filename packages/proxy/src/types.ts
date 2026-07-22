@@ -21,6 +21,15 @@ export interface Env {
   // the client certificate's common name. Defaults to the Okta
   // device-attestation cert shape: "OktaManagementAttestation for <SERIAL>".
   DEVICE_CERT_CN_PATTERN?: string;
+  // Cloudflare Access team domain that signs the `Cf-Access-Jwt-Assertion`
+  // header, e.g. "yourteam.cloudflareaccess.com" (or just "yourteam"). Both
+  // ACCESS_TEAM_DOMAIN and ACCESS_AUD must be set for the Access (Mode 1)
+  // ingress path to be trusted; without them the header is ignored and only
+  // genuine mTLS (`request.cf.tlsClientAuth`, Mode 2) is honored.
+  ACCESS_TEAM_DOMAIN?: string;
+  // AUD tag of the Access application in front of `/api/events`. The signed
+  // assertion's `aud` claim must contain this value.
+  ACCESS_AUD?: string;
   // Kandji tenant API base, e.g. "https://yourtenant.api.kandji.io".
   // Both KANDJI_API_BASE and KANDJI_API_TOKEN must be set to enable MDM lookups.
   KANDJI_API_BASE?: string;

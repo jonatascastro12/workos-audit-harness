@@ -57,7 +57,7 @@ export async function handleEvents(request: Request, env: Env): Promise<Response
 
   // 1. Read the device serial from the mTLS-verified client certificate.
   //    Auth-first: unauthenticated traffic never touches D1.
-  const serialOrError = serialFromRequest(request, env);
+  const serialOrError = await serialFromRequest(request, env);
   if (serialOrError instanceof Response) return serialOrError;
   const serial = serialOrError;
 
