@@ -47,9 +47,14 @@ function serialFromCommonName(env: Env, commonName: string): string | null {
 }
 
 // Normalize a configured team value ("yourteam" or "yourteam.cloudflareaccess.com")
-// to the canonical Access issuer origin.
+// to the canonical Access issuer origin. Rejects anything that isn't a
+// cloudflareaccess.com host so a misconfigured ACCESS_TEAM_DOMAIN can't point
+// the JWKS fetch (and the trusted `iss`) at an attacker-controlled domain.
 function accessIssuer(teamDomain: string): string {
   const host = teamDomain.includes(".") ? teamDomain : `${teamDomain}.cloudflareaccess.com`;
+  if (host !== "cloudflareaccess.com" && !host.endsWith(".cloudflareaccess.com")) {
+    throw new Error(`ACCESS_TEAM_DOMAIN must be a cloudflareaccess.com host, got: ${teamDomain}`);
+  }
   return `https://${host}`;
 }
 
@@ -82,6 +87,9 @@ async function fetchAccessKeys(issuer: string): Promise<Jwk[]> {
   if (!res.ok) throw new Error(`access certs fetch failed: ${res.status}`);
   const body = (await res.json()) as { keys?: Jwk[] };
   const keys = Array.isArray(body.keys) ? body.keys : [];
+  // Don't cache an empty/malformed response: doing so would fail every Mode 1
+  // request with 403 until the TTL expires. Let the caller retry next time.
+  if (keys.length === 0) throw new Error("access certs response contained no keys");
   jwksCache.set(issuer, { keys, fetchedAt: Date.now() });
   return keys;
 }
@@ -132,8 +140,18 @@ async function verifyAccessAssertion(
     return null;
   }
 
-  const jwk = keys.find((k) => k.kid === header.kid);
-  if (!jwk) return null;
+  let jwk = keys.find((k) => k.kid === header.kid);
+  if (!jwk) {
+    // Unknown kid: Access may have rotated keys within the cache window. Drop
+    // the cache and try one fresh fetch before giving up.
+    jwksCache.delete(issuer);
+    try {
+      jwk = (await fetchAccessKeys(issuer)).find((k) => k.kid === header.kid);
+    } catch (err) {
+      console.error("access keys refresh failed", { error: String(err) });
+    }
+    if (!jwk) return null;
+  }
 
   let ok = false;
   try {
