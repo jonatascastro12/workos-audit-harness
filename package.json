@@ -6,7 +6,13 @@
   "license": "MIT",
   "description": "WorkOS audit logging for Claude Code, Codex, OpenClaw, and the pi-coding-agent.",
   "workspaces": [
-    "packages/*"
+    "packages/audit-core",
+    "packages/claude-plugin",
+    "packages/codex-plugin",
+    "packages/openclaw-plugin",
+    "packages/pi-extension",
+    "packages/proxy",
+    "packages/site"
   ],
   "scripts": {
     "audit-harness": "npm run audit-harness -w @workos-inc/audit-core",

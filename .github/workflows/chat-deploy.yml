@@ -1,11 +1,26 @@
-name: Deploy
+# Deploys packages/chat (the audit-chat admin console) to Cloudflare.
+#
+# packages/chat is deliberately NOT an npm workspace member: it keeps its own
+# package-lock.json (vendored WorkOS design system + React Router toolchain),
+# so every step runs with packages/chat as the working directory.
+name: chat deploy
 
 on:
   push:
     branches:
       - main
+    paths:
+      - "packages/chat/**"
+      - ".github/workflows/chat-deploy.yml"
   pull_request:
+    paths:
+      - "packages/chat/**"
+      - ".github/workflows/chat-deploy.yml"
   workflow_dispatch:
+
+defaults:
+  run:
+    working-directory: packages/chat
 
 jobs:
   build-and-deploy:
@@ -21,6 +36,7 @@ jobs:
         with:
           node-version: "22"
           cache: "npm"
+          cache-dependency-path: packages/chat/package-lock.json
 
       - name: Install dependencies
         run: npm ci

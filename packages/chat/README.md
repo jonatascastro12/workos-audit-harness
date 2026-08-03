@@ -2,6 +2,8 @@
 
 **Live:** [https://cd26-workos-audit-chat.workos.tools](https://cd26-workos-audit-chat.workos.tools)
 
+> Lives in the `workos-audit-harness` monorepo as `packages/chat` (migrated from the standalone `workos/workos-audit-chat` repo, now archived). Deliberately **not** an npm workspace member — it keeps its own `package-lock.json`; run `npm install` / `npm run dev` from this directory. CI: `.github/workflows/chat-deploy.yml` at the repo root.
+
 An AI chat console for the [workos-audit-harness](https://github.com/workos/workos-audit-harness) audit trail. Admins sign in with [AuthKit](https://workos.com/docs/user-management) and ask natural-language questions about what the AI coding-agent fleet did — "who ran bash commands yesterday?", "when was that file deleted, and by whom?" — and the model answers by querying the tenant's [WorkOS Audit Logs Export API](https://workos.com/docs/audit-logs/exporting-events), citing concrete events.
 
 The app represents the same WorkOS tenant/environment the audit ingestion proxy ([cd26-workos-audit-proxy](https://github.com/workos/workos-audit-proxy)) writes into: it reuses the proxy's `AUDIT_HARNESS_WORKOS_API_KEY` / `AUDIT_HARNESS_WORKOS_ORG_ID` secrets unless overridden.
