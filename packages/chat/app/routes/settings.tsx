@@ -18,8 +18,12 @@ import { Text } from "../vendor/design-system/components/text";
 import * as TextField from "../vendor/design-system/components/text-field";
 import type { WorkOSOrganization } from "../lib/audit-logs.server";
 import { listOrganizations } from "../lib/audit-logs.server";
-import type { AuditChatEnv } from "../lib/config.server";
-import { configureAuthKit, emailAllowed, getTenantConfig } from "../lib/config.server";
+import {
+  cloudflareContext,
+  configureAuthKit,
+  emailAllowed,
+  getTenantConfig,
+} from "../lib/config.server";
 import type { WriteResult } from "../lib/proxy-settings.server";
 import {
   isValidDeviceSerial,
@@ -42,7 +46,7 @@ import {
 } from "../lib/proxy-settings.shared";
 
 export async function loader(args: LoaderFunctionArgs) {
-  const env = args.context.cloudflare.env as AuditChatEnv;
+  const { env } = args.context.get(cloudflareContext);
   configureAuthKit(env);
   const tenant = getTenantConfig(env);
   return authkitLoader(
@@ -105,7 +109,7 @@ function writeError(result: Extract<WriteResult, { ok: false }>): ActionResult {
 }
 
 export async function action(args: ActionFunctionArgs): Promise<ActionResult> {
-  const env = args.context.cloudflare.env as AuditChatEnv;
+  const { env } = args.context.get(cloudflareContext);
   configureAuthKit(env);
   const tenant = getTenantConfig(env);
 

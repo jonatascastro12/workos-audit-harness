@@ -1,4 +1,5 @@
 import { configure } from "@workos-inc/authkit-react-router";
+import { createContext } from "react-router";
 
 /**
  * Secrets and optional vars are not part of the generated `Env` (they are set
@@ -29,6 +30,16 @@ export interface AuditChatSecrets {
 }
 
 export type AuditChatEnv = Env & AuditChatSecrets;
+
+/**
+ * Loaders and actions always receive a `RouterContextProvider`, so the worker
+ * entry (`workers/app.ts`) hands the Cloudflare bindings over through this
+ * typed context instead of a plain load-context object.
+ */
+export const cloudflareContext = createContext<{
+  env: AuditChatEnv;
+  ctx: ExecutionContext;
+}>();
 
 export interface TenantConfig {
   apiKey: string;
