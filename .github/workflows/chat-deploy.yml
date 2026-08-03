@@ -18,6 +18,11 @@ on:
       - ".github/workflows/chat-deploy.yml"
   workflow_dispatch:
 
+# contents: write lets the deployment-URL commit comment post; everything else
+# needs only the repo checkout.
+permissions:
+  contents: write
+
 defaults:
   run:
     working-directory: packages/chat
@@ -116,6 +121,8 @@ jobs:
 
       - name: Comment deployment URL
         if: github.ref == 'refs/heads/main'
+        # Cosmetic — never fail a completed deploy over a comment.
+        continue-on-error: true
         uses: actions/github-script@v7
         with:
           script: |
