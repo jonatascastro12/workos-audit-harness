@@ -22,7 +22,7 @@ import {
  * unreachable store) leaves ingestion untouched.
  *
  * Cross-repo contract: the read side is
- * workos-audit-proxy/app/lib/settings.server.ts — the key name, field names,
+ * packages/proxy/src/settings.ts — the key name, field names,
  * TTL bounds, org-id pattern, and the effective-paused rule are duplicated
  * there as documented constants (the repos share no package). This module
  * mirrors the proxy's PER-FIELD tolerance: one invalid field degrades to "not
