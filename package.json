@@ -27,5 +27,10 @@
     "remove:codex-schemas": "npm run remove:schemas -w @workos-inc/codex-audit-plugin",
     "create:openclaw-schemas": "npm run create:schemas -w @workos-inc/openclaw-audit-plugin",
     "remove:openclaw-schemas": "npm run remove:schemas -w @workos-inc/openclaw-audit-plugin"
+  },
+  "overrides": {
+    "miniflare": {
+      "undici": "^7.29.0"
+    }
   }
 }
