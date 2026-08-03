@@ -21,11 +21,15 @@ import { TextArea } from "../vendor/design-system/components/text-area";
 import * as Select from "../vendor/design-system/components/select";
 import type { AuditLogRow, AuditQueryResult } from "../lib/audit-logs.server";
 import { listOrganizations } from "../lib/audit-logs.server";
-import type { AuditChatEnv } from "../lib/config.server";
-import { configureAuthKit, emailAllowed, getTenantConfig } from "../lib/config.server";
+import {
+  cloudflareContext,
+  configureAuthKit,
+  emailAllowed,
+  getTenantConfig,
+} from "../lib/config.server";
 
 export async function loader(args: LoaderFunctionArgs) {
-  const env = args.context.cloudflare.env as AuditChatEnv;
+  const { env } = args.context.get(cloudflareContext);
   configureAuthKit(env);
   const tenant = getTenantConfig(env);
   return authkitLoader(
