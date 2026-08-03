@@ -74,6 +74,11 @@ jobs:
           sync_secret WORKOS_API_KEY AUDIT_HARNESS_WORKOS_API_KEY
           sync_secret WORKOS_ORG_ID AUDIT_HARNESS_WORKOS_ORG_ID
           sync_secret KANDJI_API_TOKEN AUDIT_HARNESS_KANDJI_API_TOKEN
+          # Access application audience tag. Mode 1 (the only ingress that
+          # works in the dispatch namespace) is refused without it, so this
+          # must already exist in Doppler before the first deploy of the
+          # signature-verifying code — see wrangler.internal.toml.
+          sync_secret ACCESS_AUD AUDIT_HARNESS_ACCESS_AUD
         env:
           DOPPLER_TOKEN: ${{ secrets.DOPPLER_TOKEN }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}

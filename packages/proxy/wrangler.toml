@@ -4,6 +4,11 @@
 name = "workos-audit-proxy"
 main = "src/index.ts"
 compatibility_date = "2026-02-10"
+# Disable the *.workers.dev route: it has no Access/WAF in front of it, so it
+# would expose an unauthenticated ingress. Attach a custom hostname (see
+# README) and put mTLS in front of it instead. Re-enable only for a throwaway
+# smoke test, never for a real deployment.
+workers_dev = false
 
 [[d1_databases]]
 binding = "DB"
@@ -20,6 +25,11 @@ WORKOS_ORG_ID = ""
 # Uncomment to override the device-cert common-name pattern (one capture group
 # for the device id). Default matches the Okta device-attestation cert.
 # DEVICE_CERT_CN_PATTERN = "OktaManagementAttestation for ([^,\\s]+)"
+# Required for the Cloudflare Access ingress (Option A). The Worker verifies the
+# Cf-Access-Jwt-Assertion signature against this team's keys and checks its
+# `aud` — set both or the header is ignored (mTLS Option B is used instead).
+# ACCESS_TEAM_DOMAIN = "yourteam.cloudflareaccess.com"
+# ACCESS_AUD = "your-access-application-aud-tag"
 # Uncomment to resolve device→user live from Kandji (also requires the
 # KANDJI_API_TOKEN secret). Without it, the D1 device_user table is the
 # authoritative mapping.
