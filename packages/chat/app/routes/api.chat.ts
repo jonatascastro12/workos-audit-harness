@@ -15,7 +15,12 @@ import {
   queryAuditLogs,
 } from "../lib/audit-logs.server";
 import type { AuditChatEnv, TenantConfig } from "../lib/config.server";
-import { configureAuthKit, emailAllowed, getTenantConfig } from "../lib/config.server";
+import {
+  cloudflareContext,
+  configureAuthKit,
+  emailAllowed,
+  getTenantConfig,
+} from "../lib/config.server";
 
 function resolveModel(env: AuditChatEnv, tenant: TenantConfig): LanguageModel {
   const [provider, ...rest] = tenant.modelId.split("/");
@@ -67,7 +72,7 @@ function systemPrompt(tenant: TenantConfig, organizationId: string, userEmail: s
 }
 
 export async function action(args: ActionFunctionArgs) {
-  const env = args.context.cloudflare.env as AuditChatEnv;
+  const { env } = args.context.get(cloudflareContext);
   configureAuthKit(env);
   const tenant = getTenantConfig(env);
 
