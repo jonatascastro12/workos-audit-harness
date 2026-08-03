@@ -72,15 +72,20 @@ The Worker refuses requests that don't carry a verified client certificate, but 
 1. Zero Trust → Settings → Authentication → **Mutual TLS Certificates**: upload the CA that issues your device certs (for the Okta attestation cert, that's your Okta org's `Organization Intermediate Authority`), associated with your proxy hostname.
 2. Access → Applications → add a **self-hosted app scoped to the path** `audit-proxy.yourcompany.com/api/events`.
 3. Give it a single policy with action **Service Auth** (non-interactive — headless `curl` gets a clean 403 instead of an SSO redirect) and the rule **Valid Certificate** (or Common Name matching your cert pattern).
+4. Set the `ACCESS_TEAM_DOMAIN` and `ACCESS_AUD` vars in `wrangler.toml` (or via `wrangler`), so the Worker can **verify the assertion's signature** before trusting it:
+   - `ACCESS_TEAM_DOMAIN` — your Zero Trust team domain, e.g. `yourteam.cloudflareaccess.com` (or just `yourteam`).
+   - `ACCESS_AUD` — the Access application's **Application Audience (AUD) tag** (Access → Applications → your app → Overview).
 
-Access then forwards the verified cert's CN to the Worker in the signed `Cf-Access-Jwt-Assertion` header, which the Worker reads.
+Access then forwards the verified cert's CN to the Worker in the signed `Cf-Access-Jwt-Assertion` header. The Worker verifies that JWT's RS256 signature against your team's public keys (`https://<team>.cloudflareaccess.com/cdn-cgi/access/certs`) and checks its `iss`/`aud`/`exp` before reading the CN. **The header is only honored when `ACCESS_TEAM_DOMAIN` and `ACCESS_AUD` are set** — without them the Worker ignores the header entirely and requires direct mTLS (Option B), so a client-supplied `Cf-Access-Jwt-Assertion` on the `workers.dev` URL cannot be used to bypass authentication.
 
 **Option B — direct mTLS on the zone.** No Zero Trust needed. Upload your CA under SSL/TLS → Client Certificates (mTLS), enable mTLS for the proxy hostname, and add a WAF rule requiring a verified cert on `/api/events`. The Worker reads `request.cf.tlsClientAuth` directly.
 
 ### Hardening checklist
 
+- **Disable the `workers.dev` route** once you've attached your custom hostname (`workers_dev = false` in `wrangler.toml`, already set). The `workers.dev` URL has no Access/WAF in front of it, so leaving it enabled exposes an ingress on which no edge cert verification happens.
 - **Rate-limit** `/api/events` per device (Cloudflare rate-limiting rule) to cap the blast radius of a compromised laptop.
 - The Worker already **drops client-supplied `actor` / `organization_id` / `context`** and stamps the real connecting IP.
+- The Worker **verifies the `Cf-Access-Jwt-Assertion` signature** (Option A) and only honors it when `ACCESS_TEAM_DOMAIN` + `ACCESS_AUD` are configured — a forged/unsigned header is rejected.
 - The `sk_` key exists only as a Worker secret — never in the repo, `wrangler.toml`, or on a laptop.
 
 ## Device → user mapping

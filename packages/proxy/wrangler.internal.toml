@@ -24,6 +24,28 @@ migrations_dir = "migrations"
 # Iru is WorkOS's Kandji MDM tenant. With this + the KANDJI_API_TOKEN secret,
 # device_user is a read-through cache refreshed from Kandji (MDM mode).
 KANDJI_API_BASE = "https://workos.api.kandji.io"
+# ============================================================================
+# ACCESS (Mode 1) — this deployment depends on it EXCLUSIVELY.
+#
+# Inside the workos-tools-apps dispatch namespace, request.cf.tlsClientAuth
+# does not survive the dispatcher hop, so the Cf-Access-Jwt-Assertion header
+# (Mode 1) is the ONLY working ingress. Mode 1 is opt-in: it is honored only
+# when BOTH ACCESS_TEAM_DOMAIN and ACCESS_AUD are set. If either is missing
+# the Worker fails closed and rejects 100% of real traffic — a total ingest
+# outage for the fleet.
+#
+# ACCESS_AUD is deliberately NOT set here. CI deploys this config on every
+# push, so a placeholder in [vars] would BE the outage; instead the value is
+# delivered as a Worker secret by the proxy-deploy workflow's name-mapped
+# Doppler sync (AUDIT_HARNESS_ACCESS_AUD -> ACCESS_AUD). Secrets persist
+# across script uploads, so stage it once (Doppler claude-day/prd, or a direct
+# API PUT) BEFORE the first deploy of this code and there is no gap.
+#
+# The value is the Application Audience (AUD) tag of the Access app in front
+# of cd26-workos-audit-proxy.workos.tools/api/events: Zero Trust → Access →
+# Applications → the app → Overview.
+# ============================================================================
+ACCESS_TEAM_DOMAIN = "workos-internal.cloudflareaccess.com"
 
 [observability]
 enabled = true
