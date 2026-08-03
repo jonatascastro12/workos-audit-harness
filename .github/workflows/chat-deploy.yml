@@ -101,7 +101,12 @@ jobs:
               -H "Content-Type: application/json" \
               --data @- > /dev/null
           done
-          doppler secrets --json | jq -c 'with_entries(.value = .value.computed)' | npx wrangler secret bulk --config wrangler.worker.toml
+          # wrangler enforces Cloudflare's 100-secrets-per-request limit on
+          # `secret bulk`, and the shared Doppler config has outgrown it —
+          # upload in chunks of 90.
+          doppler secrets --json | jq -c 'with_entries(.value = .value.computed) | to_entries | _nwise(90) | from_entries' | while IFS= read -r chunk; do
+            printf '%s' "$chunk" | npx wrangler secret bulk --config wrangler.worker.toml
+          done
         env:
           DOPPLER_TOKEN: ${{ secrets.DOPPLER_TOKEN }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
