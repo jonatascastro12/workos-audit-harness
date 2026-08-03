@@ -10,7 +10,7 @@ export const TTL_MIN_SECONDS = 300;
 export const TTL_MAX_SECONDS = 604_800;
 /** The proxy caps negative-cache sentinel rows (email === "") at this TTL so
  * reassigned loaner laptops are re-checked promptly. Mirrored from
- * workos-audit-proxy/app/routes/api.events.ts. */
+ * packages/proxy/src/device.ts. */
 export const UNASSIGNED_SENTINEL_TTL_SECONDS = 3_600;
 export const ORG_ID_RE = /^org_[A-Za-z0-9]+$/;
 
