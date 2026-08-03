@@ -85,5 +85,8 @@
     "vite": "^7",
     "vite-tsconfig-paths": "^5",
     "wrangler": "^4"
+  },
+  "overrides": {
+    "undici": "^7.29.0"
   }
 }
