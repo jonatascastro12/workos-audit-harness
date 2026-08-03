@@ -1,0 +1,54 @@
+/*
+ * Note: these Untitled Sans font files are upscaled by 2% as a workaround
+ * for macOS rendering bugs on @1x displays. Otherwise, the medium weight
+ * renders 1px larger at 14px and 16px font sizes.
+ */
+
+@font-face {
+  font-family: "Untitled Sans";
+  src: url("https://cdn.workos.com/fonts/untitled-sans-regular-v2.woff2") format("woff2");
+  font-weight: normal;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: "Untitled Sans";
+  src: url("https://cdn.workos.com/fonts/untitled-sans-medium-v2.woff2") format("woff2");
+  font-weight: bold;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: "IBM Plex Mono";
+  src: url("https://cdn.workos.com/fonts/ibm-plex-mono-text.woff2") format("woff2");
+  font-weight: normal;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: "IBM Plex Mono";
+  src: url("https://cdn.workos.com/fonts/ibm-plex-mono-text-italic.woff2") format("woff2");
+  font-weight: normal;
+  font-style: italic;
+}
+
+@font-face {
+  font-family: "IBM Plex Mono";
+  src: url("https://cdn.workos.com/fonts/ibm-plex-mono-semibold.woff2") format("woff2");
+  font-weight: bold;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: "Source Serif Pro";
+  src: url("https://cdn.workos.com/fonts/source-serif-pro-italic.woff2") format("woff2");
+  font-weight: normal;
+  font-style: italic;
+}
+
+@font-face {
+  font-family: "Source Serif Pro";
+  src: url("https://cdn.workos.com/fonts/source-serif-pro-bold-italic.woff2") format("woff2");
+  font-weight: bold;
+  font-style: italic;
+}

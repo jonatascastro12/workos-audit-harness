@@ -1,0 +1,38 @@
+.SegmentedDateInput {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  gap: 2px;
+}
+
+.SegmentedDateInput-input {
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: inherit;
+  font-family: inherit;
+  text-align: left;
+  font-variant-numeric: tabular-nums;
+}
+
+.SegmentedDateInput-input--year {
+  width: 4ch;
+  min-width: 4ch;
+}
+
+.SegmentedDateInput-input--month,
+.SegmentedDateInput-input--day {
+  width: 2ch;
+  min-width: 2ch;
+}
+
+.SegmentedDateInput-input--month.is-empty,
+.SegmentedDateInput-input--day.is-empty {
+  width: 2.6ch;
+  min-width: 2.6ch;
+}
+
+.SegmentedDateInput-separator {
+  color: var(--gray-8);
+  user-select: none;
+}

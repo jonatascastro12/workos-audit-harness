@@ -1,0 +1,88 @@
+.CheckboxRoot {
+  display: inline-flex;
+  align-items: center;
+  vertical-align: bottom;
+  flex-shrink: 0;
+
+  /* Match Text size 2 line-height */
+  height: 20px;
+}
+
+.CheckboxButton {
+  all: unset;
+  height: var(--space-4);
+  width: var(--space-4);
+  border-radius: var(--radius-1);
+  position: relative;
+  outline: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+}
+
+.CheckboxButton[data-state="checked"] {
+  background: linear-gradient(180deg, var(--accent-9) 0%, var(--accent-11) 100%);
+}
+
+:is(.dark, .dark-theme) .CheckboxButton[data-state="checked"] {
+  background: linear-gradient(180deg, var(--accent-11) 0%, var(--accent-9) 100%);
+}
+
+.CheckboxButton[data-state="checked"][disabled] {
+  background: var(--gray-a3);
+  box-shadow: inset 0 0 0 1px var(--gray-a6);
+}
+
+.CheckboxButton[data-state="unchecked"] {
+  box-shadow: var(--shadow-1);
+  background-color: var(--color-surface);
+}
+
+.CheckboxButton[data-state="unchecked"][disabled] {
+  box-shadow: inset 0 0 0 1px var(--gray-a6);
+  background: var(--gray-a3);
+}
+
+.CheckboxButton[data-state="unchecked"]:hover:not([disabled]) {
+  box-shadow: inset 0 0 0 1px var(--gray-a8);
+}
+
+.CheckboxButton:focus-visible {
+  box-shadow:
+    0 0 0 2px var(--purple-3),
+    0 0 0 4px var(--purple-a8);
+}
+
+.CheckboxIndicator {
+  color: white;
+  height: var(--space-4);
+  width: var(--space-4);
+}
+
+.CheckboxButton[data-state="checked"][disabled] .CheckboxIndicator {
+  color: var(--gray-a9);
+}
+
+.CheckboxIndeterminateContainer {
+  height: 100%;
+  display: flex;
+  align-items: center;
+}
+
+.CheckboxIndeterminate {
+  width: 8px;
+  height: 1.5px;
+  background-color: white;
+  border-radius: 1.5px;
+  border: white;
+  margin: 0 auto;
+}
+
+/* Apply gray-10 color to labels and all sibling content after disabled checkbox */
+.CheckboxRoot:has(.CheckboxButton[disabled]) ~ label,
+.CheckboxRoot:has(.CheckboxButton[disabled]) ~ *,
+.CheckboxRoot:has(.CheckboxButton[disabled]) label,
+label:has(.CheckboxRoot .CheckboxButton[disabled]) {
+  color: var(--gray-10);
+}

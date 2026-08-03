@@ -1,0 +1,183 @@
+.Chip {
+  display: inline-flex;
+  align-items: center;
+  box-sizing: border-box;
+  height: 24px;
+  padding-left: var(--space-2);
+  padding-right: var(--space-2);
+  border-radius: var(--radius-2);
+  white-space: nowrap;
+  font-size: var(--font-size-1);
+  flex-shrink: 0;
+  line-height: 1;
+  gap: var(--space-1);
+}
+
+.Chip:where(button) {
+  user-select: none;
+}
+
+.Chip.weight-regular {
+  font-weight: normal;
+}
+.Chip.weight-bold {
+  font-weight: bold;
+}
+
+.Chip.blue {
+  background-color: var(--blue-a3);
+  color: var(--blue-a11);
+}
+.Chip.blue:where(button):hover {
+  background-color: var(--blue-a4);
+}
+.Chip.blue:where(button):active {
+  background-color: var(--blue-a5);
+}
+.Chip.blue:where(:focus-visible) {
+  box-shadow:
+    inset 0 0 0 1px var(--blue-a8),
+    0 0 0 1px var(--blue-a8);
+}
+.Chip.blue::selection,
+.Chip.blue ::selection {
+  background-color: var(--blue-a5);
+  color: var(--blue-a12);
+}
+.Chip.blue .ChipRemove:hover {
+  background-color: var(--blue-a4);
+}
+.Chip.blue .ChipRemove:active {
+  background-color: var(--blue-a5);
+}
+.Chip.blue .ChipRemove:focus-visible {
+  box-shadow:
+    inset 0 0 0 1px var(--blue-a8),
+    0 0 0 1px var(--blue-a8);
+}
+
+.Chip.gray {
+  background-color: var(--gray-a3);
+  color: var(--gray-a11);
+}
+.Chip.gray:where(button):hover {
+  background-color: var(--gray-a4);
+}
+.Chip.gray:where(button):active {
+  background-color: var(--gray-a5);
+}
+.Chip.gray:where(:focus-visible) {
+  box-shadow:
+    inset 0 0 0 1px var(--gray-a8),
+    0 0 0 1px var(--gray-a8);
+}
+.Chip.gray::selection,
+.Chip.gray ::selection {
+  background-color: var(--gray-a5);
+  color: var(--gray-a12);
+}
+.Chip.gray .ChipRemove:hover {
+  background-color: var(--gray-a4);
+}
+.Chip.gray .ChipRemove:active {
+  background-color: var(--gray-a5);
+}
+.Chip.gray .ChipRemove:focus-visible {
+  box-shadow:
+    inset 0 0 0 1px var(--gray-a8),
+    0 0 0 1px var(--gray-a8);
+}
+
+.Chip.green {
+  background-color: var(--green-a3);
+  color: var(--green-a11);
+}
+.Chip.green:where(button):hover {
+  background-color: var(--green-a4);
+}
+.Chip.green:where(button):active {
+  background-color: var(--green-a5);
+}
+.Chip.green:where(:focus-visible) {
+  box-shadow:
+    inset 0 0 0 1px var(--green-a8),
+    0 0 0 1px var(--green-a8);
+}
+.Chip.green::selection,
+.Chip.green ::selection {
+  background-color: var(--green-a5);
+  color: var(--green-a12);
+}
+.Chip.green .ChipRemove:hover {
+  background-color: var(--green-a4);
+}
+.Chip.green .ChipRemove:active {
+  background-color: var(--green-a5);
+}
+.Chip.green .ChipRemove:focus-visible {
+  box-shadow:
+    inset 0 0 0 1px var(--green-a8),
+    0 0 0 1px var(--green-a8);
+}
+
+.Chip.red {
+  background-color: var(--red-a3);
+  color: var(--red-a11);
+}
+.Chip.red:where(button):hover {
+  background-color: var(--red-a4);
+}
+.Chip.red:where(button):active {
+  background-color: var(--red-a5);
+}
+.Chip.red:where(:focus-visible) {
+  box-shadow:
+    inset 0 0 0 1px var(--red-a8),
+    0 0 0 1px var(--red-a8);
+}
+.Chip.red::selection,
+.Chip.red ::selection {
+  background-color: var(--red-a5);
+  color: var(--red-a12);
+}
+.Chip.red .ChipRemove:hover {
+  background-color: var(--red-a4);
+}
+.Chip.red .ChipRemove:active {
+  background-color: var(--red-a5);
+}
+.Chip.red .ChipRemove:focus-visible {
+  box-shadow:
+    inset 0 0 0 1px var(--red-a8),
+    0 0 0 1px var(--red-a8);
+}
+
+.Chip.ghost {
+  background-color: transparent;
+}
+.Chip.ghost:where(button):hover {
+  background-color: var(--gray-a3);
+}
+.Chip.ghost:where(button):active {
+  background-color: var(--gray-a4);
+}
+.Chip.ghost:where(:focus-visible) {
+  box-shadow:
+    inset 0 0 0 1px var(--gray-a8),
+    0 0 0 1px var(--gray-a8);
+}
+
+.ChipRemove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--space-4);
+  height: var(--space-4);
+  border-radius: var(--radius-1);
+  margin-right: calc(var(--space-1) * -1);
+  cursor: pointer;
+}
+
+.ChipRemove > svg {
+  opacity: 0.8;
+}

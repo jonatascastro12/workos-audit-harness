@@ -1,0 +1,176 @@
+.ListCellRoot {
+  min-width: 0;
+}
+
+.ListCellRoot.size-1 {
+  --list-cell-gap: var(--space-2);
+  --list-cell-padding-inline: var(--space-4);
+  --list-cell-padding-block: var(--space-3);
+}
+
+.ListCellRoot.size-2 {
+  --list-cell-gap: var(--space-4);
+  --list-cell-padding-inline: var(--space-4);
+  --list-cell-padding-block: var(--space-4);
+}
+
+.ListCellRoot.size-3 {
+  --list-cell-gap: var(--space-4);
+  --list-cell-padding-inline: var(--space-5);
+  --list-cell-padding-block: var(--space-5);
+}
+
+/**
+ * Item
+ */
+.ListCellItem {
+  /* Button reset stuff */
+  margin: 0;
+  background: transparent;
+  border: none;
+  font-family: inherit;
+  color: inherit;
+  text-align: inherit;
+  appearance: none;
+  -webkit-font-smoothing: inherit;
+  -moz-osx-font-smoothing: inherit;
+
+  /* Link reset */
+  text-decoration: none;
+
+  position: relative;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: var(--list-cell-gap);
+  padding-block: var(--list-cell-padding-block);
+  padding-inline: var(--list-cell-padding-inline);
+  scroll-margin: calc(var(--list-cell-gap) * 2);
+}
+
+.ListCellItem:where(:not(:last-child)) {
+  box-shadow: 0 1px 0 0 var(--gray-a5);
+}
+
+.ListCellItem:focus-visible {
+  box-shadow: none;
+  outline: 0;
+
+  &::after {
+    content: "";
+    position: absolute;
+    inset: 1px 0px;
+    outline: 2px solid var(--focus-8);
+    outline-offset: -1px;
+    pointer-events: none;
+    border-radius: inherit;
+  }
+}
+
+.ListCellItem:where(a, button):hover {
+  background: var(--gray-a2);
+}
+
+/* Handle when inside a card list and it's the last item */
+.CardListRoot:not(:has(.CardListFooter)) .ListCellItem:last-child {
+  border-bottom-left-radius: var(--card-border-radius);
+  border-bottom-right-radius: var(--card-border-radius);
+}
+
+/* Handle when inside a card list and it's the first item */
+.CardListRoot:not(:has(.CardListHeader)):not(:has(.CardListSearch)) .ListCellItem:first-child {
+  border-top-left-radius: var(--card-border-radius);
+  border-top-right-radius: var(--card-border-radius);
+}
+
+.ListCellItemSlot {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-shrink: 0;
+}
+
+.ListCellItemSlot.left {
+  order: -1;
+}
+
+.ListCellItemSlot.right {
+  order: 1;
+}
+
+/**
+ * Item content
+ */
+.ListCellItemContent {
+  flex: 1;
+}
+
+.ListCellItemTitle {
+  min-width: 0;
+}
+
+.ListCellItem:where(:not(.lowContrast)) {
+  .ListCellItemDescription {
+    color: var(--gray-a11);
+  }
+}
+
+.ListCellItem:where(:has(.ListCellItemDescription)):where(:not(.lowContrast)) {
+  .ListCellItemTitle {
+    font-weight: var(--font-weight-bold);
+  }
+
+  .ListCellItemDescription {
+    color: var(--gray-a11);
+  }
+}
+
+.ListCellItem:where(.lowContrast),
+.ListCellItem:where(.lowContrast) [data-accent-color] {
+  --accent-1: var(--gray-1);
+  --accent-2: var(--gray-2);
+  --accent-3: var(--gray-3);
+  --accent-4: var(--gray-4);
+  --accent-5: var(--gray-5);
+  --accent-6: var(--gray-6);
+  --accent-7: var(--gray-7);
+  --accent-8: var(--gray-8);
+  --accent-9: var(--gray-9);
+  --accent-10: var(--gray-9);
+  --accent-11: var(--gray-9);
+  --accent-12: var(--gray-9);
+
+  --accent-a1: var(--gray-a1);
+  --accent-a2: var(--gray-a2);
+  --accent-a3: var(--gray-a3);
+  --accent-a4: var(--gray-a4);
+  --accent-a5: var(--gray-a5);
+  --accent-a6: var(--gray-a6);
+  --accent-a7: var(--gray-a7);
+  --accent-a8: var(--gray-a8);
+  --accent-a9: var(--gray-a9);
+  --accent-a10: var(--gray-a9);
+  --accent-a11: var(--gray-a9);
+  --accent-a12: var(--gray-a9);
+}
+
+.ListCellItem:where(.lowContrast) {
+  color: var(--gray-a11);
+
+  .ListCellItemDescription {
+    color: var(--gray-a9);
+  }
+}
+
+/**
+ * Chevron
+ */
+.ListCellItemChevron {
+  color: var(--gray-a11);
+  display: none;
+  order: 2;
+}
+
+.ListCellItem:where(a, button) .ListCellItemChevron {
+  display: block;
+}

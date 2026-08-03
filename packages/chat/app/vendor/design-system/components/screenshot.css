@@ -1,0 +1,39 @@
+.ScreenshotRoot {
+  position: relative;
+  padding: var(--space-5);
+  border-radius: var(--radius-4);
+  background-image: linear-gradient(to bottom, var(--gray-a3), var(--gray-a4));
+  background-size: cover;
+  overflow: hidden;
+  user-select: none;
+}
+
+.ZoomableContent .ScreenshotRoot {
+  /* Change colors to solid when zoomed in */
+  background-image: linear-gradient(to bottom, var(--gray-3), var(--gray-4));
+}
+
+.ScreenshotRoot::after {
+  content: "";
+  inset: var(--space-5);
+  position: absolute;
+  box-shadow: inset 0 0 0 0.5px rgba(0 0 0 / 0.05);
+  pointer-events: none;
+
+  /* A fixed value that should be unaware of the theme radius setting */
+  border-radius: 6px;
+}
+
+.ScreenshotImage {
+  max-width: 100%;
+  box-shadow: var(--shadow-5);
+
+  /* A fixed value that should be unaware of the theme radius setting */
+  border-radius: 6px;
+
+  /* For when this is a div element */
+  overflow: hidden;
+
+  /* Counteract that next/image is "inline-block" by default, which adds a pesky space below itself */
+  display: flex;
+}

@@ -1,0 +1,49 @@
+name = "cd26-workos-audit-chat"
+main = "./workers/app.ts"
+compatibility_date = "2026-02-10"
+compatibility_flags = ["nodejs_compat"]
+workers_dev = false
+account_id = "7e7fcec4d315661895440b439328033d"
+
+[assets]
+directory = "./build/client"
+binding = "ASSETS"
+
+# Dispatch-native: no custom_domain route. This app deploys into the
+# workos-tools-apps dispatch namespace and is served via the zone wildcard
+# route + workos-tools-dispatch + ROUTES KV.
+# Deploy: wrangler deploy --dispatch-namespace workos-tools-apps
+
+[[d1_databases]]
+binding = "DB"
+database_name = "cd26-workos-audit-chat-db"
+database_id = "bf601292-5ee6-435f-8f94-58608fb31dd4"
+migrations_dir = "migrations"
+
+# The audit ingestion proxy's database (same Cloudflare account). The /settings
+# page reads/writes the proxy's runtime settings (app_state key "proxy_settings")
+# and its device_user cache through this binding — no HTTP admin API on the proxy.
+# Deliberately NO migrations_dir: the proxy repo owns this database's schema;
+# this app only reads/writes rows. All access goes through
+# app/lib/proxy-settings.server.ts.
+[[d1_databases]]
+binding = "PROXY_DB"
+database_name = "cd26-workos-audit-proxy-db"
+database_id = "19133f64-d804-45be-9c50-c3d67db67f4b"
+
+[[r2_buckets]]
+binding = "IMAGE_BUCKET"
+bucket_name = "cd26-workos-audit-chat-images"
+
+# Workers AI binding used for AI Gateway access (`env.AI.gateway(...)`); the
+# gateway holds the stored Anthropic/OpenAI provider keys.
+[ai]
+binding = "AI"
+remote = true
+
+[vars]
+# Hostname shown in the UI and used for the AuthKit redirect URI default.
+AUDIT_CHAT_PUBLIC_HOSTNAME = "cd26-workos-audit-chat.workos.tools"
+
+[observability]
+enabled = true

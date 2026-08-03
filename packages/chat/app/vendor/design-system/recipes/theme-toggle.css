@@ -1,0 +1,12 @@
+/* Use CSS rather than React to show/hide the theme icon to minimise the hydration flash */
+.ThemeToggleMoonIcon {
+  display: none;
+}
+
+:where(.dark, .dark-theme) .ThemeToggleMoonIcon {
+  display: block;
+}
+
+:where(.dark, .dark-theme) .ThemeToggleSunIcon {
+  display: none;
+}

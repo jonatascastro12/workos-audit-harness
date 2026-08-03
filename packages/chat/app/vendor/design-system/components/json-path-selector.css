@@ -1,0 +1,152 @@
+.JsonPathSelectorTrigger:not([data-disabled]) {
+  cursor: pointer;
+}
+
+.JsonPathSelectorTrigger:focus .JsonPathSelectorTriggerTextField {
+  outline: 2px solid var(--focus-10);
+  outline-offset: -1px;
+}
+
+.JsonPathSelectorTriggerTextField,
+.JsonPathSelectorTriggerTextField * {
+  pointer-events: none;
+}
+
+.JsonPathSelectorTriggerTextField input {
+  font-family: var(--code-font-family);
+  font-size: 12.8px;
+  text-overflow: ellipsis;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.JsonPathSelectorTriggerTextField input:not([disabled]) {
+  /* Override Radix Themes readonly color for input (when not disabled) */
+  color: var(--gray-a12);
+  -webkit-text-fill-color: var(--gray-a12);
+  opacity: 1;
+}
+
+.JsonPathSelectorTriggerTextField input::placeholder {
+  font-family: var(--default-font-family);
+}
+
+.JsonPathSelectorTriggerTextField input:not([disabled])::placeholder {
+  /* Override Radix Themes readonly color for placeholder (when not disabled) */
+  color: var(--gray-a10);
+  -webkit-text-fill-color: var(--gray-a10);
+  opacity: 1;
+}
+
+.JsonPathSelectorTriggerTextField .JsonPathSelectorClearButton {
+  /* Clear button is nested inside the trigger so we need to set the z-index to
+  ensure it is on top and receives pointer events */
+  z-index: 1;
+  pointer-events: all;
+}
+
+/* Completely hide focus ring for search input in dropdown */
+.JsonPathSelectorComboboxPopover input {
+  outline: none !important;
+}
+
+.JsonPathSelectorComboboxPopover input:focus {
+  outline: none !important;
+}
+
+.JsonPathSelectorComboboxPopover .rt-TextFieldRoot {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+.JsonPathSelectorComboboxPopover .rt-TextFieldRoot:focus-within {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+.JsonPathSelectorComboboxScrollArea {
+  & [data-radix-scroll-area-viewport] > * {
+    /* Radix bug. Prevent long content from blowing out of the viewport. */
+    width: 100%;
+  }
+}
+
+.JsonPathSelectorComboboxItem {
+  --tree-line-offset: 12px; /* Distance of the first line from the left edge of the item */
+  --arrow-offset: -3px; /* Arrow position relative to text */
+
+  position: relative;
+  font-family: var(--code-font-family);
+  margin-left: calc(var(--_nesting-level) * var(--space-5));
+  /* &[data-selected] {
+    background-color: var(--accent-a3);
+  }
+  &[data-selected]:hover {
+    background-color: var(--accent-a4);
+  } */
+
+  &[data-nesting-level]:not([data-nesting-level="0"]) {
+    &::before {
+      /* add vertical lines at each nesting level to the left of the item */
+      content: "";
+      position: absolute;
+      /* Start from the leftmost line position and extend to the rightmost */
+      left: calc(var(--space-5) - var(--tree-line-offset) - var(--_nesting-level) * var(--space-5));
+      top: 0;
+      bottom: 0;
+      width: calc(var(--_nesting-level) * var(--space-5));
+      background-image: repeating-linear-gradient(
+        to right,
+        var(--gray-5) 0px,
+        var(--gray-5) 1px,
+        transparent 1px,
+        transparent var(--space-5)
+      );
+      background-size: calc(var(--_nesting-level) * var(--space-5)) 100%;
+      background-position: 0 0;
+      background-repeat: no-repeat;
+    }
+  }
+
+  &[data-disabled] {
+    opacity: 0.6;
+  }
+  & .JsonPathSelectorComboboxItemKey {
+    font-size: 12.8px;
+  }
+  &.ComboboxItem {
+    gap: var(--space-4);
+  }
+}
+
+.JsonPathSelectorComboboxItemValue {
+  min-width: 0;
+  flex-grow: 0;
+}
+
+/* Footer */
+
+.JsonPathSelectorFooter {
+  /* background-color: var(--gray-a2); */
+  border-top: 1px solid var(--gray-a4);
+}
+
+.JsonPathSelectorArrow {
+  margin-left: var(--arrow-offset);
+  color: var(--gray-a11);
+}
+
+.JsonPathSelectorFooterValueContainer {
+  /* Enable text wrapping for inline content */
+  white-space: normal;
+  word-wrap: break-word;
+  overflow-wrap: anywhere;
+}
+
+.JsonPathSelectorFooterValue {
+  /* Inline element that can wrap */
+  display: inline;
+  white-space: normal;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}

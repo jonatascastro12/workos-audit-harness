@@ -1,0 +1,111 @@
+name: Deploy
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    name: Build and Deploy
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run linter
+        run: npm run lint
+
+      - name: Validate migrations
+        run: npm run db:migrate:local
+
+      - name: Build
+        run: npm run build
+        env:
+          NODE_ENV: production
+
+      - name: Run database migrations
+        if: github.ref == 'refs/heads/main'
+        run: npm run db:migrate:remote
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      # Deploy INTO the dispatch namespace (no custom domain consumed). Reached via
+      # the zone wildcard route -> workos-tools-dispatch -> ROUTES KV.
+      - name: Deploy app (dispatch namespace)
+        if: github.ref == 'refs/heads/main'
+        run: npx wrangler deploy --dispatch-namespace workos-tools-apps
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      - name: Deploy workflow worker
+        if: github.ref == 'refs/heads/main'
+        run: npm run deploy:worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      # Secrets run AFTER deploy: a namespaced script must exist before secrets can
+      # attach, and `wrangler secret bulk` has no --dispatch-namespace — so the
+      # namespaced app's secrets go via the CF API (one PUT per secret). The
+      # companion workflow worker is a normal Worker, so it keeps the bulk path.
+      - name: Sync Doppler secrets to Cloudflare
+        if: github.ref == 'refs/heads/main'
+        run: |
+          curl -sLf https://cli.doppler.com/install.sh | sudo sh
+          # Derive the deployed script name from wrangler.toml — rename-app prefixes
+          # the Cloudflare name (cd26-<app>), so never hardcode the placeholder here.
+          SCRIPT=$(sed -n 's/^name *= *"\(.*\)".*/\1/p' wrangler.toml | head -1)
+          # One compact JSON body per secret: jq escapes newlines, so multi-line
+          # values (PEM keys, etc.) survive. A shell `read` on tab/newline would
+          # split a multi-line value into bogus extra "secrets".
+          doppler secrets --json | jq -c 'to_entries[] | {name: .key, text: .value.computed, type: "secret_text"}' | while IFS= read -r body; do
+            printf '%s' "$body" | curl -sf -X PUT \
+              "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/workers/dispatch/namespaces/workos-tools-apps/scripts/${SCRIPT}/secrets" \
+              -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
+              -H "Content-Type: application/json" \
+              --data @- > /dev/null
+          done
+          doppler secrets --json | jq -c 'with_entries(.value = .value.computed)' | npx wrangler secret bulk --config wrangler.worker.toml
+        env:
+          DOPPLER_TOKEN: ${{ secrets.DOPPLER_TOKEN }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      # Idempotent: map this app's subdomain -> its namespaced script. Both are the
+      # wrangler.toml `name` (rename-app cd26-prefixes it), so derive it rather than
+      # hardcode. --remote is required — wrangler v4 `kv key put` defaults to LOCAL sim.
+      - name: Register dispatch route in ROUTES KV
+        if: github.ref == 'refs/heads/main'
+        run: |
+          SCRIPT=$(sed -n 's/^name *= *"\(.*\)".*/\1/p' wrangler.toml | head -1)
+          npx wrangler kv key put --remote --namespace-id 124917c1f819408193cd4e56b39543f3 "$SCRIPT" "$SCRIPT"
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      - name: Comment deployment URL
+        if: github.ref == 'refs/heads/main'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.repos.createCommitComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              commit_sha: context.sha,
+              body: 'Deployed to Cloudflare Workers!\n\nhttps://cd26-workos-audit-chat.workos.tools'
+            })

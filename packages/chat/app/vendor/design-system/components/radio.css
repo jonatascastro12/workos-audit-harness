@@ -1,0 +1,64 @@
+.RadioButton {
+  all: unset;
+  height: var(--space-4);
+  width: var(--space-4);
+  position: relative;
+  outline: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  flex: 0 0 auto;
+}
+
+.RadioButton::before {
+  position: absolute;
+  inset: 0;
+  border-radius: 100%;
+  content: "";
+}
+
+.RadioButton[data-state="checked"]::before {
+  background: linear-gradient(180deg, var(--accent-9) 0%, var(--accent-11) 100%);
+}
+
+:is(.dark, .dark-theme) .RadioButton[data-state="checked"]::before {
+  background: linear-gradient(180deg, var(--accent-11) 0%, var(--accent-9) 100%);
+}
+
+.RadioButton[data-state="checked"][disabled]::before {
+  background: var(--gray-a3);
+  box-shadow: inset 0 0 0 1px var(--gray-a6);
+}
+
+.RadioButton[data-state="unchecked"]::before {
+  box-shadow: var(--shadow-1);
+  background-color: var(--color-surface);
+}
+
+.RadioButton[data-state="unchecked"][disabled]::before {
+  box-shadow: inset 0 0 0 1px var(--gray-a6);
+  background: var(--gray-a3);
+}
+
+.RadioButton:hover:not([disabled])::before {
+  box-shadow: inset 0 0 0 1px var(--gray-a8);
+}
+
+.RadioButton:focus-visible::before {
+  box-shadow:
+    0 0 0 2px var(--purple-3),
+    0 0 0 4px var(--purple-a8);
+}
+
+.RadioIndicator {
+  position: relative;
+  background-color: white;
+  height: 6px;
+  width: 6px;
+  border-radius: 100%;
+}
+
+.RadioButton[data-state="checked"][disabled] .RadioIndicator {
+  background-color: var(--gray-a8);
+}
