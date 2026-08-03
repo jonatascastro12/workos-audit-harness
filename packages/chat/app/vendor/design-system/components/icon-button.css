@@ -1,0 +1,177 @@
+.IconButton {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  box-sizing: border-box;
+  flex-shrink: 0;
+  line-height: 1;
+  user-select: none;
+}
+
+.IconButton::before {
+  content: "";
+  position: absolute;
+  border-radius: inherit;
+  top: calc(-1 * var(--space-1));
+  left: calc(-1 * var(--space-1));
+  width: calc(100% + var(--space-2));
+  height: calc(100% + var(--space-2));
+}
+
+.IconButton.size-1 {
+  width: var(--space-4);
+  height: var(--space-4);
+}
+
+.IconButton.size-2 {
+  width: var(--space-5);
+  height: var(--space-5);
+}
+
+.IconButton.size-3 {
+  width: var(--space-6);
+  height: var(--space-6);
+}
+
+.IconButton.gray {
+  color: var(--gray-a11);
+}
+
+.IconButton.gray:hover::before {
+  background-color: var(--gray-a3);
+}
+
+.IconButton.gray[data-state="open"]::before {
+  background-color: var(--gray-a4);
+}
+
+.IconButton.gray:active::before {
+  background-color: var(--gray-a4);
+}
+
+.IconButton.gray:focus-visible::before {
+  box-shadow:
+    inset 0 0 0 1px var(--gray-a8),
+    0 0 0 1px var(--gray-a8);
+}
+
+.IconButton.purple {
+  color: var(--purple-a11);
+}
+
+.IconButton.purple:hover::before {
+  background-color: var(--purple-a3);
+}
+
+.IconButton.purple[data-state="open"]::before {
+  background-color: var(--purple-a4);
+}
+
+.IconButton.purple:active::before {
+  background-color: var(--purple-a4);
+}
+
+.IconButton.purple:focus-visible::before {
+  box-shadow:
+    inset 0 0 0 1px var(--purple-8),
+    0 0 0 1px var(--purple-8);
+}
+
+.IconButton.green {
+  color: var(--green-a11);
+}
+
+.IconButton.green:hover::before {
+  background-color: var(--green-a3);
+}
+
+.IconButton.green[data-state="open"]::before {
+  background-color: var(--green-a4);
+}
+
+.IconButton.green:active::before {
+  background-color: var(--green-a4);
+}
+
+.IconButton.green:focus-visible::before {
+  box-shadow:
+    inset 0 0 0 1px var(--green-8),
+    0 0 0 1px var(--green-8);
+}
+
+.IconButton.red {
+  color: var(--red-a11);
+}
+
+.IconButton.red:hover::before {
+  background-color: var(--red-a3);
+}
+
+.IconButton.red[data-state="open"]::before {
+  background-color: var(--red-a4);
+}
+
+.IconButton.red:active::before {
+  background-color: var(--red-a4);
+}
+
+.IconButton.red:focus-visible::before {
+  box-shadow:
+    inset 0 0 0 1px var(--red-8),
+    0 0 0 1px var(--red-8);
+}
+
+.IconButton.state-disabled {
+  color: var(--gray-a8);
+  cursor: default;
+}
+
+.IconButton.state-disabled:hover::before,
+.IconButton.state-disabled:active::before {
+  background-color: transparent;
+}
+
+.IconButton.state-loading {
+  color: var(--gray-a8);
+  cursor: default;
+}
+
+.IconButton.state-loading::before {
+  background-color: var(--gray-a4);
+  animation: IconButtonLoading 2s 0.25s infinite ease-in;
+}
+
+.IconButton.state-loading:hover::before,
+.IconButton.state-loading:active::before {
+  background-color: var(--gray-a4);
+}
+
+.IconButton.state-disabled:focus-visible::before,
+.IconButton.state-loading:focus-visible::before {
+  box-shadow:
+    inset 0 0 0 1px var(--gray-a8),
+    0 0 0 1px var(--gray-a8);
+}
+
+@keyframes IconButtonLoading {
+  0% {
+    background-color: var(--gray-a4);
+    color: var(--gray-a8);
+  }
+
+  25% {
+    background-color: var(--gray-a4);
+  }
+
+  75% {
+    background-color: var(--gray-a1);
+    color: var(--gray-a5);
+  }
+
+  100% {
+    background-color: var(--gray-a4);
+    color: var(--gray-a8);
+  }
+}

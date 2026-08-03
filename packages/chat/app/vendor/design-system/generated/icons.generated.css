@@ -1,0 +1,682 @@
+/* GENERATED FILE — do not edit.
+ * Source: src/icons.ts
+ * Regenerate: rushx build (or run scripts/build-provider-icons.ts)
+ */
+
+.radix-themes {
+  --provider-icon-access-people-hr: url(https://cdn.workos.com/provider-icons/light/access-people-hr.svg);
+  --provider-icon-adp: url(https://cdn.workos.com/provider-icons/light/adp.svg);
+  --provider-icon-apple: url(https://cdn.workos.com/provider-icons/light/apple.svg);
+  --provider-icon-asana: url(https://images.workoscdn.com/images/5776023c-3b24-46fa-9a93-a99d58a5a9cb.svg);
+  --provider-icon-attio: url(https://images.workoscdn.com/images/9efdf379-aa5d-457d-aa23-6923beaad9ee.svg);
+  --provider-icon-auth0: url(https://cdn.workos.com/provider-icons/light/auth0.svg);
+  --provider-icon-aws: url(https://cdn.workos.com/provider-icons/light/aws.svg);
+  --provider-icon-azure: url(https://cdn.workos.com/provider-icons/light/azure.svg);
+  --provider-icon-bamboo-hr: url(https://cdn.workos.com/provider-icons/light/bamboo-hr.svg);
+  --provider-icon-better-auth: url(https://images.workoscdn.com/images/71afb31f-aaaf-455a-964d-7c50cca281cc.svg);
+  --provider-icon-bitbucket: url(https://cdn.workos.com/provider-icons/light/bitbucket.svg);
+  --provider-icon-box: url(https://images.workoscdn.com/images/bb4e84af-0a7c-4135-a535-38d7ffeac030.svg);
+  --provider-icon-breathe-hr: url(https://cdn.workos.com/provider-icons/light/breathe-hr.svg);
+  --provider-icon-bubble: url(https://images.workoscdn.com/images/0e8d631a-2cb9-43f3-beb3-1aacef828c5c.svg);
+  --provider-icon-cal-dot-com: url(https://images.workoscdn.com/images/26210195-3163-4768-9c4b-6b7b13787007.svg);
+  --provider-icon-calendly: url(https://images.workoscdn.com/images/00de7de5-da46-454f-b808-82f78fe0e271.svg);
+  --provider-icon-cas: url(https://cdn.workos.com/provider-icons/light/cas.svg);
+  --provider-icon-cezanne-hr: url(https://cdn.workos.com/provider-icons/light/cezanne-hr.svg);
+  --provider-icon-classlink: url(https://cdn.workos.com/provider-icons/light/classlink.svg);
+  --provider-icon-clerk: url(https://images.workoscdn.com/images/bbf97591-238f-4b7e-9f10-3510a257bf7a.svg);
+  --provider-icon-clever: url(https://cdn.workos.com/provider-icons/light/clever.svg);
+  --provider-icon-cloudflare: url(https://cdn.workos.com/provider-icons/light/cloudflare.svg);
+  --provider-icon-confluence: url(https://images.workoscdn.com/images/878593ae-61c1-4ad2-b8bb-df37c937b376.svg);
+  --provider-icon-cyberark: url(https://cdn.workos.com/provider-icons/light/cyberark.svg);
+  --provider-icon-datadog: url(https://cdn.workos.com/provider-icons/light/datadog.svg);
+  --provider-icon-datasite: url(https://images.workoscdn.com/images/2818918d-d34b-444d-b2d1-94968199833e.svg);
+  --provider-icon-descope: url(https://images.workoscdn.com/images/78506c75-3cde-43ed-9342-94201b889290.png);
+  --provider-icon-discord: url(https://cdn.workos.com/provider-icons/light/discord.svg);
+  --provider-icon-dropbox: url(https://images.workoscdn.com/images/b6651c8a-2ee2-4657-954c-baaf89cbb1dc.svg);
+  --provider-icon-duo: url(https://cdn.workos.com/provider-icons/light/duo.svg);
+  --provider-icon-facebook: url(https://images.workoscdn.com/images/0e6d8dea-d502-442f-8976-02c3e5192e2a.svg);
+  --provider-icon-firebase: url(https://cdn.workos.com/provider-icons/light/firebase.svg);
+  --provider-icon-fly-io: url(https://images.workoscdn.com/images/c62b386d-c343-4158-8106-f4a324ac3383.svg);
+  --provider-icon-fourth: url(https://cdn.workos.com/provider-icons/light/fourth.svg);
+  --provider-icon-frame-io: url(https://images.workoscdn.com/images/6c533c08-3723-451e-9ee1-bfda6b9c99e5.svg);
+  --provider-icon-front: url(https://images.workoscdn.com/images/9fccae28-46cd-4a48-b789-b1c30d393adb.svg);
+  --provider-icon-generic-oauth: url(https://images.workoscdn.com/images/0571bf84-5b97-4ef2-93d5-013a5f8657fc.svg);
+  --provider-icon-generic-oidc: url(https://cdn.workos.com/provider-icons/light/generic-oidc.svg);
+  --provider-icon-github: url(https://images.workoscdn.com/images/3945fc79-f9db-40d3-8688-eaaee193e583.svg);
+  --provider-icon-gitlab: url(https://images.workoscdn.com/images/2dd0bf56-1ee4-4a8f-91b8-8e129b97d6f2.svg);
+  --provider-icon-godaddy: url(https://cdn.workos.com/provider-icons/light/godaddy.svg);
+  --provider-icon-gong: url(https://images.workoscdn.com/images/8f37e2e1-f3df-419a-9eb8-d23126ebfc31.svg);
+  --provider-icon-google: url(https://cdn.workos.com/provider-icons/light/google.svg);
+  --provider-icon-google-analytics: url(https://images.workoscdn.com/images/ad544954-34b2-42a4-b222-31267212bc8a.svg);
+  --provider-icon-google-calendar: url(https://images.workoscdn.com/images/0f4213db-bd84-4097-b66c-c26bfbca4f05.svg);
+  --provider-icon-google-cloud: url(https://cdn.workos.com/provider-icons/light/google-cloud.svg);
+  --provider-icon-google-drive: url(https://images.workoscdn.com/images/55956988-24d8-4733-acb0-dc19949ebff7.svg);
+  --provider-icon-google-mail: url(https://images.workoscdn.com/images/5735eb12-b0e4-4127-87be-f541a9b282fc.svg);
+  --provider-icon-greenhouse: url(https://images.workoscdn.com/images/978a6cd2-9d8b-4f43-962f-1fbd149b2009.svg);
+  --provider-icon-helpscout: url(https://images.workoscdn.com/images/2c444c55-392d-47ab-b5a6-1bb918692f3d.svg);
+  --provider-icon-hibob: url(https://cdn.workos.com/provider-icons/light/hibob.svg);
+  --provider-icon-hubspot: url(https://images.workoscdn.com/images/ec2d62d0-64a7-4910-a437-782eaeeba7e5.svg);
+  --provider-icon-intercom: url(https://images.workoscdn.com/images/0afe7826-72a8-4673-9c95-7122ab12d011.svg);
+  --provider-icon-intralinks: url(https://images.workoscdn.com/images/9a27d542-f7e2-4e55-9770-0706c00adcc1.svg);
+  --provider-icon-intuit: url(https://cdn.workos.com/provider-icons/light/intuit.svg);
+  --provider-icon-jira: url(https://images.workoscdn.com/images/feeb411a-2aa4-42b9-aa21-02395625d809.svg);
+  --provider-icon-jumpcloud: url(https://cdn.workos.com/provider-icons/light/jumpcloud.svg);
+  --provider-icon-kakao: url(https://images.workoscdn.com/images/6e3f610c-3a1f-406b-adc1-9ddb8ab2b1a0.svg);
+  --provider-icon-keycloak: url(https://cdn.workos.com/provider-icons/light/keycloak.svg);
+  --provider-icon-lastpass: url(https://cdn.workos.com/provider-icons/light/lastpass.svg);
+  --provider-icon-linear: url(https://images.workoscdn.com/images/ea736232-215d-4925-8bf3-c3d7a4b24078.svg);
+  --provider-icon-linkedin: url(https://cdn.workos.com/provider-icons/light/linkedin.svg);
+  --provider-icon-login-gov: url(https://cdn.workos.com/provider-icons/light/login-gov.svg);
+  --provider-icon-microsoft: url(https://cdn.workos.com/provider-icons/light/microsoft.svg);
+  --provider-icon-microsoft-onedrive: url(https://images.workoscdn.com/images/54f8d9f2-4bf3-4bdb-b683-97f64549884c.svg);
+  --provider-icon-microsoft-onenote: url(https://images.workoscdn.com/images/a50d310d-d96f-4e1b-82fa-6a70828503eb.svg);
+  --provider-icon-microsoft-outlook: url(https://images.workoscdn.com/images/f496a237-deef-436f-b8f3-4f5fb4c2d046.svg);
+  --provider-icon-microsoft-outlook-calendar: url(https://images.workoscdn.com/images/4d046b8a-e5e3-47db-9dd5-bfdbaa2d716c.svg);
+  --provider-icon-microsoft-sharepoint: url(https://images.workoscdn.com/images/cf0ed455-5044-457c-ab08-054189a10469.svg);
+  --provider-icon-microsoft-teams: url(https://images.workoscdn.com/images/2318275c-b0e8-41d7-80ae-7962f878bb46.svg);
+  --provider-icon-microsoft-todo: url(https://images.workoscdn.com/images/3879087a-5f93-419c-ac4c-41b35d59f3c8.svg);
+  --provider-icon-miniorange: url(https://cdn.workos.com/provider-icons/light/miniorange.svg);
+  --provider-icon-naver: url(https://images.workoscdn.com/images/b414058d-fdae-4967-bc52-45d5c4c9ff41.svg);
+  --provider-icon-net-iq: url(https://cdn.workos.com/provider-icons/light/net-iq.svg);
+  --provider-icon-netlify: url(https://images.workoscdn.com/images/16a6f785-02e2-46b0-90d7-4a7afc753bc9.svg);
+  --provider-icon-next-auth: url(https://cdn.workos.com/provider-icons/light/next-auth.svg);
+  --provider-icon-notion: url(https://cdn.workos.com/provider-icons/light/notion.svg);
+  --provider-icon-okta: url(https://cdn.workos.com/provider-icons/light/okta.svg);
+  --provider-icon-onelogin: url(https://cdn.workos.com/provider-icons/light/onelogin.svg);
+  --provider-icon-oracle: url(https://cdn.workos.com/provider-icons/light/oracle.svg);
+  --provider-icon-patreon: url(https://images.workoscdn.com/images/9962ad10-6933-4a8a-bdea-7333c0f9dfab.svg);
+  --provider-icon-personio: url(https://cdn.workos.com/provider-icons/light/personio.svg);
+  --provider-icon-ping-identity: url(https://cdn.workos.com/provider-icons/light/ping-identity.svg);
+  --provider-icon-pipedrive: url(https://images.workoscdn.com/images/ba524b94-0598-46eb-920f-89fe201eefd3.svg);
+  --provider-icon-prefect: url(https://images.workoscdn.com/images/f9c1f8cc-7664-4a8f-95be-b1fe29b7c3ac.svg);
+  --provider-icon-pydantic-logfire: url(https://images.workoscdn.com/images/ca206994-bcec-4ca5-a16b-fa67e38d95ff.svg);
+  --provider-icon-quickbooks: url(https://images.workoscdn.com/images/61346445-f883-47e5-81ca-4fb6250f7261.svg);
+  --provider-icon-react-native-expo: url(https://cdn.workos.com/provider-icons/light/react-native-expo.svg);
+  --provider-icon-rippling: url(https://cdn.workos.com/provider-icons/light/rippling.svg);
+  --provider-icon-sailpoint: url(https://cdn.workos.com/provider-icons/light/sailpoint.svg);
+  --provider-icon-salesforce: url(https://cdn.workos.com/provider-icons/light/salesforce.svg);
+  --provider-icon-segment: url(https://images.workoscdn.com/images/76d2470d-af92-4a56-96f2-5167c7ab4317.svg?auto=format&fit=clip&q=80);
+  --provider-icon-sentry: url(https://images.workoscdn.com/images/d402f17e-17ce-4c32-a017-7469010f6dc8.svg);
+  --provider-icon-shibboleth: url(https://cdn.workos.com/provider-icons/light/shibboleth.svg);
+  --provider-icon-simple-saml-php: url(https://cdn.workos.com/provider-icons/light/simple-saml-php.svg);
+  --provider-icon-slack: url(https://cdn.workos.com/provider-icons/light/slack.svg);
+  --provider-icon-snowflake: url(https://images.workoscdn.com/images/de5bb010-a1d4-4ed1-8395-099db5149efc.svg);
+  --provider-icon-splunk: url(https://cdn.workos.com/provider-icons/light/splunk.svg);
+  --provider-icon-stripe: url(https://images.workoscdn.com/images/44a8c194-4e70-4a6a-9bf5-72a055a4c967.svg);
+  --provider-icon-stripe-connect: url(https://images.workoscdn.com/images/44a8c194-4e70-4a6a-9bf5-72a055a4c967.svg);
+  --provider-icon-stytch: url(https://images.workoscdn.com/images/6f9e8078-80d2-4488-9984-eb58f6e929f3.svg);
+  --provider-icon-supabase: url(https://cdn.workos.com/provider-icons/light/supabase.svg);
+  --provider-icon-test-idp: url(https://images.workoscdn.com/images/a54c81a9-62c1-49fc-b353-e1ec73aee23e.svg?auto=format&fit=clip&q=80);
+  --provider-icon-tiktok: url(https://images.workoscdn.com/images/57f5dca3-e1ae-439f-ba35-b430494bc9ba.svg);
+  --provider-icon-vercel: url(https://cdn.workos.com/provider-icons/light/vercel.svg);
+  --provider-icon-vmware: url(https://cdn.workos.com/provider-icons/light/vmware.svg);
+  --provider-icon-workday: url(https://cdn.workos.com/provider-icons/light/workday.svg);
+  --provider-icon-workos: url(https://images.workoscdn.com/images/2577af2e-f6a0-418c-acb5-35f4e7a8a421.svg);
+  --provider-icon-x: url(https://images.workoscdn.com/images/9ddb58f0-0a5c-45a2-9c69-fef45fbf89f7.svg);
+  --provider-icon-xero: url(https://cdn.workos.com/provider-icons/light/xero.svg);
+  --provider-icon-zapier: url(https://images.workoscdn.com/images/50b3305c-f753-4ed1-add0-539d2149f7ed.svg);
+  --provider-icon-zendesk: url(https://images.workoscdn.com/images/e835ee44-b6d6-40bc-ac3c-79c68afaa167.svg);
+  --provider-icon-zoho-mail: url(https://images.workoscdn.com/images/3c9c257f-9afd-4a1d-b6e6-843421226db5.svg);
+  --provider-icon-zoom: url(https://images.workoscdn.com/images/ecb0c474-2168-4c8a-8fae-a680648455b2.svg);
+}
+
+:is(.dark, .dark-theme),
+:is(.dark, .dark-theme) :where(.radix-themes:not(.light, .light-theme)) {
+  --provider-icon-access-people-hr: url(https://cdn.workos.com/provider-icons/dark/access-people-hr.svg);
+  --provider-icon-adp: url(https://cdn.workos.com/provider-icons/dark/adp.svg);
+  --provider-icon-apple: url(https://cdn.workos.com/provider-icons/dark/apple.svg);
+  --provider-icon-asana: url(https://images.workoscdn.com/images/7e11a0cd-1f25-4a6a-a3fd-bcbb95334f4e.svg);
+  --provider-icon-attio: url(https://images.workoscdn.com/images/12e793a8-fda0-4daa-9355-235338e8fa7c.svg);
+  --provider-icon-auth0: url(https://cdn.workos.com/provider-icons/dark/auth0.svg);
+  --provider-icon-aws: url(https://cdn.workos.com/provider-icons/dark/aws.svg);
+  --provider-icon-azure: url(https://cdn.workos.com/provider-icons/dark/azure.svg);
+  --provider-icon-bamboo-hr: url(https://cdn.workos.com/provider-icons/dark/bamboo-hr.svg);
+  --provider-icon-better-auth: url(https://images.workoscdn.com/images/3785da71-2a33-4fb9-91a0-fad9d84ec23e.svg);
+  --provider-icon-bitbucket: url(https://cdn.workos.com/provider-icons/dark/bitbucket.svg);
+  --provider-icon-box: url(https://images.workoscdn.com/images/55902fa6-f6e0-4334-b419-70a8ff269505.svg);
+  --provider-icon-breathe-hr: url(https://cdn.workos.com/provider-icons/dark/breathe-hr.svg);
+  --provider-icon-bubble: url(https://images.workoscdn.com/images/c1856499-73de-42fa-8d23-5bac63988ea3.svg);
+  --provider-icon-cal-dot-com: url(https://images.workoscdn.com/images/4f26d267-3ac4-42d5-a32a-09096d845139.svg);
+  --provider-icon-calendly: url(https://images.workoscdn.com/images/1c4cc9ef-1bd4-4811-b8d4-ed238b90a9ab.svg);
+  --provider-icon-cas: url(https://cdn.workos.com/provider-icons/dark/cas.svg);
+  --provider-icon-cezanne-hr: url(https://cdn.workos.com/provider-icons/dark/cezanne-hr.svg);
+  --provider-icon-classlink: url(https://cdn.workos.com/provider-icons/dark/classlink.svg);
+  --provider-icon-clever: url(https://cdn.workos.com/provider-icons/dark/clever.svg);
+  --provider-icon-cloudflare: url(https://cdn.workos.com/provider-icons/dark/cloudflare.svg);
+  --provider-icon-confluence: url(https://images.workoscdn.com/images/9055ab0d-f411-40d8-8bf0-a4ae207bf1ba.svg);
+  --provider-icon-cyberark: url(https://cdn.workos.com/provider-icons/dark/cyberark.svg);
+  --provider-icon-datadog: url(https://cdn.workos.com/provider-icons/dark/datadog.svg);
+  --provider-icon-datasite: url(https://images.workoscdn.com/images/b914311e-b46c-4185-b187-520520b62fa4.svg);
+  --provider-icon-discord: url(https://cdn.workos.com/provider-icons/dark/discord.svg);
+  --provider-icon-dropbox: url(https://images.workoscdn.com/images/276e9c4f-46df-46a4-9ed7-cab10e954bd5.svg);
+  --provider-icon-duo: url(https://cdn.workos.com/provider-icons/dark/duo.svg);
+  --provider-icon-facebook: url(https://images.workoscdn.com/images/e25739c9-c4e1-4e7a-8665-7617eee5eca5.svg);
+  --provider-icon-firebase: url(https://cdn.workos.com/provider-icons/dark/firebase.svg);
+  --provider-icon-fly-io: url(https://images.workoscdn.com/images/c7036d06-57bb-499e-ba09-c192b6a82d33.svg);
+  --provider-icon-fourth: url(https://cdn.workos.com/provider-icons/dark/fourth.svg);
+  --provider-icon-frame-io: url(https://images.workoscdn.com/images/675956c4-c609-4d3b-8823-eb121de4e233.svg);
+  --provider-icon-front: url(https://images.workoscdn.com/images/e543441c-76b4-4ba1-b99f-4b13036e3a1f.svg);
+  --provider-icon-generic-oauth: url(https://images.workoscdn.com/images/3b48c274-7344-4efd-93c0-6fc308040c8e.svg);
+  --provider-icon-generic-oidc: url(https://cdn.workos.com/provider-icons/dark/generic-oidc.svg);
+  --provider-icon-github: url(https://images.workoscdn.com/images/a78955a4-16f5-422a-872f-a06fc7a4212f.svg);
+  --provider-icon-gitlab: url(https://images.workoscdn.com/images/72518fcc-d78e-4803-ae6a-8a394fc32322.svg);
+  --provider-icon-godaddy: url(https://cdn.workos.com/provider-icons/dark/godaddy.svg);
+  --provider-icon-gong: url(https://images.workoscdn.com/images/ffabcf80-ad5e-4dfc-afda-af8173e60c87.svg);
+  --provider-icon-google: url(https://cdn.workos.com/provider-icons/dark/google.svg);
+  --provider-icon-google-cloud: url(https://cdn.workos.com/provider-icons/dark/google-cloud.svg);
+  --provider-icon-google-drive: url(https://images.workoscdn.com/images/d65df86d-d61d-414b-aafc-5dc7fd661fac.svg);
+  --provider-icon-helpscout: url(https://images.workoscdn.com/images/e9f7b88f-045d-4aa3-8436-16364a17fb44.svg);
+  --provider-icon-hibob: url(https://cdn.workos.com/provider-icons/dark/hibob.svg);
+  --provider-icon-hubspot: url(https://images.workoscdn.com/images/e002a40c-6971-42a5-ae6e-9b2c19018394.svg);
+  --provider-icon-intercom: url(https://images.workoscdn.com/images/16d6f1eb-ac8f-41d4-99ea-af4b4613b38d.svg);
+  --provider-icon-intralinks: url(https://images.workoscdn.com/images/e0928d92-9910-459a-b0cc-df77d3b3deef.svg);
+  --provider-icon-intuit: url(https://cdn.workos.com/provider-icons/dark/intuit.svg);
+  --provider-icon-jira: url(https://images.workoscdn.com/images/d7deca97-c39b-47af-93ab-c3a8b2666e09.svg);
+  --provider-icon-jumpcloud: url(https://cdn.workos.com/provider-icons/dark/jumpcloud.svg);
+  --provider-icon-kakao: url(https://images.workoscdn.com/images/f51941fa-20b2-4dfc-a709-7317ca6a75cd.svg);
+  --provider-icon-keycloak: url(https://cdn.workos.com/provider-icons/dark/keycloak.svg);
+  --provider-icon-lastpass: url(https://cdn.workos.com/provider-icons/dark/lastpass.svg);
+  --provider-icon-linear: url(https://images.workoscdn.com/images/4ffb242f-6ca9-4409-88b8-0249654ae6e4.svg);
+  --provider-icon-linkedin: url(https://cdn.workos.com/provider-icons/dark/linkedin.svg);
+  --provider-icon-login-gov: url(https://cdn.workos.com/provider-icons/dark/login-gov.svg);
+  --provider-icon-microsoft: url(https://cdn.workos.com/provider-icons/dark/microsoft.svg);
+  --provider-icon-microsoft-onenote: url(https://images.workoscdn.com/images/f2cdfd1d-2844-4712-95c3-458a5a9993fe.svg);
+  --provider-icon-microsoft-sharepoint: url(https://images.workoscdn.com/images/efba5efe-8ef3-47ff-b4a5-0104711c0c1d.svg);
+  --provider-icon-microsoft-teams: url(https://images.workoscdn.com/images/1a1d73e1-ca64-46be-90e6-baacffdf9cc3.svg);
+  --provider-icon-microsoft-todo: url(https://images.workoscdn.com/images/54e74545-fea1-4da2-9499-5bc034670f43.svg);
+  --provider-icon-miniorange: url(https://cdn.workos.com/provider-icons/dark/miniorange.svg);
+  --provider-icon-naver: url(https://images.workoscdn.com/images/b83625f2-b8a1-4758-b6e3-da6d2ca34b61.svg);
+  --provider-icon-net-iq: url(https://cdn.workos.com/provider-icons/dark/net-iq.svg);
+  --provider-icon-netlify: url(https://images.workoscdn.com/images/cd1cdb4f-c1b2-4ae0-80f6-f3bd99f2bc1c.svg);
+  --provider-icon-next-auth: url(https://cdn.workos.com/provider-icons/dark/next-auth.svg);
+  --provider-icon-notion: url(https://images.workoscdn.com/images/31a154ab-920d-4260-98b9-e8d911fdba46.svg);
+  --provider-icon-okta: url(https://cdn.workos.com/provider-icons/dark/okta.svg);
+  --provider-icon-onelogin: url(https://cdn.workos.com/provider-icons/dark/onelogin.svg);
+  --provider-icon-oracle: url(https://cdn.workos.com/provider-icons/dark/oracle.svg);
+  --provider-icon-patreon: url(https://images.workoscdn.com/images/a373bb71-6fc1-4569-aea6-13f68210b491.svg);
+  --provider-icon-personio: url(https://cdn.workos.com/provider-icons/dark/personio.svg);
+  --provider-icon-ping-identity: url(https://cdn.workos.com/provider-icons/dark/ping-identity.svg);
+  --provider-icon-pipedrive: url(https://images.workoscdn.com/images/502ef943-e79f-4f2a-8320-a8c674c3af3a.svg);
+  --provider-icon-prefect: url(https://images.workoscdn.com/images/72655a23-6dbc-43e1-9d18-8841331cb60e.svg);
+  --provider-icon-pydantic-logfire: url(https://images.workoscdn.com/images/c54b04e6-3e8a-4fab-995b-7111c0e9e60a.svg);
+  --provider-icon-react-native-expo: url(https://cdn.workos.com/provider-icons/dark/react-native-expo.svg);
+  --provider-icon-rippling: url(https://cdn.workos.com/provider-icons/dark/rippling.svg);
+  --provider-icon-sailpoint: url(https://cdn.workos.com/provider-icons/dark/sailpoint.svg);
+  --provider-icon-salesforce: url(https://cdn.workos.com/provider-icons/dark/salesforce.svg);
+  --provider-icon-segment: url(https://images.workoscdn.com/images/ed5680a5-5b78-417b-96d4-e03ee8a39160.svg?auto=format&fit=clip&q=80);
+  --provider-icon-sentry: url(https://images.workoscdn.com/images/1ce1a74e-aad8-49d7-acda-9f219760ec48.svg);
+  --provider-icon-shibboleth: url(https://cdn.workos.com/provider-icons/dark/shibboleth.svg);
+  --provider-icon-simple-saml-php: url(https://cdn.workos.com/provider-icons/dark/simple-saml-php.svg);
+  --provider-icon-splunk: url(https://cdn.workos.com/provider-icons/dark/splunk.svg);
+  --provider-icon-stripe: url(https://images.workoscdn.com/images/eb696a2b-ed4e-497a-a1ce-3c6c08dfde09.svg);
+  --provider-icon-stripe-connect: url(https://images.workoscdn.com/images/eb696a2b-ed4e-497a-a1ce-3c6c08dfde09.svg);
+  --provider-icon-stytch: url(https://images.workoscdn.com/images/640f5660-5d1b-4f98-aa55-0f7cfde5c5fe.svg);
+  --provider-icon-supabase: url(https://cdn.workos.com/provider-icons/dark/supabase.svg);
+  --provider-icon-test-idp: url(https://images.workoscdn.com/images/60e80e84-90fa-4e48-9dea-c9ca37828dd6.svg?auto=format&fit=clip&q=80);
+  --provider-icon-tiktok: url(https://images.workoscdn.com/images/029bde15-05db-42a4-b01b-47ecda3824ec.svg);
+  --provider-icon-vercel: url(https://cdn.workos.com/provider-icons/dark/vercel.svg);
+  --provider-icon-vmware: url(https://cdn.workos.com/provider-icons/dark/vmware.svg);
+  --provider-icon-workday: url(https://cdn.workos.com/provider-icons/dark/workday.svg);
+  --provider-icon-x: url(https://images.workoscdn.com/images/0753d0e7-74b4-4fee-84d4-8c3e1ee32508.svg);
+  --provider-icon-xero: url(https://cdn.workos.com/provider-icons/dark/xero.svg);
+  --provider-icon-zapier: url(https://images.workoscdn.com/images/535bcf47-fd12-4b2e-b687-7e710a4bbfcb.svg);
+  --provider-icon-zendesk: url(https://images.workoscdn.com/images/2f191bbe-e5d4-460e-86c1-e9ac9e88d025.svg);
+  --provider-icon-zoho-mail: url(https://images.workoscdn.com/images/d23973d3-cdaa-432a-a406-f8ff40544649.svg);
+  --provider-icon-zoom: url(https://images.workoscdn.com/images/99c4cfa2-f86f-4e2c-83a1-cb768847e166.svg);
+}
+
+.ProviderIcon[data-provider="access-people-hr"] {
+  background-image: var(--provider-icon-access-people-hr);
+}
+
+.ProviderIcon[data-provider="adp"] {
+  background-image: var(--provider-icon-adp);
+}
+
+.ProviderIcon[data-provider="apple"] {
+  background-image: var(--provider-icon-apple);
+}
+
+.ProviderIcon[data-provider="asana"] {
+  background-image: var(--provider-icon-asana);
+}
+
+.ProviderIcon[data-provider="attio"] {
+  background-image: var(--provider-icon-attio);
+}
+
+.ProviderIcon[data-provider="auth0"] {
+  background-image: var(--provider-icon-auth0);
+}
+
+.ProviderIcon[data-provider="aws"] {
+  background-image: var(--provider-icon-aws);
+}
+
+.ProviderIcon[data-provider="azure"] {
+  background-image: var(--provider-icon-azure);
+}
+
+.ProviderIcon[data-provider="bamboo-hr"] {
+  background-image: var(--provider-icon-bamboo-hr);
+}
+
+.ProviderIcon[data-provider="better-auth"] {
+  background-image: var(--provider-icon-better-auth);
+}
+
+.ProviderIcon[data-provider="bitbucket"] {
+  background-image: var(--provider-icon-bitbucket);
+}
+
+.ProviderIcon[data-provider="box"] {
+  background-image: var(--provider-icon-box);
+}
+
+.ProviderIcon[data-provider="breathe-hr"] {
+  background-image: var(--provider-icon-breathe-hr);
+}
+
+.ProviderIcon[data-provider="bubble"] {
+  background-image: var(--provider-icon-bubble);
+}
+
+.ProviderIcon[data-provider="cal-dot-com"] {
+  background-image: var(--provider-icon-cal-dot-com);
+}
+
+.ProviderIcon[data-provider="calendly"] {
+  background-image: var(--provider-icon-calendly);
+}
+
+.ProviderIcon[data-provider="cas"] {
+  background-image: var(--provider-icon-cas);
+}
+
+.ProviderIcon[data-provider="cezanne-hr"] {
+  background-image: var(--provider-icon-cezanne-hr);
+}
+
+.ProviderIcon[data-provider="classlink"] {
+  background-image: var(--provider-icon-classlink);
+}
+
+.ProviderIcon[data-provider="clerk"] {
+  background-image: var(--provider-icon-clerk);
+}
+
+.ProviderIcon[data-provider="clever"] {
+  background-image: var(--provider-icon-clever);
+}
+
+.ProviderIcon[data-provider="cloudflare"] {
+  background-image: var(--provider-icon-cloudflare);
+}
+
+.ProviderIcon[data-provider="confluence"] {
+  background-image: var(--provider-icon-confluence);
+}
+
+.ProviderIcon[data-provider="cyberark"] {
+  background-image: var(--provider-icon-cyberark);
+}
+
+.ProviderIcon[data-provider="datadog"] {
+  background-image: var(--provider-icon-datadog);
+}
+
+.ProviderIcon[data-provider="datasite"] {
+  background-image: var(--provider-icon-datasite);
+}
+
+.ProviderIcon[data-provider="descope"] {
+  background-image: var(--provider-icon-descope);
+}
+
+.ProviderIcon[data-provider="discord"] {
+  background-image: var(--provider-icon-discord);
+}
+
+.ProviderIcon[data-provider="dropbox"] {
+  background-image: var(--provider-icon-dropbox);
+}
+
+.ProviderIcon[data-provider="duo"] {
+  background-image: var(--provider-icon-duo);
+}
+
+.ProviderIcon[data-provider="facebook"] {
+  background-image: var(--provider-icon-facebook);
+}
+
+.ProviderIcon[data-provider="firebase"] {
+  background-image: var(--provider-icon-firebase);
+}
+
+.ProviderIcon[data-provider="fly-io"] {
+  background-image: var(--provider-icon-fly-io);
+}
+
+.ProviderIcon[data-provider="fourth"] {
+  background-image: var(--provider-icon-fourth);
+}
+
+.ProviderIcon[data-provider="frame-io"] {
+  background-image: var(--provider-icon-frame-io);
+}
+
+.ProviderIcon[data-provider="front"] {
+  background-image: var(--provider-icon-front);
+}
+
+.ProviderIcon[data-provider="generic-oauth"] {
+  background-image: var(--provider-icon-generic-oauth);
+}
+
+.ProviderIcon[data-provider="generic-oidc"] {
+  background-image: var(--provider-icon-generic-oidc);
+}
+
+.ProviderIcon[data-provider="github"] {
+  background-image: var(--provider-icon-github);
+}
+
+.ProviderIcon[data-provider="gitlab"] {
+  background-image: var(--provider-icon-gitlab);
+}
+
+.ProviderIcon[data-provider="godaddy"] {
+  background-image: var(--provider-icon-godaddy);
+}
+
+.ProviderIcon[data-provider="gong"] {
+  background-image: var(--provider-icon-gong);
+}
+
+.ProviderIcon[data-provider="google"] {
+  background-image: var(--provider-icon-google);
+}
+
+.ProviderIcon[data-provider="google-analytics"] {
+  background-image: var(--provider-icon-google-analytics);
+}
+
+.ProviderIcon[data-provider="google-calendar"] {
+  background-image: var(--provider-icon-google-calendar);
+}
+
+.ProviderIcon[data-provider="google-cloud"] {
+  background-image: var(--provider-icon-google-cloud);
+}
+
+.ProviderIcon[data-provider="google-drive"] {
+  background-image: var(--provider-icon-google-drive);
+}
+
+.ProviderIcon[data-provider="google-mail"] {
+  background-image: var(--provider-icon-google-mail);
+}
+
+.ProviderIcon[data-provider="greenhouse"] {
+  background-image: var(--provider-icon-greenhouse);
+}
+
+.ProviderIcon[data-provider="helpscout"] {
+  background-image: var(--provider-icon-helpscout);
+}
+
+.ProviderIcon[data-provider="hibob"] {
+  background-image: var(--provider-icon-hibob);
+}
+
+.ProviderIcon[data-provider="hubspot"] {
+  background-image: var(--provider-icon-hubspot);
+}
+
+.ProviderIcon[data-provider="intercom"] {
+  background-image: var(--provider-icon-intercom);
+}
+
+.ProviderIcon[data-provider="intralinks"] {
+  background-image: var(--provider-icon-intralinks);
+}
+
+.ProviderIcon[data-provider="intuit"] {
+  background-image: var(--provider-icon-intuit);
+}
+
+.ProviderIcon[data-provider="jira"] {
+  background-image: var(--provider-icon-jira);
+}
+
+.ProviderIcon[data-provider="jumpcloud"] {
+  background-image: var(--provider-icon-jumpcloud);
+}
+
+.ProviderIcon[data-provider="kakao"] {
+  background-image: var(--provider-icon-kakao);
+}
+
+.ProviderIcon[data-provider="keycloak"] {
+  background-image: var(--provider-icon-keycloak);
+}
+
+.ProviderIcon[data-provider="lastpass"] {
+  background-image: var(--provider-icon-lastpass);
+}
+
+.ProviderIcon[data-provider="linear"] {
+  background-image: var(--provider-icon-linear);
+}
+
+.ProviderIcon[data-provider="linkedin"] {
+  background-image: var(--provider-icon-linkedin);
+}
+
+.ProviderIcon[data-provider="login-gov"] {
+  background-image: var(--provider-icon-login-gov);
+}
+
+.ProviderIcon[data-provider="microsoft"] {
+  background-image: var(--provider-icon-microsoft);
+}
+
+.ProviderIcon[data-provider="microsoft-onedrive"] {
+  background-image: var(--provider-icon-microsoft-onedrive);
+}
+
+.ProviderIcon[data-provider="microsoft-onenote"] {
+  background-image: var(--provider-icon-microsoft-onenote);
+}
+
+.ProviderIcon[data-provider="microsoft-outlook"] {
+  background-image: var(--provider-icon-microsoft-outlook);
+}
+
+.ProviderIcon[data-provider="microsoft-outlook-calendar"] {
+  background-image: var(--provider-icon-microsoft-outlook-calendar);
+}
+
+.ProviderIcon[data-provider="microsoft-sharepoint"] {
+  background-image: var(--provider-icon-microsoft-sharepoint);
+}
+
+.ProviderIcon[data-provider="microsoft-teams"] {
+  background-image: var(--provider-icon-microsoft-teams);
+}
+
+.ProviderIcon[data-provider="microsoft-todo"] {
+  background-image: var(--provider-icon-microsoft-todo);
+}
+
+.ProviderIcon[data-provider="miniorange"] {
+  background-image: var(--provider-icon-miniorange);
+}
+
+.ProviderIcon[data-provider="naver"] {
+  background-image: var(--provider-icon-naver);
+}
+
+.ProviderIcon[data-provider="net-iq"] {
+  background-image: var(--provider-icon-net-iq);
+}
+
+.ProviderIcon[data-provider="netlify"] {
+  background-image: var(--provider-icon-netlify);
+}
+
+.ProviderIcon[data-provider="next-auth"] {
+  background-image: var(--provider-icon-next-auth);
+}
+
+.ProviderIcon[data-provider="notion"] {
+  background-image: var(--provider-icon-notion);
+}
+
+.ProviderIcon[data-provider="okta"] {
+  background-image: var(--provider-icon-okta);
+}
+
+.ProviderIcon[data-provider="onelogin"] {
+  background-image: var(--provider-icon-onelogin);
+}
+
+.ProviderIcon[data-provider="oracle"] {
+  background-image: var(--provider-icon-oracle);
+}
+
+.ProviderIcon[data-provider="patreon"] {
+  background-image: var(--provider-icon-patreon);
+}
+
+.ProviderIcon[data-provider="personio"] {
+  background-image: var(--provider-icon-personio);
+}
+
+.ProviderIcon[data-provider="ping-identity"] {
+  background-image: var(--provider-icon-ping-identity);
+}
+
+.ProviderIcon[data-provider="pipedrive"] {
+  background-image: var(--provider-icon-pipedrive);
+}
+
+.ProviderIcon[data-provider="prefect"] {
+  background-image: var(--provider-icon-prefect);
+}
+
+.ProviderIcon[data-provider="pydantic-logfire"] {
+  background-image: var(--provider-icon-pydantic-logfire);
+}
+
+.ProviderIcon[data-provider="quickbooks"] {
+  background-image: var(--provider-icon-quickbooks);
+}
+
+.ProviderIcon[data-provider="react-native-expo"] {
+  background-image: var(--provider-icon-react-native-expo);
+}
+
+.ProviderIcon[data-provider="rippling"] {
+  background-image: var(--provider-icon-rippling);
+}
+
+.ProviderIcon[data-provider="sailpoint"] {
+  background-image: var(--provider-icon-sailpoint);
+}
+
+.ProviderIcon[data-provider="salesforce"] {
+  background-image: var(--provider-icon-salesforce);
+}
+
+.ProviderIcon[data-provider="segment"] {
+  background-image: var(--provider-icon-segment);
+}
+
+.ProviderIcon[data-provider="sentry"] {
+  background-image: var(--provider-icon-sentry);
+}
+
+.ProviderIcon[data-provider="shibboleth"] {
+  background-image: var(--provider-icon-shibboleth);
+}
+
+.ProviderIcon[data-provider="simple-saml-php"] {
+  background-image: var(--provider-icon-simple-saml-php);
+}
+
+.ProviderIcon[data-provider="slack"] {
+  background-image: var(--provider-icon-slack);
+}
+
+.ProviderIcon[data-provider="snowflake"] {
+  background-image: var(--provider-icon-snowflake);
+}
+
+.ProviderIcon[data-provider="splunk"] {
+  background-image: var(--provider-icon-splunk);
+}
+
+.ProviderIcon[data-provider="stripe"] {
+  background-image: var(--provider-icon-stripe);
+}
+
+.ProviderIcon[data-provider="stripe-connect"] {
+  background-image: var(--provider-icon-stripe-connect);
+}
+
+.ProviderIcon[data-provider="stytch"] {
+  background-image: var(--provider-icon-stytch);
+}
+
+.ProviderIcon[data-provider="supabase"] {
+  background-image: var(--provider-icon-supabase);
+}
+
+.ProviderIcon[data-provider="test-idp"] {
+  background-image: var(--provider-icon-test-idp);
+}
+
+.ProviderIcon[data-provider="tiktok"] {
+  background-image: var(--provider-icon-tiktok);
+}
+
+.ProviderIcon[data-provider="vercel"] {
+  background-image: var(--provider-icon-vercel);
+}
+
+.ProviderIcon[data-provider="vmware"] {
+  background-image: var(--provider-icon-vmware);
+}
+
+.ProviderIcon[data-provider="workday"] {
+  background-image: var(--provider-icon-workday);
+}
+
+.ProviderIcon[data-provider="workos"] {
+  background-image: var(--provider-icon-workos);
+}
+
+.ProviderIcon[data-provider="x"] {
+  background-image: var(--provider-icon-x);
+}
+
+.ProviderIcon[data-provider="xero"] {
+  background-image: var(--provider-icon-xero);
+}
+
+.ProviderIcon[data-provider="zapier"] {
+  background-image: var(--provider-icon-zapier);
+}
+
+.ProviderIcon[data-provider="zendesk"] {
+  background-image: var(--provider-icon-zendesk);
+}
+
+.ProviderIcon[data-provider="zoho-mail"] {
+  background-image: var(--provider-icon-zoho-mail);
+}
+
+.ProviderIcon[data-provider="zoom"] {
+  background-image: var(--provider-icon-zoom);
+}

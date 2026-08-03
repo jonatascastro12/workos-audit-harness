@@ -1,0 +1,33 @@
+.FeatureIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  flex-grow: 0;
+  user-select: none;
+  background-color: var(--gray-a3);
+}
+
+.FeatureIcon.size-1 {
+  width: var(--space-8);
+  height: var(--space-8);
+  border-radius: 12px;
+}
+
+.FeatureIcon.size-2 {
+  width: var(--space-9);
+  height: var(--space-9);
+  border-radius: 14px;
+}
+
+.FeatureIcon.size-3 {
+  width: 88px;
+  height: 88px;
+  border-radius: 20px;
+}
+
+.FeatureIconImage {
+  min-width: 125%;
+  min-height: 125%;
+  max-width: unset;
+}

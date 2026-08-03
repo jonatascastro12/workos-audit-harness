@@ -1,0 +1,41 @@
+@keyframes ButtonLoading {
+  0% {
+    background-position-x: 50%;
+    color: var(--gray-a8);
+  }
+
+  25% {
+    background-position-x: 50%;
+  }
+
+  75% {
+    background-position-x: 0%;
+    color: var(--gray-a5);
+  }
+
+  100% {
+    background-position-x: -150%;
+    color: var(--gray-a8);
+  }
+}
+
+.Button.state-loading {
+  cursor: default;
+  color: var(--gray-a8);
+  background-size: 200% auto;
+  background-position-x: 50%;
+  background-image: linear-gradient(to right, transparent, var(--gray-a3));
+  animation: ButtonLoading 2s 0.25s infinite ease-in;
+}
+.Button[data-disabled]:focus-visible {
+  outline-color: var(--gray-8);
+}
+.Button.rt-variant-surface.state-loading {
+  background-color: var(--gray-a1);
+}
+.Button.rt-variant-ghost.state-loading {
+  background-color: var(--gray-a2);
+}
+.Button.rt-variant-solid.state-loading {
+  background-color: var(--gray-a3);
+}

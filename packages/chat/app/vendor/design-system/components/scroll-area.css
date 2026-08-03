@@ -1,0 +1,289 @@
+.ScrollAreaRoot {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+.ScrollAreaViewport {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+
+  /* Stop Chrome back/forward two-finger swipe */
+  overscroll-behavior-x: contain;
+
+  /* Hide focus outline in case we need to set a tabindex on viewport */
+  outline: 0;
+}
+
+.ScrollAreaViewport > * {
+  display: block !important;
+  flex-grow: 1;
+}
+
+/* Firefox allows keyboard focus on scrollable elements */
+.ScrollAreaViewport:focus-visible + .ScrollAreaViewportFocusRing {
+  inset: 0;
+  position: absolute;
+  pointer-events: none;
+  box-shadow: inset 0 0 0 2px var(--gray-a8);
+}
+
+.ScrollAreaTrack {
+  display: flex;
+  user-select: none;
+  touch-action: none;
+  border-radius: var(--radius-5);
+  margin: var(--space-1);
+  background-color: var(--gray-a3);
+  z-index: 1;
+}
+
+.ScrollAreaTrack[data-orientation="vertical"] {
+  flex-direction: column;
+  width: var(--space-1);
+}
+
+.ScrollAreaTrack[data-orientation="horizontal"] {
+  flex-direction: row;
+  height: var(--space-1);
+}
+
+.ScrollAreaTrack[data-orientation="vertical"] + .ScrollAreaTrack[data-orientation="horizontal"] {
+  margin-right: var(--space-3);
+}
+
+.ScrollAreaTrack[data-orientation="horizontal"] + .ScrollAreaTrack[data-orientation="vertical"] {
+  margin-bottom: var(--space-3);
+}
+
+.ScrollAreaThumb {
+  background-color: var(--gray-a8);
+  transition: background-color 120ms;
+  border-radius: var(--radius-5);
+  position: relative;
+}
+
+.ScrollAreaThumb:hover {
+  background-color: var(--gray-a9);
+}
+
+.ScrollAreaThumb::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 100%;
+  height: 100%;
+  min-width: 16px;
+  min-height: 16px;
+}
+
+/**
+ * Scroll indicators
+ * based on https://www.youtube.com/watch?v=4AvL5Jbd8QU
+ */
+.ScrollAreaViewport:where([data-scroll-indicators]) {
+  --indicator-size: 1px;
+  --indicator-color: var(--gray-a6);
+}
+
+.ScrollAreaViewport:where([data-scroll-indicators])::before,
+.ScrollAreaViewport:where([data-scroll-indicators])::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+}
+
+/** Vertical scroll indicators */
+.ScrollAreaViewport:where([data-scroll-indicators])::before {
+  --top-indicator-color: color-mix(
+    in srgb,
+    var(--indicator-color) var(--scroll-area-top-indicator-opacity, 0%),
+    transparent
+  );
+  --bottom-indicator-color: color-mix(
+    in srgb,
+    var(--indicator-color) var(--scroll-area-bottom-indicator-opacity, 0%),
+    transparent
+  );
+
+  background-image:
+    linear-gradient(to bottom, var(--top-indicator-color), var(--top-indicator-color)),
+    linear-gradient(to bottom, var(--bottom-indicator-color), var(--bottom-indicator-color));
+  background-size:
+    100% var(--indicator-size),
+    100% var(--indicator-size);
+  background-repeat: no-repeat, no-repeat;
+  background-position: top, bottom;
+}
+
+/** Horizontal scroll indicators */
+.ScrollAreaViewport:where([data-scroll-indicators])::after {
+  --left-indicator-color: color-mix(
+    in srgb,
+    var(--indicator-color) var(--scroll-area-left-indicator-opacity, 0%),
+    transparent
+  );
+  --right-indicator-color: color-mix(
+    in srgb,
+    var(--indicator-color) var(--scroll-area-right-indicator-opacity, 0%),
+    transparent
+  );
+
+  background-image:
+    linear-gradient(to bottom, var(--left-indicator-color), var(--left-indicator-color)),
+    linear-gradient(to bottom, var(--right-indicator-color), var(--right-indicator-color));
+  background-size:
+    var(--indicator-size) 100%,
+    var(--indicator-size) 100%;
+  background-repeat: no-repeat, no-repeat;
+  background-position: left, right;
+}
+
+/**
+ * Override colors based on the indicators direction
+ */
+.ScrollAreaViewport[data-scroll-indicators="bottom"]::before {
+  --top-indicator-color: transparent;
+  --left-indicator-color: transparent;
+  --right-indicator-color: transparent;
+}
+
+.ScrollAreaViewport[data-scroll-indicators="top"]::before {
+  --bottom-indicator-color: transparent;
+  --left-indicator-color: transparent;
+  --right-indicator-color: transparent;
+}
+
+.ScrollAreaViewport[data-scroll-indicators="left"]::before {
+  --top-indicator-color: transparent;
+  --bottom-indicator-color: transparent;
+  --right-indicator-color: transparent;
+}
+
+.ScrollAreaViewport[data-scroll-indicators="right"]::before {
+  --top-indicator-color: transparent;
+  --bottom-indicator-color: transparent;
+  --left-indicator-color: transparent;
+}
+
+.ScrollAreaViewport[data-scroll-indicators="y"]::before {
+  --left-indicator-color: transparent;
+  --right-indicator-color: transparent;
+}
+
+.ScrollAreaViewport[data-scroll-indicators="x"]::before {
+  --top-indicator-color: transparent;
+  --bottom-indicator-color: transparent;
+}
+
+@supports (animation-timeline: scroll()) {
+  .ScrollAreaViewport:where([data-scroll-indicators]) {
+    scroll-timeline:
+      --scroll-area-viewport-timeline-y block,
+      --scroll-area-viewport-timeline-x inline;
+    animation: scroll-area-detect-scroll-y, scroll-area-detect-scroll-x;
+    animation-timeline: --scroll-area-viewport-timeline-y, --scroll-area-viewport-timeline-x;
+    animation-fill-mode: none;
+  }
+
+  /** Vertical scroll indicators */
+  .ScrollAreaViewport:where([data-scroll-indicators])::before {
+    --visibility-if-can-scroll: var(--can-scroll-y) visible;
+    --visibility-if-cant-scroll: hidden;
+    visibility: var(--visibility-if-can-scroll, var(--visibility-if-cant-scroll));
+
+    animation: scroll-area-indicator-reveal-y linear both;
+    animation-timeline: --scroll-area-viewport-timeline-y;
+  }
+
+  /** Horizontal scroll indicators */
+  .ScrollAreaViewport:where([data-scroll-indicators])::after {
+    --visibility-if-can-scroll: var(--can-scroll-x) visible;
+    --visibility-if-cant-scroll: hidden;
+    visibility: var(--visibility-if-can-scroll, var(--visibility-if-cant-scroll));
+
+    animation: scroll-area-indicator-reveal-x linear both;
+    animation-timeline: --scroll-area-viewport-timeline-x;
+  }
+
+  @property --scroll-area-top-indicator-opacity {
+    syntax: "<percentage>";
+    initial-value: 0%;
+    inherits: false;
+  }
+
+  @property --scroll-area-bottom-indicator-opacity {
+    syntax: "<percentage>";
+    initial-value: 0%;
+    inherits: false;
+  }
+
+  @property --scroll-area-left-indicator-opacity {
+    syntax: "<percentage>";
+    initial-value: 0%;
+    inherits: false;
+  }
+
+  @property --scroll-area-right-indicator-opacity {
+    syntax: "<percentage>";
+    initial-value: 0%;
+    inherits: false;
+  }
+}
+
+@keyframes scroll-area-indicator-reveal-y {
+  0% {
+    --scroll-area-top-indicator-opacity: 0%;
+    --scroll-area-bottom-indicator-opacity: 100%;
+  }
+
+  1%,
+  99% {
+    --scroll-area-top-indicator-opacity: 100%;
+    --scroll-area-bottom-indicator-opacity: 100%;
+  }
+
+  100% {
+    --scroll-area-top-indicator-opacity: 100%;
+    --scroll-area-bottom-indicator-opacity: 0%;
+  }
+}
+
+@keyframes scroll-area-indicator-reveal-x {
+  0% {
+    --scroll-area-left-indicator-opacity: 0%;
+    --scroll-area-right-indicator-opacity: 100%;
+  }
+
+  1%,
+  99% {
+    --scroll-area-left-indicator-opacity: 100%;
+    --scroll-area-right-indicator-opacity: 100%;
+  }
+
+  100% {
+    --scroll-area-left-indicator-opacity: 100%;
+    --scroll-area-right-indicator-opacity: 0%;
+  }
+}
+
+@keyframes scroll-area-detect-scroll-y {
+  from,
+  to {
+    --can-scroll-y: ;
+  }
+}
+
+@keyframes scroll-area-detect-scroll-x {
+  from,
+  to {
+    --can-scroll-x: ;
+  }
+}

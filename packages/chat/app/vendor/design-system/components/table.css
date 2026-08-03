@@ -1,0 +1,453 @@
+.TableRoot {
+  background-color: var(--color-panel);
+  border-radius: var(--radius-4);
+  border: 1px solid var(--gray-a5);
+  flex-grow: 1;
+}
+
+.TableContent {
+  --table-br-top-left: 0;
+  --table-br-top-right: 0;
+  --table-br-bottom-left: 0;
+  --table-br-bottom-right: 0;
+  --table-scrollbar-x-offset: 0px;
+  --table-scrollbar-y-offset: 0px;
+  --table-separator-color: var(--gray-a5);
+  --table-row-background: var(--table-row-background-normal);
+  --table-row-background-normal: transparent;
+  --table-row-background-hover: var(--gray-a2);
+  --table-row-background-hover-focus: var(--accent-a2);
+  --table-row-background-pressed: var(--gray-a3);
+  --table-row-background-pressed-focus: var(--accent-a3);
+  --table-row-background-inactive-focus: var(--gray-a2);
+  --table-row-border-left: 0 0 transparent;
+  --table-row-border-right: 0 0 transparent;
+  --table-row-border-top: 0 0 transparent;
+  --table-row-border-bottom: inset 0 -1px var(--table-separator-color);
+  --table-sticky-cell-border-right-position-top: 0;
+  --table-sticky-cell-border-right-position-bottom: 0;
+
+  grid-area: content;
+  overflow: hidden;
+  position: relative;
+  height: 100%;
+  border-radius: var(--table-br-top-left) var(--table-br-top-right) var(--table-br-bottom-right)
+    var(--table-br-bottom-left);
+}
+
+.TableContentTable {
+  width: 100%;
+  text-align: left;
+  vertical-align: middle;
+  border-collapse: collapse;
+  border-spacing: 0;
+
+  /* Makes "height: 100%" work on content inside cells */
+  height: 0;
+}
+
+.TableHeader {
+  vertical-align: inherit;
+}
+
+.TableBody {
+  vertical-align: inherit;
+}
+
+.TableRow {
+  vertical-align: inherit;
+  color: var(--gray-12);
+}
+
+.TableCell {
+  background-color: var(--table-row-background);
+  box-shadow: var(--table-row-border-top), var(--table-row-border-bottom);
+  box-sizing: border-box;
+  vertical-align: inherit;
+  padding: var(--space-3);
+  /* Works as min-height */
+  height: 44px;
+}
+
+.TableCell:first-child {
+  box-shadow:
+    var(--table-row-border-left), var(--table-row-border-top), var(--table-row-border-bottom);
+}
+
+.TableCell:last-child {
+  box-shadow:
+    var(--table-row-border-right), var(--table-row-border-top), var(--table-row-border-bottom);
+}
+
+.TableHeader :where(.TableRow:first-child .TableCell:first-child) {
+  border-top-left-radius: var(--table-br-top-left);
+}
+.TableHeader :where(.TableRow:first-child .TableCell:last-child) {
+  border-top-right-radius: var(--table-br-top-right);
+}
+.TableBody :where(.TableRow:last-child .TableCell:first-child) {
+  border-bottom-left-radius: var(--table-br-bottom-left);
+}
+.TableBody :where(.TableRow:last-child .TableCell:last-child) {
+  border-bottom-right-radius: var(--table-br-bottom-right);
+}
+
+.TableRowHeader {
+  font-weight: normal;
+}
+
+.TableColumnHeader {
+  font-weight: bold;
+}
+
+.TableRowLink {
+  color: var(--gray-a9);
+  margin-left: auto;
+  margin-top: 2px;
+  margin-bottom: 2px;
+}
+
+/* * * * * * * * * * * * * * * * * * * */
+/*                                     */
+/*         Interactive states          */
+/*                                     */
+/* * * * * * * * * * * * * * * * * * * */
+
+.TableContentTable,
+.TableRow {
+  outline: 0;
+}
+
+.TableRow[data-clickable] {
+  cursor: pointer;
+}
+
+.TableRow[data-pressed] {
+  user-select: none;
+}
+
+.TableRow[data-selected] .TableRowHeader,
+.TableRow[data-selected] .TableCell:first-child {
+  font-weight: bold;
+  letter-spacing: -0.022em;
+  word-spacing: 0.038em;
+}
+
+/*
+ * - Keep 0,1,0 specificity for rules that may be overwritten down the line
+ * - Don't put :hover inside :where() because it doesn’t work with PostCSS
+ */
+:where(.TableRow[data-clickable]):hover {
+  --table-row-background: var(--table-row-background-hover);
+}
+:where(.TableRow[data-clickable]:focus-visible):hover {
+  --table-row-background: var(--table-row-background-hover-focus);
+}
+:where(.TableRow:not([data-clickable])):focus-visible {
+  --table-row-background: var(--table-row-background-inactive-focus);
+}
+:where(.TableRow)[data-pressed] {
+  --table-row-background: var(--table-row-background-pressed);
+}
+:where(.TableRow[data-pressed]):focus-visible {
+  --table-row-background: var(--table-row-background-pressed-focus);
+}
+:where(.TableRow[data-clickable]):focus-visible {
+  --table-row-border-top: 0 -1px var(--focus-8), inset 0 1px var(--focus-8);
+  --table-row-border-bottom: inset 0 -2px var(--focus-8);
+  --table-row-border-left: inset 2px 0 var(--focus-8);
+  --table-row-border-right: inset -2px 0 var(--focus-8);
+}
+:where(.TableRow)[data-selected] {
+  --table-row-border-left: inset 2px 0 var(--accent-9);
+}
+/* Adjust the border radius for a table row that is selected, but not focused */
+:where(.TableBody .TableRow[data-selected]:not(:focus-visible):last-child)
+  .TableCell:where(:first-child) {
+  border-bottom-left-radius: calc(var(--table-br-bottom-left) - 3px);
+}
+
+/* * * * * * * * * * * * * * * * * * * */
+/*                                     */
+/*            Sticky header            */
+/*                                     */
+/* * * * * * * * * * * * * * * * * * * */
+
+.TableContent[data-has-vertical-scroll] .TableContentScroll {
+  overscroll-behavior-y: none;
+}
+
+.TableContent[data-has-vertical-scroll] {
+  /*
+   * Alpha colours would have been better, but we can't use them because sticky cells need
+   * to go on top of the regular cells. We’ll use blending modes to simulate alpha colors.
+   */
+  mix-blend-mode: multiply;
+}
+
+.TableContent[data-has-vertical-scroll] .TableColumnHeader {
+  --table-row-background: var(--gray-2);
+}
+
+:is(.dark, .dark-theme) .TableContent[data-has-vertical-scroll] {
+  mix-blend-mode: screen;
+}
+
+.TableContentScrollbarVertical {
+  top: var(--table-scrollbar-y-offset) !important;
+}
+
+.TableContent[data-has-vertical-scroll] .TableColumnHeader {
+  top: 0;
+  z-index: 1;
+  position: sticky;
+}
+
+/* Add top border to footer when there is vertical scroll */
+.TableRoot:has(.TableContent[data-has-vertical-scroll]) .TableFooter {
+  border-top: 1px solid var(--gray-a5);
+}
+
+.TableRoot:has(.TableContent[data-has-vertical-scroll]) .TableBody .TableRow:last-child .TableCell {
+  --table-row-border-bottom: transparent;
+}
+
+/* * * * * * * * * * * * * * * * * * * */
+/*                                     */
+/*            Sticky column            */
+/*                                     */
+/* * * * * * * * * * * * * * * * * * * */
+
+.TableContent[data-has-horizontal-scroll] .TableContentScroll {
+  overscroll-behavior-x: none;
+}
+
+.TableContent[data-has-horizontal-scroll] {
+  /*
+   * Alpha colours would have been better, but we can't use them because sticky cells need
+   * to go on top of the regular cells. We’ll use blending modes to simulate alpha colors.
+   */
+  mix-blend-mode: multiply;
+  --table-row-background: white;
+  --table-row-background-hover: var(--gray-2);
+  --table-row-background-hover-focus: var(--accent-2);
+  --table-row-background-pressed: var(--gray-3);
+  --table-row-background-pressed-focus: var(--accent-3);
+  --table-row-background-inactive-focus: var(--gray-2);
+  --table-separator-color: var(--gray-5);
+}
+
+:is(.dark, .dark-theme) .TableContent[data-has-horizontal-scroll] {
+  mix-blend-mode: screen;
+
+  /* Using to darker colors than in light mode because of the "screen" blend mode pecularities */
+  --table-row-background: black;
+  --table-row-background-hover: hsl(240, 5%, 4%);
+  --table-row-background-hover-focus: var(--accent-1);
+  --table-row-background-pressed: var(--color-background);
+  --table-row-background-pressed-focus: var(--accent-2);
+  --table-row-background-inactive-focus: hsl(240, 5%, 4%);
+  --table-separator-color: var(--gray-3);
+}
+
+.TableContentScrollbarHorizontal {
+  left: var(--table-scrollbar-x-offset) !important;
+}
+
+.TableContent[data-has-horizontal-scroll] .TableCell:first-child {
+  left: 0;
+  z-index: 1;
+  position: sticky;
+}
+
+/* Sticky cell right border—can’t do border right on a sticky table cell, because the border itself doesn't stick */
+.TableContent[data-has-horizontal-scroll] .TableCell:first-child::after {
+  border-right: 1px solid var(--table-separator-color);
+  position: absolute;
+  content: "";
+  right: 0;
+  top: var(--table-sticky-cell-border-right-position-top);
+  bottom: var(--table-sticky-cell-border-right-position-bottom);
+}
+
+/* Adjust right border position for the sticky cell of the focused row */
+.TableRow[data-clickable]:focus-visible .TableCell:first-child::after {
+  --table-sticky-cell-border-right-position-top: 1px;
+  --table-sticky-cell-border-right-position-bottom: 2px;
+}
+
+/*
+ * We wouldn’t have needed these styles if "position: sticky" didn’t mess up table cell shadows in Chrome and Safari.
+ * Luckily, while Firefox doesn’t support :has() as of the time of writing, it doesn’t mess up the table cell shadows.
+ */
+@supports selector(:has(a)) {
+  .TableRow:has(+ .TableRow[data-clickable]:focus-visible),
+  .TableHeader:has(+ .TableBody .TableRow[data-clickable]:first-child:focus-visible) {
+    /* Adjust bottom border of the row preceding the focused row */
+    --table-row-border-bottom: inset 0 -1px var(--focus-8);
+    /* Adjust right border position for the sticky cell of the row preceding the focused row */
+    --table-sticky-cell-border-right-position-bottom: 1px;
+  }
+}
+
+/* Disable sticky first column on mobile where it takes up too much space */
+@media not (--sm) {
+  .TableContent[data-has-horizontal-scroll] .TableCell:first-child {
+    position: static;
+    z-index: auto;
+  }
+
+  .TableContent[data-has-horizontal-scroll] .TableCell:first-child::after {
+    display: none;
+  }
+
+  .TableContentScrollbarHorizontal {
+    left: 0 !important;
+  }
+}
+
+/* * * * * * * * * * * * * * * * * * * */
+/*                                     */
+/*      Table Root + Table Content     */
+/*                                     */
+/* * * * * * * * * * * * * * * * * * * */
+
+.TableRoot :where(.TableContent) {
+  --table-br-top-left: calc(var(--radius-4) - 1px);
+  --table-br-top-right: calc(var(--radius-4) - 1px);
+  --table-br-bottom-left: calc(var(--radius-4) - 1px);
+  --table-br-bottom-right: calc(var(--radius-4) - 1px);
+}
+
+/* Add header background */
+.TableRoot :where(.TableHeader) {
+  --table-row-background: var(--table-row-background-normal);
+  --table-row-background-normal: var(--gray-a2);
+  --table-row-background-inactive-focus: var(--gray-a3);
+}
+
+/* Set header background when sticky */
+.TableRoot :where(.TableContent[data-has-horizontal-scroll] .TableHeader) {
+  --table-row-background-normal: var(--gray-2);
+  --table-row-background-inactive-focus: var(--gray-3);
+}
+
+/* Set darker header background with sticky cell color acrobatics */
+:is(.dark, .dark-theme) :where(.TableRoot .TableContent[data-has-horizontal-scroll] .TableHeader) {
+  --table-row-background-normal: hsl(240, 5%, 4%);
+  --table-row-background-inactive-focus: var(--color-background);
+}
+
+/* Remove bottom row border, unless it’s focused or there is a footer */
+.TableRoot:where(:not(:has(.TableFooter)))
+  :where(.TableBody .TableRow:not([data-clickable]:focus-visible):last-child) {
+  --table-row-border-bottom: 0 0 transparent;
+}
+
+/* * * * * * * * * * * * * * * * * * * */
+/*                                     */
+/*            Table Detail             */
+/*                                     */
+/* * * * * * * * * * * * * * * * * * * */
+
+.TableRoot:has(.TableDetail) {
+  display: grid;
+  grid-template-areas: "content detail";
+  grid-template-columns: 1fr auto;
+}
+
+.TableRoot:has(.TableDetail) :where(.TableContent) {
+  --table-br-top-right: 0;
+  --table-br-bottom-right: 0;
+}
+
+.TableDetail {
+  position: relative;
+  box-sizing: border-box;
+  border-left: 1px solid var(--gray-a5);
+  grid-area: detail;
+  min-width: 240px;
+}
+
+.TableDetailInner {
+  position: absolute;
+  inset: 0;
+}
+
+.TableDetailViewport {
+  border-top-right-radius: calc(var(--radius-4) - 1px);
+  border-bottom-right-radius: calc(var(--radius-4) - 1px);
+  /* ScrollArea already has its own focus outline */
+  outline: 0;
+}
+
+/* Makes it possible to use % height for elements inside Table Detail */
+.TableDetailViewport > * {
+  height: 1px;
+  min-height: 100%;
+}
+
+.TableDetailViewportInner {
+  padding: var(--space-4);
+}
+
+/* * * * * * * * * * * * * * * * * * * */
+/*                                     */
+/*            Table Footer             */
+/*                                     */
+/* * * * * * * * * * * * * * * * * * * */
+
+.TableRoot:has(.TableFooter) {
+  display: grid;
+  grid-template-rows: 1fr auto;
+  grid-template-areas:
+    "content"
+    "footer";
+}
+
+.TableRoot:has(.TableFooter) :where(.TableContent) {
+  --table-br-bottom-left: 0;
+  --table-br-bottom-right: 0;
+}
+
+.TableFooter {
+  grid-area: footer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  box-sizing: border-box;
+  gap: var(--space-2);
+  min-height: 44px;
+  padding-left: var(--space-3);
+  padding-right: var(--space-3);
+  padding-top: var(--space-2);
+  padding-bottom: var(--space-2);
+}
+
+/* * * * * * * * * * * * * * * * * * * */
+/*                                     */
+/*     Table Detail + Table Footer     */
+/*                                     */
+/* * * * * * * * * * * * * * * * * * * */
+
+.TableRoot:has(.TableFooter):has(.TableDetail) {
+  display: grid;
+  grid-template-areas:
+    "content detail"
+    "footer detail";
+}
+
+/* * * * * * * * * * * * * * * * * * * */
+/*                                     */
+/*            Table + Inset            */
+/*                                     */
+/* * * * * * * * * * * * * * * * * * * */
+
+/* Only apply extra padding when the table is not wrapped in `TableRoot` */
+.TableContent:not(.TableRoot > .TableContent) .TableCell:first-child {
+  padding-left: var(--inset-padding-left, var(--space-3));
+}
+
+.TableContent:not(.TableRoot > .TableContent) .TableCell:last-child {
+  padding-right: var(--inset-padding-right, var(--space-3));
+}
