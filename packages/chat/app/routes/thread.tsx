@@ -16,7 +16,6 @@ import {
   useRevalidator,
 } from "react-router";
 import * as AlertDialog from "../vendor/design-system/components/alert-dialog";
-import { Separator } from "../vendor/design-system/components/separator";
 import { Badge } from "../vendor/design-system/components/badge";
 import { Box } from "../vendor/design-system/components/box";
 import { Button } from "../vendor/design-system/components/button";
@@ -321,93 +320,152 @@ function MessageParts({ message }: { message: UIMessage }) {
   );
 }
 
-function ThreadSwitcher({
+/**
+ * D1 stores timestamps as "YYYY-MM-DD HH:MM:SS" in UTC. `new Date()` reads that
+ * shape as LOCAL time, so it has to be normalised before any relative maths or
+ * every row is off by the viewer's offset.
+ */
+function relativeTime(stored: string): string {
+  const parsed = Date.parse(
+    `${stored.replace(" ", "T")}${/[Zz]|[+-]\d\d:?\d\d$/.test(stored) ? "" : "Z"}`,
+  );
+  if (Number.isNaN(parsed)) return "";
+  const seconds = Math.max(0, Math.floor((Date.now() - parsed) / 1000));
+  if (seconds < 60) return "just now";
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return days < 7 ? `${days}d ago` : new Date(parsed).toISOString().slice(0, 10);
+}
+
+function DeleteThreadDialog({ thread, disabled }: { thread: ThreadSummary; disabled: boolean }) {
+  const fetcher = useFetcher<{ error?: string }>();
+  const [open, setOpen] = useState(false);
+  return (
+    <AlertDialog.Root open={open} onOpenChange={setOpen}>
+      <AlertDialog.Trigger>
+        <Button
+          size="1"
+          variant="ghost"
+          color="red"
+          disabled={disabled}
+          className="thread-delete"
+          aria-label={`Delete ${thread.title}`}
+        >
+          Delete
+        </Button>
+      </AlertDialog.Trigger>
+      <AlertDialog.Content>
+        <fetcher.Form method="post">
+          <Flex direction="column" gap="4">
+            <AlertDialog.Header
+              title="Delete this investigation?"
+              description={`"${thread.title}" and all of its messages are removed permanently. This cannot be undone.`}
+              error={fetcher.data?.error}
+            />
+            <AlertDialog.Footer>
+              <AlertDialog.Cancel>
+                <Button variant="soft" color="gray" type="button">
+                  Keep it
+                </Button>
+              </AlertDialog.Cancel>
+              <Button
+                color="red"
+                type="submit"
+                name="intent"
+                value="delete-thread"
+                disabled={fetcher.state !== "idle"}
+              >
+                {fetcher.state !== "idle" ? <Spinner size="1" /> : null}
+                Delete investigation
+              </Button>
+            </AlertDialog.Footer>
+            <input type="hidden" name="threadId" value={thread.id} />
+          </Flex>
+        </fetcher.Form>
+      </AlertDialog.Content>
+    </AlertDialog.Root>
+  );
+}
+
+function ThreadSidebar({
   threads,
   threadId,
   disabled,
+  storeAvailable,
 }: {
   threads: ThreadSummary[];
   threadId: string;
   disabled: boolean;
+  storeAvailable: boolean;
 }) {
   const navigate = useNavigate();
-  const fetcher = useFetcher<{ error?: string }>();
-  const [confirmOpen, setConfirmOpen] = useState(false);
-  const current = threads.find((thread) => thread.id === threadId);
+  const onCurrent = threads.some((thread) => thread.id === threadId);
 
   return (
-    <Flex align="center" gap="2">
-      {threads.length > 0 ? (
-        <Select.Root
-          value={current ? threadId : ""}
-          onValueChange={(id) => navigate(`/t/${id}`)}
-          disabled={disabled}
+    <aside className="console-sidebar">
+      <Flex direction="column" gap="3" className="sidebar-inner">
+        <Text size="1" className="font-mono sidebar-label">
+          INVESTIGATIONS
+        </Text>
+        {/* The id is minted in the handler, not during render: generating it in
+            render produces a different value on the server and the client (a
+            hydration mismatch) and a new one on every re-render. */}
+        <Button
+          size="1"
+          variant="soft"
+          color="gray"
+          onClick={() => navigate(`/t/${crypto.randomUUID()}`)}
         >
-          <Select.Trigger ghost className="console-threads" aria-label="Conversation" />
-          <Select.Content>
-            {!current ? (
-              <Select.Item value="" disabled>
+          New investigation
+        </Button>
+        <div className="sidebar-list">
+          {!onCurrent ? (
+            <div className="thread-row thread-row-active">
+              <Text size="1" weight="medium" truncate>
                 New investigation
-              </Select.Item>
-            ) : null}
-            {threads.map((thread) => (
-              <Select.Item key={thread.id} value={thread.id}>
-                {thread.title}
-              </Select.Item>
-            ))}
-          </Select.Content>
-        </Select.Root>
-      ) : null}
-      {/* The id is minted in the handler, not during render: generating it in
-          render produces a different value on the server and the client (a
-          hydration mismatch) and a new one on every re-render. */}
-      <Button
-        size="1"
-        variant="ghost"
-        color="gray"
-        onClick={() => navigate(`/t/${crypto.randomUUID()}`)}
-      >
-        New investigation
-      </Button>
-      {current ? (
-        <AlertDialog.Root open={confirmOpen} onOpenChange={setConfirmOpen}>
-          <AlertDialog.Trigger>
-            <Button size="1" variant="ghost" color="red" disabled={disabled}>
-              Delete
-            </Button>
-          </AlertDialog.Trigger>
-          <AlertDialog.Content>
-            <fetcher.Form method="post">
-              <Flex direction="column" gap="4">
-                <AlertDialog.Header
-                  title="Delete this investigation?"
-                  description={`"${current.title}" and all of its messages are removed permanently. This cannot be undone.`}
-                  error={fetcher.data?.error}
-                />
-                <AlertDialog.Footer>
-                  <AlertDialog.Cancel>
-                    <Button variant="soft" color="gray" type="button">
-                      Keep it
-                    </Button>
-                  </AlertDialog.Cancel>
-                  <Button
-                    color="red"
-                    type="submit"
-                    name="intent"
-                    value="delete-thread"
-                    disabled={fetcher.state !== "idle"}
-                  >
-                    {fetcher.state !== "idle" ? <Spinner size="1" /> : null}
-                    Delete investigation
-                  </Button>
-                </AlertDialog.Footer>
-                <input type="hidden" name="threadId" value={threadId} />
-              </Flex>
-            </fetcher.Form>
-          </AlertDialog.Content>
-        </AlertDialog.Root>
-      ) : null}
-    </Flex>
+              </Text>
+              <Text size="1" color="gray" className="font-mono">
+                unsaved
+              </Text>
+            </div>
+          ) : null}
+          {threads.map((thread) => {
+            const active = thread.id === threadId;
+            return (
+              <div
+                key={thread.id}
+                className={active ? "thread-row thread-row-active" : "thread-row"}
+              >
+                <Link
+                  to={`/t/${thread.id}`}
+                  className="thread-link"
+                  aria-current={active ? "page" : undefined}
+                  title={thread.title}
+                >
+                  <Text size="1" weight={active ? "medium" : "regular"} truncate>
+                    {thread.title}
+                  </Text>
+                  <Text size="1" color="gray" className="font-mono thread-when">
+                    {relativeTime(thread.updatedAt)}
+                  </Text>
+                </Link>
+                <DeleteThreadDialog thread={thread} disabled={disabled} />
+              </div>
+            );
+          })}
+          {threads.length === 0 ? (
+            <Text size="1" color="gray" className="sidebar-empty">
+              {storeAvailable
+                ? "Your investigations appear here once you ask the first question."
+                : "History is unavailable, so investigations are not being saved."}
+            </Text>
+          ) : null}
+        </div>
+      </Flex>
+    </aside>
   );
 }
 
@@ -508,179 +566,185 @@ export default function Home() {
   }
 
   return (
-    <Flex direction="column" className="console-root">
-      <header className="console-header">
-        <Flex align="center" justify="between" px="5" py="3" gap="4">
-          <Flex align="center" gap="3">
-            <span className="console-glyph" aria-hidden />
-            <Heading as="h1" size="3" className="console-title">
-              Audit Chat
-            </Heading>
-            <Badge color={environmentLabel === "production" ? "purple" : "yellow"} size="1">
-              {environmentLabel}
-            </Badge>
-            {organizations.length > 0 ? (
-              <Select.Root
-                value={organizationId}
-                onValueChange={selectOrganization}
-                disabled={busy}
-              >
-                <Select.Trigger ghost className="console-org" aria-label="Organization" />
-                <Select.Content>
-                  {organizations.map((org) => (
-                    <Select.Item key={org.id} value={org.id}>
-                      {org.name || org.id}
-                    </Select.Item>
-                  ))}
-                </Select.Content>
-              </Select.Root>
-            ) : (
-              <Code size="1" color="gray" variant="ghost" className="console-org">
-                no organizations
+    <Flex className="console-shell">
+      <ThreadSidebar
+        threads={threads}
+        threadId={threadId}
+        disabled={busy}
+        storeAvailable={historyAvailable}
+      />
+      <Flex direction="column" className="console-root">
+        <header className="console-header">
+          <Flex align="center" justify="between" px="5" py="3" gap="4">
+            <Flex align="center" gap="3">
+              <span className="console-glyph" aria-hidden />
+              <Heading as="h1" size="3" className="console-title">
+                Audit Chat
+              </Heading>
+              <Badge color={environmentLabel === "production" ? "purple" : "yellow"} size="1">
+                {environmentLabel}
+              </Badge>
+              {organizations.length > 0 ? (
+                <Select.Root
+                  value={organizationId}
+                  onValueChange={selectOrganization}
+                  disabled={busy}
+                >
+                  <Select.Trigger ghost className="console-org" aria-label="Organization" />
+                  <Select.Content>
+                    {organizations.map((org) => (
+                      <Select.Item key={org.id} value={org.id}>
+                        {org.name || org.id}
+                      </Select.Item>
+                    ))}
+                  </Select.Content>
+                </Select.Root>
+              ) : (
+                <Code size="1" color="gray" variant="ghost" className="console-org">
+                  no organizations
+                </Code>
+              )}
+            </Flex>
+            <Flex align="center" gap="3">
+              <Code size="1" color="gray" variant="ghost">
+                {modelId}
               </Code>
-            )}
-            <Separator orientation="vertical" size="1" />
-            <ThreadSwitcher threads={threads} threadId={threadId} disabled={busy} />
-          </Flex>
-          <Flex align="center" gap="3">
-            <Code size="1" color="gray" variant="ghost">
-              {modelId}
-            </Code>
-            <Button asChild size="1" variant="ghost" color="gray">
-              <Link to="/settings">Settings</Link>
-            </Button>
-            <Text size="1" color="gray">
-              {user.email}
-            </Text>
-            <Form method="post" action="/logout">
-              <Button size="1" variant="ghost" color="gray" type="submit">
-                Sign out
+              <Button asChild size="1" variant="ghost" color="gray">
+                <Link to="/settings">Settings</Link>
               </Button>
-            </Form>
-          </Flex>
-        </Flex>
-      </header>
-
-      <div className="console-scroll" ref={scrollRef}>
-        <Flex direction="column" gap="5" className="console-thread">
-          {!historyAvailable ? (
-            <Callout.Root color="yellow" size="1">
-              <Callout.Text>
-                Conversation history is unavailable right now, so this thread will not be saved and
-                earlier messages cannot be loaded. You can still ask questions — answers just
-                won&apos;t have the earlier context.
-              </Callout.Text>
-            </Callout.Root>
-          ) : null}
-          {messages.length === 0 ? (
-            <Flex direction="column" gap="6" className="console-hero">
-              <Flex direction="column" gap="3">
-                <Text size="1" className="font-mono hero-kicker">
-                  {publicHostname} · every agent action, on the record
-                </Text>
-                <Heading as="h2" size="8" className="hero-title">
-                  Ask the audit trail.
-                </Heading>
-                <Text size="3" color="gray" className="hero-sub">
-                  Every session, prompt, tool call, and shell command from the agent fleet lands in
-                  WorkOS Audit Logs. Ask who did what, when, and to which file — answers cite the
-                  events.
-                </Text>
-              </Flex>
-              <div className="suggestion-grid">
-                {SUGGESTIONS.map((suggestion, index) => (
-                  <button
-                    key={suggestion.label}
-                    type="button"
-                    className="suggestion-card"
-                    style={{ animationDelay: `${120 + index * 70}ms` }}
-                    onClick={() => submit(suggestion.question)}
-                  >
-                    <Text size="1" weight="medium" className="font-mono suggestion-label">
-                      {suggestion.label}
-                    </Text>
-                    <Text size="2">{suggestion.question}</Text>
-                  </button>
-                ))}
-              </div>
-            </Flex>
-          ) : (
-            messages.map((message) => (
-              <Flex
-                key={message.id}
-                direction="column"
-                gap="3"
-                className={message.role === "user" ? "msg msg-user" : "msg msg-assistant"}
-              >
-                {message.role === "user" ? (
-                  <Card size="2" className="user-bubble">
-                    <MessageParts message={message} />
-                  </Card>
-                ) : (
-                  <Flex direction="column" gap="3">
-                    <Text size="1" className="font-mono analyst-label">
-                      ANALYST
-                    </Text>
-                    <MessageParts message={message} />
-                  </Flex>
-                )}
-              </Flex>
-            ))
-          )}
-
-          {status === "submitted" ? (
-            <Flex align="center" gap="2" className="msg">
-              <Spinner size="1" />
-              <Text size="1" color="gray" className="font-mono">
-                opening export…
+              <Text size="1" color="gray">
+                {user.email}
               </Text>
-            </Flex>
-          ) : null}
-
-          {error ? (
-            <Callout.Root color="red" size="1">
-              <Callout.Text>{error.message || "Something went wrong. Try again."}</Callout.Text>
-            </Callout.Root>
-          ) : null}
-        </Flex>
-      </div>
-
-      <footer className="console-footer">
-        <Box className="composer">
-          <form
-            onSubmit={(event) => {
-              event.preventDefault();
-              submit(input);
-            }}
-          >
-            <Flex direction="column" gap="2">
-              <TextArea
-                value={input}
-                onChange={(event) => setInput(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter" && !event.shiftKey) {
-                    event.preventDefault();
-                    submit(input);
-                  }
-                }}
-                placeholder="Who deleted that file? When? Ask the trail…"
-                rows={2}
-                size="3"
-                disabled={busy}
-              />
-              <Flex align="center" justify="between">
-                <Text size="1" color="gray" className="font-mono">
-                  enter to send · shift+enter for a new line
-                </Text>
-                <Button size="2" type="submit" disabled={busy || !input.trim()}>
-                  {busy ? <Spinner size="1" /> : null}
-                  Investigate
+              <Form method="post" action="/logout">
+                <Button size="1" variant="ghost" color="gray" type="submit">
+                  Sign out
                 </Button>
-              </Flex>
+              </Form>
             </Flex>
-          </form>
-        </Box>
-      </footer>
+          </Flex>
+        </header>
+
+        <div className="console-scroll" ref={scrollRef}>
+          <Flex direction="column" gap="5" className="console-thread">
+            {!historyAvailable ? (
+              <Callout.Root color="yellow" size="1">
+                <Callout.Text>
+                  Conversation history is unavailable right now, so this thread will not be saved
+                  and earlier messages cannot be loaded. You can still ask questions — answers just
+                  won&apos;t have the earlier context.
+                </Callout.Text>
+              </Callout.Root>
+            ) : null}
+            {messages.length === 0 ? (
+              <Flex direction="column" gap="6" className="console-hero">
+                <Flex direction="column" gap="3">
+                  <Text size="1" className="font-mono hero-kicker">
+                    {publicHostname} · every agent action, on the record
+                  </Text>
+                  <Heading as="h2" size="8" className="hero-title">
+                    Ask the audit trail.
+                  </Heading>
+                  <Text size="3" color="gray" className="hero-sub">
+                    Every session, prompt, tool call, and shell command from the agent fleet lands
+                    in WorkOS Audit Logs. Ask who did what, when, and to which file — answers cite
+                    the events.
+                  </Text>
+                </Flex>
+                <div className="suggestion-grid">
+                  {SUGGESTIONS.map((suggestion, index) => (
+                    <button
+                      key={suggestion.label}
+                      type="button"
+                      className="suggestion-card"
+                      style={{ animationDelay: `${120 + index * 70}ms` }}
+                      onClick={() => submit(suggestion.question)}
+                    >
+                      <Text size="1" weight="medium" className="font-mono suggestion-label">
+                        {suggestion.label}
+                      </Text>
+                      <Text size="2">{suggestion.question}</Text>
+                    </button>
+                  ))}
+                </div>
+              </Flex>
+            ) : (
+              messages.map((message) => (
+                <Flex
+                  key={message.id}
+                  direction="column"
+                  gap="3"
+                  className={message.role === "user" ? "msg msg-user" : "msg msg-assistant"}
+                >
+                  {message.role === "user" ? (
+                    <Card size="2" className="user-bubble">
+                      <MessageParts message={message} />
+                    </Card>
+                  ) : (
+                    <Flex direction="column" gap="3">
+                      <Text size="1" className="font-mono analyst-label">
+                        ANALYST
+                      </Text>
+                      <MessageParts message={message} />
+                    </Flex>
+                  )}
+                </Flex>
+              ))
+            )}
+
+            {status === "submitted" ? (
+              <Flex align="center" gap="2" className="msg">
+                <Spinner size="1" />
+                <Text size="1" color="gray" className="font-mono">
+                  opening export…
+                </Text>
+              </Flex>
+            ) : null}
+
+            {error ? (
+              <Callout.Root color="red" size="1">
+                <Callout.Text>{error.message || "Something went wrong. Try again."}</Callout.Text>
+              </Callout.Root>
+            ) : null}
+          </Flex>
+        </div>
+
+        <footer className="console-footer">
+          <Box className="composer">
+            <form
+              onSubmit={(event) => {
+                event.preventDefault();
+                submit(input);
+              }}
+            >
+              <Flex direction="column" gap="2">
+                <TextArea
+                  value={input}
+                  onChange={(event) => setInput(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" && !event.shiftKey) {
+                      event.preventDefault();
+                      submit(input);
+                    }
+                  }}
+                  placeholder="Who deleted that file? When? Ask the trail…"
+                  rows={2}
+                  size="3"
+                  disabled={busy}
+                />
+                <Flex align="center" justify="between">
+                  <Text size="1" color="gray" className="font-mono">
+                    enter to send · shift+enter for a new line
+                  </Text>
+                  <Button size="2" type="submit" disabled={busy || !input.trim()}>
+                    {busy ? <Spinner size="1" /> : null}
+                    Investigate
+                  </Button>
+                </Flex>
+              </Flex>
+            </form>
+          </Box>
+        </footer>
+      </Flex>
     </Flex>
   );
 }
