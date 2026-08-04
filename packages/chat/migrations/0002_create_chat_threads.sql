@@ -9,13 +9,19 @@
 -- rows, so a whole-thread blob grows without bound against D1's per-row
 -- ceiling. Per-message rows keep each write small and make appending a plain
 -- upsert with no read-modify-write.
+-- organization_id binds the thread to the tenant whose audit logs it is about.
+-- It is fixed at creation and thereafter authoritative: the model's system
+-- prompt and the replayed transcript must always describe the SAME
+-- organization, or a persisted export from one tenant would be re-injected as
+-- context under another tenant's prompt.
 CREATE TABLE IF NOT EXISTS chat_thread (
-  id         TEXT PRIMARY KEY,
-  user_id    TEXT NOT NULL,
-  user_email TEXT NOT NULL,
-  title      TEXT NOT NULL,
-  created_at TEXT NOT NULL DEFAULT (datetime('now')),
-  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+  id              TEXT PRIMARY KEY,
+  user_id         TEXT NOT NULL,
+  user_email      TEXT NOT NULL,
+  organization_id TEXT NOT NULL,
+  title           TEXT NOT NULL,
+  created_at      TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at      TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
 -- Serves the only thread-list query: one user, newest first.

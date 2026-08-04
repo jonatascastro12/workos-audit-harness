@@ -25,8 +25,18 @@ import type { UIMessage } from "ai";
 /** Newest N threads shown in the switcher. */
 export const THREAD_LIST_LIMIT = 30;
 const MAX_TITLE_LENGTH = 80;
-/** Reject absurd transcripts rather than trying to persist them. */
-const MAX_TRANSCRIPT_MESSAGES = 400;
+/** Cap on messages replayed to the model, and on messages hydrated into the
+ * page — an unbounded transcript read can exceed D1's response ceiling, which
+ * would make a long thread's history permanently unreadable. */
+const MAX_TRANSCRIPT_MESSAGES = 200;
+/**
+ * Sampled audit rows kept inside a persisted tool part. A single assistant turn
+ * can make up to 10 export calls of up to 200 rows each; storing them verbatim
+ * approaches D1's per-row limit, and a write that fails leaves a question with
+ * no answer under it. The QueryCard only ever renders a handful before its
+ * "show all" toggle, so keeping a slice costs the reader nothing.
+ */
+const MAX_PERSISTED_TOOL_ROWS = 20;
 const THREAD_ID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
@@ -63,6 +73,8 @@ export interface ThreadPage {
   messages: UIMessage[];
   /** False for a never-used id — the console shows the suggestions hero. */
   exists: boolean;
+  /** The tenant this thread is about; null until the thread is created. */
+  organizationId: string | null;
   /** False when the tables are missing or D1 failed; the UI says so. */
   storeAvailable: boolean;
 }
@@ -93,19 +105,56 @@ function reviveMessage(row: MessageRow): UIMessage | null {
   if (row.role !== "user" && row.role !== "assistant") return null;
 
   const parts = parsed.map((part) => {
-    const candidate = part as { type?: unknown; state?: unknown };
+    const candidate = part as { type?: unknown; state?: unknown; input?: unknown };
     if (
       typeof candidate.type === "string" &&
       candidate.type.startsWith("tool-") &&
       candidate.state !== "output-available" &&
       candidate.state !== "output-error"
     ) {
-      return { ...candidate, state: "output-error", errorText: INTERRUPTED_TOOL_ERROR };
+      // `input` must survive as an object: this part is replayed to the model
+      // as a tool_use block, and providers reject one with a missing input.
+      return {
+        ...candidate,
+        input: candidate.input ?? {},
+        state: "output-error",
+        errorText: INTERRUPTED_TOOL_ERROR,
+      };
     }
     return part;
   });
 
   return { id: row.id, role: row.role, parts } as UIMessage;
+}
+
+/**
+ * Shrink a message for storage: tool outputs keep their shape and counts but
+ * only a slice of their sampled rows, so one broad export cannot push the row
+ * past D1's size limit and silently lose the whole answer.
+ */
+function compactParts(message: UIMessage): unknown[] {
+  return (message.parts ?? []).map((part) => {
+    const candidate = part as {
+      type?: unknown;
+      output?: { rows?: unknown[] } & Record<string, unknown>;
+    };
+    if (
+      typeof candidate.type !== "string" ||
+      !candidate.type.startsWith("tool-") ||
+      !candidate.output ||
+      !Array.isArray(candidate.output.rows) ||
+      candidate.output.rows.length <= MAX_PERSISTED_TOOL_ROWS
+    ) {
+      return part;
+    }
+    return {
+      ...candidate,
+      output: {
+        ...candidate.output,
+        rows: candidate.output.rows.slice(0, MAX_PERSISTED_TOOL_ROWS),
+      },
+    };
+  });
 }
 
 /**
@@ -117,7 +166,13 @@ export async function loadThreadPage(
   userId: string,
   threadId: string,
 ): Promise<ThreadPage> {
-  const empty: ThreadPage = { threads: [], messages: [], exists: false, storeAvailable: true };
+  const empty: ThreadPage = {
+    threads: [],
+    messages: [],
+    exists: false,
+    organizationId: null,
+    storeAvailable: true,
+  };
   if (!isValidThreadId(threadId)) return empty;
 
   try {
@@ -129,26 +184,32 @@ export async function loadThreadPage(
         )
         .bind(userId, THREAD_LIST_LIMIT),
       db
-        .prepare("SELECT id FROM chat_thread WHERE id = ?1 AND user_id = ?2")
+        .prepare(
+          "SELECT organization_id AS organizationId FROM chat_thread WHERE id = ?1 AND user_id = ?2",
+        )
         .bind(threadId, userId),
       // Ownership enforced in SQL, not by the caller: no join match, no rows.
+      // LIMIT bounds the page: an unbounded read of a long thread can exceed
+      // D1's response ceiling, which would make its history unreadable for good.
       db
         .prepare(
           "SELECT m.id, m.role, m.parts FROM chat_message m " +
             "JOIN chat_thread t ON t.id = m.thread_id " +
-            "WHERE m.thread_id = ?1 AND t.user_id = ?2 ORDER BY m.seq, m.rowid",
+            "WHERE m.thread_id = ?1 AND t.user_id = ?2 ORDER BY m.seq, m.rowid LIMIT ?3",
         )
-        .bind(threadId, userId),
+        .bind(threadId, userId, MAX_TRANSCRIPT_MESSAGES),
     ]);
 
     const messages = ((messageRows.results ?? []) as unknown as MessageRow[])
       .map(reviveMessage)
       .filter((message): message is UIMessage => message !== null);
 
+    const own = (ownRow.results ?? [])[0] as { organizationId?: string } | undefined;
     return {
       threads: (threadList.results ?? []) as unknown as ThreadSummary[],
       messages,
-      exists: (ownRow.results ?? []).length > 0,
+      exists: own !== undefined,
+      organizationId: own?.organizationId ?? null,
       storeAvailable: true,
     };
   } catch (error) {
@@ -199,7 +260,14 @@ export async function loadTranscript(
   }
 }
 
-export type ClaimResult = "claimed" | "forbidden" | "unavailable";
+export interface ClaimOutcome {
+  status: "claimed" | "forbidden" | "unavailable";
+  /**
+   * The organization the thread is really about — the stored value for an
+   * existing thread, which is authoritative over whatever the client posted.
+   */
+  organizationId: string | null;
+}
 
 /**
  * Create the thread if it does not exist, or touch it if this user owns it —
@@ -213,22 +281,31 @@ export async function claimThread(
   userId: string,
   userEmail: string,
   threadId: string,
+  organizationId: string,
   title: string,
-): Promise<ClaimResult> {
-  if (!isValidThreadId(threadId)) return "forbidden";
+): Promise<ClaimOutcome> {
+  if (!isValidThreadId(threadId)) return { status: "forbidden", organizationId: null };
   try {
     const result = await db
       .prepare(
-        "INSERT INTO chat_thread (id, user_id, user_email, title) VALUES (?1, ?2, ?3, ?4) " +
+        "INSERT INTO chat_thread (id, user_id, user_email, organization_id, title) " +
+          "VALUES (?1, ?2, ?3, ?4, ?5) " +
           "ON CONFLICT(id) DO UPDATE SET updated_at = datetime('now') " +
-          "WHERE chat_thread.user_id = excluded.user_id",
+          "WHERE chat_thread.user_id = excluded.user_id " +
+          // organization_id is intentionally NOT updated: it is fixed at
+          // creation so the replayed transcript and the system prompt can never
+          // describe different tenants.
+          "RETURNING organization_id AS organizationId",
       )
-      .bind(threadId, userId, userEmail, title)
-      .run();
-    return (result.meta.changes ?? 0) > 0 ? "claimed" : "forbidden";
+      .bind(threadId, userId, userEmail, organizationId, title)
+      .first<{ organizationId: string }>();
+    // RETURNING yields no row when the ON CONFLICT guard rejected the update,
+    // i.e. the id belongs to someone else.
+    if (!result) return { status: "forbidden", organizationId: null };
+    return { status: "claimed", organizationId: result.organizationId };
   } catch (error) {
     console.error("chat thread claim failed", String(error));
-    return "unavailable";
+    return { status: "unavailable", organizationId: null };
   }
 }
 
@@ -252,9 +329,14 @@ export async function saveMessage(
           "SELECT ?1, ?2, " +
           "COALESCE((SELECT MAX(seq) + 1 FROM chat_message WHERE thread_id = ?1), 0), ?3, ?4 " +
           "WHERE EXISTS (SELECT 1 FROM chat_thread WHERE id = ?1 AND user_id = ?5) " +
-          "ON CONFLICT(thread_id, id) DO UPDATE SET parts = excluded.parts",
+          // Role-fenced: message ids come from the client, so without this a
+          // user could aim a "user" message at one of their own persisted
+          // assistant turns and rewrite it. Retries and regenerates (same role)
+          // still overwrite in place, which is the intended idempotency.
+          "ON CONFLICT(thread_id, id) DO UPDATE SET parts = excluded.parts " +
+          "WHERE chat_message.role = excluded.role",
       )
-      .bind(threadId, message.id, message.role, JSON.stringify(message.parts ?? []), userId)
+      .bind(threadId, message.id, message.role, JSON.stringify(compactParts(message)), userId)
       .run();
     await db
       .prepare("UPDATE chat_thread SET updated_at = datetime('now') WHERE id = ?1 AND user_id = ?2")

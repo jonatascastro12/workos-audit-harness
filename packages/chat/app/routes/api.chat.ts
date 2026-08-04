@@ -126,36 +126,53 @@ export async function action(args: ActionFunctionArgs) {
     });
   }
 
-  // Rebuild prior turns from the database — the client only sent the newest
-  // message. If the store is unavailable this comes back empty and the model
-  // answers the question without history: degraded, never broken.
-  const priorMessages = isValidThreadId(threadId)
-    ? await loadTranscript(env.DB, auth.user.id, threadId)
-    : [];
-  const messages: UIMessage[] = [...priorMessages, incoming];
-
-  // Persist the question before the model runs, so a tab closed mid-answer
-  // still keeps what was asked. claimThread creates-or-verifies in one atomic
-  // statement; "forbidden" means the id belongs to another user.
+  // Claim the thread first: it tells us both whether we may persist here and
+  // which organization the thread is really about.
+  //
+  // A "forbidden" claim (the id belongs to another user — e.g. someone opened a
+  // shared link) does NOT refuse the answer. Nothing of theirs is readable:
+  // loadTranscript's ownership join returns nothing, so the model only ever
+  // sees this user's own question. Refusing would let the persistence layer
+  // break chatting, which is exactly what this feature must not do; instead we
+  // answer without saving.
   let persistTo: string | null = null;
+  let threadOrganizationId: string | null = null;
   if (isValidThreadId(threadId)) {
     const claim = await claimThread(
       env.DB,
       auth.user.id,
       auth.user.email ?? auth.user.id,
       threadId,
-      threadTitle(priorMessages[0] ?? incoming),
+      organizationId,
+      threadTitle(incoming),
     );
-    if (claim === "forbidden") return new Response("Forbidden", { status: 403 });
-    if (claim === "claimed") {
+    if (claim.status === "claimed") {
       persistTo = threadId;
-      await saveMessage(env.DB, auth.user.id, threadId, incoming);
+      threadOrganizationId = claim.organizationId;
     }
+  }
+
+  // The thread's stored organization wins over the posted one: the transcript
+  // we are about to replay is about that tenant, and the system prompt must
+  // describe the same one or we would mix tenants' audit data in one context.
+  const effectiveOrganizationId = threadOrganizationId ?? organizationId;
+
+  // Rebuild prior turns from the database — the client only sent the newest
+  // message, so it cannot fabricate earlier turns or tool outputs. If the store
+  // is unavailable this comes back empty and the model answers the question
+  // without history: degraded, never broken.
+  const priorMessages = persistTo ? await loadTranscript(env.DB, auth.user.id, persistTo) : [];
+  const messages: UIMessage[] = [...priorMessages, incoming];
+
+  // Persist the question before the model runs, so a tab closed mid-answer
+  // still keeps what was asked.
+  if (persistTo) {
+    await saveMessage(env.DB, auth.user.id, persistTo, incoming);
   }
 
   const result = streamText({
     model: resolveModel(env, tenant),
-    system: systemPrompt(tenant, organizationId, auth.user.email),
+    system: systemPrompt(tenant, effectiveOrganizationId, auth.user.email),
     messages: await convertToModelMessages(messages),
     stopWhen: stepCountIs(10),
     tools: {
@@ -191,7 +208,7 @@ export async function action(args: ActionFunctionArgs) {
             .optional(),
         }),
         execute: async (input) =>
-          queryAuditLogs(tenant.apiKey, organizationId, {
+          queryAuditLogs(tenant.apiKey, effectiveOrganizationId, {
             rangeStart: input.range_start,
             rangeEnd: input.range_end,
             actions: input.actions,
@@ -214,18 +231,26 @@ export async function action(args: ActionFunctionArgs) {
     },
   });
 
-  // Keep the model run alive even if the browser goes away mid-stream, so the
-  // assistant turn still completes and gets persisted.
-  ctx.waitUntil(result.consumeStream());
-
   return result.toUIMessageStreamResponse({
     onError: (error) => (error instanceof Error ? error.message : String(error)),
-    // Passing originalMessages puts the stream in persistence mode: the
-    // response message gets a stable id, so re-running a turn overwrites its
-    // own row instead of appending a duplicate.
+    // originalMessages alone is NOT enough to get a persistable id: the SDK
+    // only computes a response id when generateMessageId is supplied
+    // (ai/dist/index.mjs — responseMessageId stays undefined otherwise), which
+    // would make every assistant turn collide on the same empty id and
+    // overwrite the previous answer. Supplying both puts the stream in real
+    // persistence mode and gives the client the same id we store.
     originalMessages: messages,
-    // Fires on normal completion AND on cancel (verified in the installed
-    // ai@6 sources), so an interrupted answer is still saved.
+    generateMessageId: () => crypto.randomUUID(),
+    // Drain the SSE branch server-side so the model run continues even if the
+    // browser disconnects. Doing this here rather than with a separate
+    // consumeStream() reader matters: the standalone reader races the response
+    // branch, so onFinish would fire on disconnect with only the partial answer
+    // and the completed run would never be persisted.
+    consumeSseStream: ({ stream }) => {
+      ctx.waitUntil(stream.pipeTo(new WritableStream()));
+    },
+    // Fires on normal completion AND on cancel, so an interrupted answer is
+    // still saved rather than lost.
     onFinish: ({ responseMessage }) => {
       if (!persistTo) return;
       ctx.waitUntil(saveMessage(env.DB, auth.user.id, persistTo, responseMessage));

@@ -6,7 +6,15 @@ import remarkGfm from "remark-gfm";
 import { authkitLoader, withAuth } from "@workos-inc/authkit-react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
-import { Form, Link, redirect, useFetcher, useLoaderData, useNavigate } from "react-router";
+import {
+  Form,
+  Link,
+  redirect,
+  useFetcher,
+  useLoaderData,
+  useNavigate,
+  useRevalidator,
+} from "react-router";
 import * as AlertDialog from "../vendor/design-system/components/alert-dialog";
 import { Separator } from "../vendor/design-system/components/separator";
 import { Badge } from "../vendor/design-system/components/badge";
@@ -67,6 +75,7 @@ export async function loader(args: LoaderFunctionArgs) {
         threads: page.threads,
         initialMessages: page.messages,
         historyAvailable: page.storeAvailable,
+        threadOrganizationId: page.organizationId,
       };
     },
     { ensureSignedIn: true },
@@ -349,15 +358,16 @@ function ThreadSwitcher({
           </Select.Content>
         </Select.Root>
       ) : null}
+      {/* The id is minted in the handler, not during render: generating it in
+          render produces a different value on the server and the client (a
+          hydration mismatch) and a new one on every re-render. */}
       <Button
-        asChild
         size="1"
         variant="ghost"
         color="gray"
-        title="Start a new investigation"
-        aria-label="New investigation"
+        onClick={() => navigate(`/t/${crypto.randomUUID()}`)}
       >
-        <Link to={`/t/${crypto.randomUUID()}`}>New</Link>
+        New investigation
       </Button>
       {current ? (
         <AlertDialog.Root open={confirmOpen} onOpenChange={setConfirmOpen}>
@@ -413,7 +423,9 @@ export default function Home() {
     threads,
     initialMessages,
     historyAvailable,
+    threadOrganizationId,
   } = useLoaderData<typeof loader>();
+  const navigate = useNavigate();
   const [input, setInput] = useState("");
   const [organizationId, setOrganizationId] = useState(defaultOrganizationId ?? "");
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -443,23 +455,44 @@ export default function Home() {
 
   // `id` is the re-key trigger: navigating to another thread constructs a fresh
   // Chat seeded with that thread's messages, so transcripts never bleed.
+  // Refresh loader data when a turn completes: the first message of a thread
+  // creates it, so this is what makes it appear in the switcher (and, if the
+  // thread turned out to belong to someone else, what honestly shows it was
+  // never saved) without the page needing a manual reload.
+  const revalidator = useRevalidator();
   const { messages, sendMessage, status, error } = useChat({
     id: threadId,
     messages: initialMessages as UIMessage[],
     transport,
+    onFinish: () => {
+      void revalidator.revalidate();
+    },
   });
 
   const busy = status === "submitted" || status === "streaming";
 
-  // Restore the last-used org after mount (avoids an SSR/client hydration mismatch).
+  // An existing thread is ABOUT one organization — the server pins it at
+  // creation and ignores any other value — so the picker must show that one.
+  // Only a brand-new thread falls back to the last-used org from localStorage
+  // (restored after mount to avoid an SSR/client hydration mismatch).
   useEffect(() => {
+    if (threadOrganizationId) {
+      setOrganizationId(threadOrganizationId);
+      return;
+    }
     const stored = window.localStorage.getItem(ORG_STORAGE_KEY);
     if (stored && organizations.some((org) => org.id === stored)) setOrganizationId(stored);
-  }, [organizations]);
+  }, [organizations, threadOrganizationId]);
 
   function selectOrganization(id: string) {
     setOrganizationId(id);
     window.localStorage.setItem(ORG_STORAGE_KEY, id);
+    // Switching tenants starts a fresh thread rather than continuing this one:
+    // an existing thread's organization is fixed, so reusing it would leave the
+    // picker disagreeing with the answers.
+    if (threadOrganizationId && id !== threadOrganizationId) {
+      navigate(`/t/${crypto.randomUUID()}`);
+    }
   }
 
   useEffect(() => {
