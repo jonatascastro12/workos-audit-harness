@@ -87,26 +87,53 @@ jobs:
       - name: Sync Doppler secrets to Cloudflare
         if: github.ref == 'refs/heads/main'
         run: |
+          set -euo pipefail
           curl -sLf https://cli.doppler.com/install.sh | sudo sh
           # Derive the deployed script name from wrangler.toml — rename-app prefixes
           # the Cloudflare name (cd26-<app>), so never hardcode the placeholder here.
           SCRIPT=$(sed -n 's/^name *= *"\(.*\)".*/\1/p' wrangler.toml | head -1)
+
           # One compact JSON body per secret: jq escapes newlines, so multi-line
           # values (PEM keys, etc.) survive. A shell `read` on tab/newline would
           # split a multi-line value into bogus extra "secrets".
-          doppler secrets --json | jq -c 'to_entries[] | {name: .key, text: .value.computed, type: "secret_text"}' | while IFS= read -r body; do
-            printf '%s' "$body" | curl -sf -X PUT \
-              "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/workers/dispatch/namespaces/workos-tools-apps/scripts/${SCRIPT}/secrets" \
-              -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
-              -H "Content-Type: application/json" \
-              --data @- > /dev/null
-          done
+          #
+          # Written to a file and looped WITHOUT a pipe: a `while` on the right of
+          # a pipe runs in a subshell, so a failure flag set inside it would never
+          # reach the check below.
+          doppler secrets --json | jq -c 'to_entries[] | {name: .key, text: .value.computed, type: "secret_text"}' > /tmp/secrets.ndjson
+
+          # Retry each PUT: with ~120 secrets this loop is brisk enough to draw a
+          # transient 429/5xx, and one blip used to fail the whole deploy after
+          # the app had already shipped. Real failures still fail the step.
+          failed=0
+          while IFS= read -r body; do
+            name=$(printf '%s' "$body" | jq -r '.name')
+            code=000
+            for attempt in 1 2 3; do
+              code=$(printf '%s' "$body" | curl -s -o /dev/null -w '%{http_code}' -X PUT \
+                "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/workers/dispatch/namespaces/workos-tools-apps/scripts/${SCRIPT}/secrets" \
+                -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
+                -H "Content-Type: application/json" \
+                --data @-) || code=000
+              [ "$code" = "200" ] && break
+              echo "secret $name attempt $attempt got HTTP $code; retrying"
+              sleep $((attempt * 3))
+            done
+            if [ "$code" != "200" ]; then
+              echo "::error::could not set secret $name (HTTP $code)"
+              failed=1
+            fi
+          done < /tmp/secrets.ndjson
+          rm -f /tmp/secrets.ndjson
+
           # wrangler enforces Cloudflare's 100-secrets-per-request limit on
           # `secret bulk`, and the shared Doppler config has outgrown it —
-          # upload in chunks of 90.
+          # upload the companion workflow worker in chunks of 90.
           doppler secrets --json | jq -c 'with_entries(.value = .value.computed) | to_entries | _nwise(90) | from_entries' | while IFS= read -r chunk; do
             printf '%s' "$chunk" | npx wrangler secret bulk --config wrangler.worker.toml
           done
+
+          [ "$failed" = "0" ] || exit 1
         env:
           DOPPLER_TOKEN: ${{ secrets.DOPPLER_TOKEN }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
