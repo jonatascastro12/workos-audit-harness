@@ -7,7 +7,8 @@ import { WorkOS } from "@workos-inc/node";
 import type { AgentMessage, ImageContent } from "@mariozechner/pi-ai";
 import type { ExtensionAPI, ExtensionContext } from "@mariozechner/pi-coding-agent";
 import { Type } from "typebox";
-import { emitEvent as auditCoreEmitEvent } from "@workos-inc/audit-core/emit-event";
+import { emitEvent as auditCoreEmitEvent, emitEvents } from "@workos-inc/audit-core/emit-event";
+import { createEventBatcher } from "@workos-inc/audit-core/event-batcher";
 import { queryAuditLogs as auditCoreQuery } from "@workos-inc/audit-core/audit-query";
 import { ensureOrganization as auditCoreEnsureOrg } from "@workos-inc/audit-core/workos-client";
 import { createSchema as auditCoreCreateSchema } from "@workos-inc/audit-core/schema";
@@ -769,6 +770,21 @@ export default function workosAuditLogsExtension(pi: ExtensionAPI): void {
     if (ctx?.hasUI) ctx.ui.setStatus(EXTENSION_STATUS_KEY, summarizeConfig(config));
   }
 
+  // Coalesce lifecycle events into batched requests. A turn emits input,
+  // agent start, one pair per tool call, message end and agent end — each of
+  // which used to cost its own process and mTLS handshake (~600ms). Batching a
+  // burst takes that to a single request. `send` reads the config at send time
+  // rather than closing over it, because refreshStatus() can replace it.
+  const batcher = createEventBatcher({
+    send: (events) => emitEvents(events, auditCoreConfig(config)),
+    onError: (detail) => {
+      if (!warned) {
+        warned = true;
+        console.warn("[workos-audit-logs]", detail);
+      }
+    },
+  });
+
   function enqueue(task: () => Promise<void>): Promise<void> {
     queue = queue
       .catch(() => undefined)
@@ -809,7 +825,9 @@ export default function workosAuditLogsExtension(pi: ExtensionAPI): void {
       metadata,
     };
 
-    await runAuditHarness(config, "emit-event", event);
+    // Buffered, not sent: returns immediately so no lifecycle hook waits on the
+    // network. session_shutdown flushes, so an ordinary exit loses nothing.
+    batcher.add(event);
   }
 
   pi.registerCommand("workos-audit-status", {
@@ -1255,6 +1273,9 @@ export default function workosAuditLogsExtension(pi: ExtensionAPI): void {
         [getSessionTarget(ctx)],
       ),
     );
+    // Buffered events are in memory, so this is the one point where waiting
+    // matters: without it a normal exit would drop the whole tail of the session.
+    await batcher.flush();
   });
 
   pi.on("input", async (event, ctx) => {

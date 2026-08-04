@@ -12,6 +12,26 @@ import type { Env } from "./types";
 
 const DEFAULT_WORKOS_AUDIT_LOGS_URL = "https://api.workos.com/audit_logs/events";
 
+// Caps how many upstream subrequests one ingest can trigger, keeping it far
+// below the Worker per-request subrequest budget. Events are forwarded in order
+// (see the loop below), so this also bounds how long a single batch can take. A
+// client that needs more sends more requests.
+const MAX_BATCH_EVENTS = 25;
+
+// Accept three shapes so batching could ship without a flag day: a bare event
+// object (every already-deployed plugin sends this), {events: [...]}, and a bare
+// array. Returns null when the body is none of them.
+function extractRawEvents(body: unknown): unknown[] | null {
+  if (Array.isArray(body)) return body;
+  if (typeof body !== "object" || body === null) return null;
+  const envelope = (body as { events?: unknown }).events;
+  if (Array.isArray(envelope)) return envelope;
+  // A single event: recognised by having an action, so an {events: "oops"} typo
+  // is rejected rather than silently forwarded as one bogus event.
+  if (typeof (body as { action?: unknown }).action === "string") return [body];
+  return null;
+}
+
 // Shape the inbound event into the WorkOS REST event, overwriting any
 // client-supplied identity. Returns null if the payload isn't a usable event.
 function toRestEvent(
@@ -117,13 +137,36 @@ export async function handleEvents(request: Request, env: Env): Promise<Response
     return new Response("invalid JSON body", { status: 400 });
   }
 
-  const event = toRestEvent(body, actor, {
+  const raw = extractRawEvents(body);
+  if (!raw) {
+    return new Response("invalid audit event payload", { status: 422 });
+  }
+  if (raw.length === 0) {
+    return new Response("no events in batch", { status: 422 });
+  }
+  if (raw.length > MAX_BATCH_EVENTS) {
+    return new Response(`batch too large (max ${MAX_BATCH_EVENTS} events)`, { status: 413 });
+  }
+
+  const context = {
     // Authoritative source — the real connecting IP, not a client claim.
     location: request.headers.get("CF-Connecting-IP") ?? "0.0.0.0",
     user_agent: request.headers.get("User-Agent") ?? undefined,
+  };
+
+  // Validate every event before forwarding any. A malformed event is a client
+  // bug, not a transient condition, so it is reported per-index and skipped —
+  // never allowed to discard the valid events alongside it.
+  const events: { index: number; event: Record<string, unknown> & { action: string } }[] = [];
+  const rejected: { index: number; reason: string }[] = [];
+  raw.forEach((candidate, index) => {
+    const event = toRestEvent(candidate, actor, context);
+    if (event) events.push({ index, event });
+    else rejected.push({ index, reason: "invalid audit event payload" });
   });
-  if (!event) {
-    return new Response("invalid audit event payload", { status: 422 });
+
+  if (events.length === 0) {
+    return Response.json({ accepted: 0, rejected }, { status: 422 });
   }
 
   // 5. Resolve the WorkOS organization: the runtime setting overrides the env
@@ -135,38 +178,67 @@ export async function handleEvents(request: Request, env: Env): Promise<Response
   }
 
   // 6. Forward to WorkOS with the real key + server-set organization_id.
-  let upstream: Response;
-  try {
-    upstream = await fetch(env.WORKOS_AUDIT_LOGS_URL ?? DEFAULT_WORKOS_AUDIT_LOGS_URL, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${env.WORKOS_API_KEY}`,
-        "Content-Type": "application/json",
-        "Idempotency-Key": crypto.randomUUID(),
-      },
-      body: JSON.stringify({ organization_id: organizationId, event }),
-    });
-  } catch (err) {
-    console.error("audit forward failed", { serial, action: event.action, error: String(err) });
-    return new Response("upstream request failed", { status: 502 });
+  //    WorkOS takes one event per request, so a batch fans out here — which is
+  //    the point: the expensive hop is the client's mTLS handshake, not these
+  //    warm in-datacenter calls. Concurrency is bounded so a batch cannot spike
+  //    the upstream rate limit or blow the Worker's subrequest budget.
+  const url = env.WORKOS_AUDIT_LOGS_URL ?? DEFAULT_WORKOS_AUDIT_LOGS_URL;
+  const forward = async ({ index, event }: (typeof events)[number]) => {
+    try {
+      const upstream = await fetch(url, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${env.WORKOS_API_KEY}`,
+          "Content-Type": "application/json",
+          "Idempotency-Key": crypto.randomUUID(),
+        },
+        body: JSON.stringify({ organization_id: organizationId, event }),
+      });
+      if (!upstream.ok) {
+        const detail = await upstream.text().catch(() => "");
+        console.error("workos rejected event", {
+          action: event.action,
+          status: upstream.status,
+          detail: detail.slice(0, 500),
+        });
+        return { index, ok: false, reason: `upstream ${upstream.status}` };
+      }
+      return { index, ok: true, reason: "" };
+    } catch (err) {
+      console.error("audit forward failed", { serial, action: event.action, error: String(err) });
+      return { index, ok: false, reason: "upstream request failed" };
+    }
+  };
+
+  // Sequential, deliberately. `occurred_at` is only millisecond-precision, so
+  // two events emitted in the same millisecond cannot be re-ordered afterwards
+  // by timestamp — arrival order is all that separates them. Forwarding a batch
+  // concurrently made that order nondeterministic and could land tool.completed
+  // ahead of its own tool.called; one-event-per-request never could. The client
+  // no longer waits on this (it batches precisely so it can fire and forget), so
+  // the cost is warm in-datacenter calls rather than anything a user feels.
+  const results: { index: number; ok: boolean; reason: string }[] = [];
+  for (const item of events) {
+    results.push(await forward(item));
   }
+
+  const accepted = results.filter((r) => r.ok).length;
+  for (const r of results) if (!r.ok) rejected.push({ index: r.index, reason: r.reason });
 
   // 7. Log the ingest (serial + resolved actor) — the audit trail of the audit trail.
   console.log("audit ingest", {
     serial,
     user: actor.id,
-    action: event.action,
-    upstreamStatus: upstream.status,
+    actions: events.map((e) => e.event.action),
+    accepted,
+    rejected: rejected.length,
   });
 
-  if (!upstream.ok) {
-    const detail = await upstream.text().catch(() => "");
-    console.error("workos rejected event", {
-      status: upstream.status,
-      detail: detail.slice(0, 500),
-    });
-    return new Response("upstream error", { status: 502 });
+  // Every forward failed: treat as a systemic upstream problem so the client
+  // reports a failure rather than assuming the batch landed.
+  if (accepted === 0) {
+    return Response.json({ accepted, rejected }, { status: 502 });
   }
 
-  return new Response("ok", { status: 202 });
+  return Response.json({ accepted, rejected }, { status: 202 });
 }

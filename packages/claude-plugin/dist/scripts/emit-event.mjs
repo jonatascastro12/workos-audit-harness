@@ -8738,18 +8738,7 @@ function toRestEvent(event) {
     ...normalizedContext ? { context: normalizedContext } : {}
   };
 }
-async function emitViaProxy(event, config) {
-  const label = getDeviceCertLabel();
-  if (!label) {
-    return { ok: false, transport: "proxy", skipped: true, reason: "no-device-certificate" };
-  }
-  const payload = toRestEvent(event);
-  delete payload.actor;
-  const fail = (detail, status2) => {
-    process.stderr.write(`workos-audit: proxy emit failed (${detail})
-`);
-    return { ok: false, transport: "proxy", error: detail, ...status2 ? { status: status2 } : {}, action: event.action };
-  };
+async function postToProxy(requestBody, label, config) {
   const { code, stdout, stderr } = await runCurl([
     "-sS",
     "--fail-with-body",
@@ -8769,16 +8758,40 @@ async function emitViaProxy(event, config) {
     "--data-binary",
     "@-",
     config.proxyUrl
-  ], JSON.stringify(payload));
+  ], JSON.stringify(requestBody));
   const { status, body } = splitCurlOutput(stdout);
   if (code !== 0) {
     const reason = stderr.trim() || `curl exited with code ${code === null ? "unknown" : code}`;
-    return fail(body ? `${reason} :: ${body}` : reason, status);
+    return { error: body ? `${reason} :: ${body}` : reason, status };
   }
   if (status === null)
-    return fail("could not read proxy response status");
+    return { error: "could not read proxy response status", status: null };
   if (status < 200 || status > 299) {
-    return fail(body ? `proxy returned HTTP ${status} :: ${body}` : `proxy returned HTTP ${status}`, status);
+    return {
+      error: body ? `proxy returned HTTP ${status} :: ${body}` : `proxy returned HTTP ${status}`,
+      status
+    };
+  }
+  return { status, body };
+}
+function warn(detail) {
+  process.stderr.write(`workos-audit: proxy emit failed (${detail})
+`);
+}
+function proxyPayload(event) {
+  const payload = toRestEvent(event);
+  delete payload.actor;
+  return payload;
+}
+async function emitViaProxy(event, config) {
+  const label = getDeviceCertLabel();
+  if (!label) {
+    return { ok: false, transport: "proxy", skipped: true, reason: "no-device-certificate" };
+  }
+  const { error, status } = await postToProxy(proxyPayload(event), label, config);
+  if (error) {
+    warn(error);
+    return { ok: false, transport: "proxy", error, ...status ? { status } : {}, action: event.action };
   }
   return { ok: true, transport: "proxy", status, action: event.action };
 }

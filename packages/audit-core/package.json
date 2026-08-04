@@ -22,6 +22,7 @@
     "./harness-path": "./src/harness-path.mjs",
     "./audit-query": "./src/audit-query.mjs",
     "./emit-event": "./src/cli/emit-event.mjs",
+    "./event-batcher": "./src/event-batcher.mjs",
     "./schema": "./src/cli/schema.mjs",
     "./harness-schemas": "./src/harness-audit-schemas.mjs",
     "./workos-client": "./src/workos-client.mjs"
