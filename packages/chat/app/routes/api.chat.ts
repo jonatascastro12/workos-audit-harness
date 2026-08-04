@@ -14,6 +14,13 @@ import {
   MAX_MAX_ROWS,
   queryAuditLogs,
 } from "../lib/audit-logs.server";
+import {
+  claimThread,
+  isValidThreadId,
+  loadTranscript,
+  saveMessage,
+  threadTitle,
+} from "../lib/chat-threads.server";
 import type { AuditChatEnv, TenantConfig } from "../lib/config.server";
 import {
   cloudflareContext,
@@ -72,7 +79,7 @@ function systemPrompt(tenant: TenantConfig, organizationId: string, userEmail: s
 }
 
 export async function action(args: ActionFunctionArgs) {
-  const { env } = args.context.get(cloudflareContext);
+  const { env, ctx } = args.context.get(cloudflareContext);
   configureAuthKit(env);
   const tenant = getTenantConfig(env);
 
@@ -80,10 +87,34 @@ export async function action(args: ActionFunctionArgs) {
   if (!auth.user) return new Response("Unauthorized", { status: 401 });
   if (!emailAllowed(auth.user.email, tenant)) return new Response("Forbidden", { status: 403 });
 
-  const { messages, organizationId: requestedOrg } = (await args.request.json()) as {
-    messages: UIMessage[];
+  // This endpoint writes to the database now, so it gets the same
+  // belt-and-braces same-origin check the settings action uses.
+  const origin = args.request.headers.get("Origin");
+  if (origin) {
+    let originHost: string | null = null;
+    try {
+      originHost = new URL(origin).host;
+    } catch {
+      // Malformed Origin — treat as cross-origin.
+    }
+    if (originHost !== new URL(args.request.url).host) {
+      return new Response("Forbidden", { status: 403 });
+    }
+  }
+
+  const {
+    message: incoming,
+    threadId,
+    organizationId: requestedOrg,
+  } = (await args.request.json()) as {
+    message?: UIMessage;
+    threadId?: string;
     organizationId?: string;
   };
+
+  if (!incoming || incoming.role !== "user") {
+    return new Response("Expected a user message", { status: 400 });
+  }
 
   // The org comes from the user's selection; fall back to the configured default.
   // Validate against the live org list so a stale/forged id can't reach the export API.
@@ -93,6 +124,33 @@ export async function action(args: ActionFunctionArgs) {
     return new Response(`Unknown organization: ${organizationId ?? "(none selected)"}`, {
       status: 400,
     });
+  }
+
+  // Rebuild prior turns from the database — the client only sent the newest
+  // message. If the store is unavailable this comes back empty and the model
+  // answers the question without history: degraded, never broken.
+  const priorMessages = isValidThreadId(threadId)
+    ? await loadTranscript(env.DB, auth.user.id, threadId)
+    : [];
+  const messages: UIMessage[] = [...priorMessages, incoming];
+
+  // Persist the question before the model runs, so a tab closed mid-answer
+  // still keeps what was asked. claimThread creates-or-verifies in one atomic
+  // statement; "forbidden" means the id belongs to another user.
+  let persistTo: string | null = null;
+  if (isValidThreadId(threadId)) {
+    const claim = await claimThread(
+      env.DB,
+      auth.user.id,
+      auth.user.email ?? auth.user.id,
+      threadId,
+      threadTitle(priorMessages[0] ?? incoming),
+    );
+    if (claim === "forbidden") return new Response("Forbidden", { status: 403 });
+    if (claim === "claimed") {
+      persistTo = threadId;
+      await saveMessage(env.DB, auth.user.id, threadId, incoming);
+    }
   }
 
   const result = streamText({
@@ -156,7 +214,21 @@ export async function action(args: ActionFunctionArgs) {
     },
   });
 
+  // Keep the model run alive even if the browser goes away mid-stream, so the
+  // assistant turn still completes and gets persisted.
+  ctx.waitUntil(result.consumeStream());
+
   return result.toUIMessageStreamResponse({
     onError: (error) => (error instanceof Error ? error.message : String(error)),
+    // Passing originalMessages puts the stream in persistence mode: the
+    // response message gets a stable id, so re-running a turn overwrites its
+    // own row instead of appending a duplicate.
+    originalMessages: messages,
+    // Fires on normal completion AND on cancel (verified in the installed
+    // ai@6 sources), so an interrupted answer is still saved.
+    onFinish: ({ responseMessage }) => {
+      if (!persistTo) return;
+      ctx.waitUntil(saveMessage(env.DB, auth.user.id, persistTo, responseMessage));
+    },
   });
 }

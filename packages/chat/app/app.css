@@ -362,3 +362,13 @@ body {
 .device-row:last-child {
   border-bottom: none;
 }
+
+.console-threads {
+  max-width: 220px;
+}
+
+@media (max-width: 720px) {
+  .console-threads {
+    max-width: 120px;
+  }
+}
