@@ -36,6 +36,47 @@ claude plugin update workos-audit@workos-audit-plugins
 
 After installing or updating, restart Claude Code.
 
+## Enforce the plugin fleet-wide (managed settings)
+
+To install and force-enable the plugin for a whole fleet, deliver this through Claude Code [managed settings](https://code.claude.com/docs/en/settings#settings-files). `extraKnownMarketplaces` registers the marketplace automatically and `enabledPlugins` force-installs the plugin so users cannot disable it:
+
+```json
+{
+  "extraKnownMarketplaces": {
+    "workos-audit-plugins": {
+      "source": { "source": "github", "repo": "workos/workos-audit-harness" },
+      "autoUpdate": true
+    }
+  },
+  "enabledPlugins": { "workos-audit@workos-audit-plugins": true },
+  "env": { "CLAUDE_WORKOS_AUDIT_RECORDING": "1" }
+}
+```
+
+Optionally add `strictKnownMarketplaces` with the same source to also block users from adding any other marketplace.
+
+### Pick one delivery mechanism
+
+Claude Code reads managed settings from three sources, and **they do not merge — the first source that delivers any keys wins and the rest are ignored entirely**, in this order:
+
+1. **Server-managed settings** — [Claude.ai](https://claude.ai) → Admin Settings → Claude Code → Managed settings. Applies to every user signed into the org (no per-group targeting), including unmanaged devices.
+2. **MDM/OS policies** — macOS `com.anthropic.claudecode` managed preferences domain or the Windows `HKLM\SOFTWARE\Policies\ClaudeCode` registry key.
+3. **File-based** — `/Library/Application Support/ClaudeCode/managed-settings.json` on macOS, `/etc/claude-code/` on Linux, `C:\Program Files\ClaudeCode\` on Windows.
+
+The practical consequence: if your org sets *anything* in the Claude.ai admin console — even a single unrelated key — an MDM-deployed `managed-settings.json` is silently ignored on every machine. So either put the JSON above in the server-managed settings (merged with whatever is already there), or keep the admin console config completely empty and deploy via MDM. Use MDM when you need per-device targeting (for example, only enrolled smart groups), since server-managed settings are org-wide only. See [settings precedence](https://code.claude.com/docs/en/settings#settings-precedence).
+
+### Caveats
+
+- This repo is private: auto-install only succeeds on machines whose git credentials can clone `workos/workos-audit-harness`.
+- Server-managed settings only bind accounts signed into the org. The file-based config still works as a backstop for users on other accounts, but it is not a substitute on org accounts.
+- For device-scoped *recording* with an org-wide install, leave recording controlled by the MDM-delivered `/Library/Application Support/workos-audit/config.json` (see [Fleet rollout](../../README.md#fleet-rollout-no-key-on-laptops)) — the hooks no-op on devices without it.
+
+### Verify on a device
+
+- `/status` inside Claude Code shows which managed source is active.
+- `claude plugin list` should show `workos-audit@workos-audit-plugins`.
+- A fresh shell inside Claude Code should show `CLAUDE_WORKOS_AUDIT_RECORDING=1`.
+
 ## Load locally without installing
 
 From this repo:
