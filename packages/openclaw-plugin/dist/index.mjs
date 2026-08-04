@@ -13965,10 +13965,13 @@ function statusPayload() {
   const actor = actorFrom({}, {}, config);
   const workosCli = summarizeWorkosCliAuth();
   const credentialSource = config.apiKey ? "api-key" : workosCli.loggedIn ? "workos-cli" : "none";
-  const recordingTransport = config.proxyUrl ? "proxy" : credentialSource;
+  const deviceCertLabel = config.proxyUrl ? getDeviceCertLabel() : null;
+  const recordingTransport = config.proxyUrl ? deviceCertLabel ? "proxy" : "proxy-no-device-certificate" : credentialSource;
   return {
     enabled: true,
-    configured: Boolean(config.proxyUrl || credentialSource !== "none"),
+    configured: Boolean(config.proxyUrl && deviceCertLabel || credentialSource !== "none"),
+    deviceCertificate: config.proxyUrl ? deviceCertLabel ?? null : null,
+    identitySource: config.proxyUrl ? "proxy (device certificate -> MDM assignment)" : "local config",
     configPath: configLoader.getConfigFilePath(),
     credentialSource,
     recordingTransport,

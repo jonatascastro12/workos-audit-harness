@@ -6,6 +6,7 @@ import { Type } from 'typebox';
 import { queryAuditLogs, MAX_QUERY_MAX_ROWS } from '@workos-inc/audit-core/audit-query';
 import { emitEvent } from '@workos-inc/audit-core/emit-event';
 import { summarizeWorkosCliAuth } from '@workos-inc/audit-core/workos-client';
+import { getDeviceCertLabel } from '@workos-inc/audit-core/device-cert';
 import {
   byteLength,
   maskSecret,
@@ -429,10 +430,19 @@ function statusPayload() {
   const credentialSource = config.apiKey
     ? 'api-key'
     : (workosCli.loggedIn ? 'workos-cli' : 'none');
-  const recordingTransport = config.proxyUrl ? 'proxy' : credentialSource;
+  // A proxy without the on-device certificate is not a working transport:
+  // emitViaProxy skips the event rather than falling back, so report it as its
+  // own state instead of an unqualified 'proxy'.
+  const deviceCertLabel = config.proxyUrl ? getDeviceCertLabel() : null;
+  const recordingTransport = config.proxyUrl
+    ? (deviceCertLabel ? 'proxy' : 'proxy-no-device-certificate')
+    : credentialSource;
   return {
     enabled: true,
-    configured: Boolean(config.proxyUrl || credentialSource !== 'none'),
+    configured: Boolean((config.proxyUrl && deviceCertLabel) || credentialSource !== 'none'),
+    deviceCertificate: config.proxyUrl ? (deviceCertLabel ?? null) : null,
+    // Under the proxy, actor and context below are overwritten server-side.
+    identitySource: config.proxyUrl ? 'proxy (device certificate -> MDM assignment)' : 'local config',
     configPath: configLoader.getConfigFilePath(),
     credentialSource,
     recordingTransport,

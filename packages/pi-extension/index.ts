@@ -13,6 +13,7 @@ import { ensureOrganization as auditCoreEnsureOrg } from "@workos-inc/audit-core
 import { createSchema as auditCoreCreateSchema } from "@workos-inc/audit-core/schema";
 import { getHarnessAuditSchemaDefinitions } from "@workos-inc/audit-core/harness-schemas";
 import { readManagedConfig } from "@workos-inc/audit-core/config";
+import { getDeviceCertLabel } from "@workos-inc/audit-core/device-cert";
 
 type MetadataValue = string | number | boolean;
 type Metadata = Record<string, MetadataValue>;
@@ -53,7 +54,10 @@ type Config = {
   actorName?: string;
   location: string;
   userAgent: string;
-  proxyUrl?: string;
+  // null means "explicitly opted out of the proxy" and outranks an MDM-managed
+  // value; undefined means "not configured". See audit-core's config loader,
+  // which defines the same contract.
+  proxyUrl?: string | null;
 };
 
 type AuditSchemaPrimitive = "string" | "number" | "boolean";
@@ -104,6 +108,13 @@ function sanitizeStoredConfig(raw: unknown): StoredConfig {
   const config: StoredConfig = {};
   for (const key of CONFIG_KEYS) {
     const value = (raw as Record<string, unknown>)[key];
+    // An explicit `"proxyUrl": null` is preserved, not dropped: it is how a
+    // single machine opts out of an MDM-managed proxy. Dropping it let the
+    // managed value win and made the opt-out silently ineffective.
+    if (key === "proxyUrl" && value === null) {
+      config.proxyUrl = null;
+      continue;
+    }
     if (typeof value === "string" && value.trim()) config[key] = value;
   }
   const enabled = parseBooleanValue((raw as Record<string, unknown>).enabled);
@@ -287,11 +298,14 @@ function getConfig(): Config {
   const userAgent = process.env.PI_WORKOS_AUDIT_LOGS_USER_AGENT || stored.userAgent || USER_AGENT;
   // Lowest layer is the MDM-managed machine config — how a fleet rollout sets
   // the proxy URL without baking a company hostname into the source.
+  // `??`-style resolution, not `||`: a stored `null` is a deliberate opt-out and
+  // must stop the chain rather than fall through to the managed value.
   const proxyUrl =
-    process.env.PI_WORKOS_AUDIT_LOGS_PROXY_URL ||
-    process.env.WORKOS_AUDIT_PROXY_URL ||
-    stored.proxyUrl ||
-    (readManagedConfig() as { proxyUrl?: string }).proxyUrl;
+    trimToUndefined(process.env.PI_WORKOS_AUDIT_LOGS_PROXY_URL) ??
+    trimToUndefined(process.env.WORKOS_AUDIT_PROXY_URL) ??
+    (Object.hasOwn(stored, "proxyUrl")
+      ? stored.proxyUrl
+      : (readManagedConfig() as { proxyUrl?: string }).proxyUrl);
   const configured = true;
 
   return {
@@ -311,7 +325,17 @@ function getConfig(): Config {
 
 function summarizeConfig(config: Config): string {
   if (!config.loggingEnabled) return "audit: off (disabled)";
-  const credentialSource = config.proxyUrl ? "proxy (mTLS)" : config.apiKey ? "api key" : "workos cli";
+  if (config.proxyUrl) {
+    // Without the device certificate emitViaProxy skips every event instead of
+    // falling back, so "on via proxy" would be a plain lie. Say so.
+    if (!getDeviceCertLabel()) {
+      return `audit: NOT recording — proxy ${config.proxyUrl} configured but no device certificate found`;
+    }
+    // Under the proxy the actor and organization are stamped server-side, so
+    // naming the locally-detected actor here would misreport what is recorded.
+    return `audit: on via proxy (mTLS) ${config.proxyUrl}, identity from device certificate`;
+  }
+  const credentialSource = config.apiKey ? "api key" : "workos cli";
   const orgSource = config.organizationId ? config.organizationId : "auto org: Audit Log Harness";
   return `audit: on via ${credentialSource}, ${orgSource} (${config.actorType}:${config.actorId})`;
 }
@@ -327,6 +351,12 @@ function auditCoreConfig(config: Config) {
     organizationId: config.organizationId,
     organizationName: undefined,
     apiBaseUrl: undefined,
+    // Load-bearing: emitEvent branches on `proxyUrl` FIRST and falls through to
+    // the direct api-key path when it is absent. Omitting it here meant this
+    // extension resolved the MDM proxy URL, reported "on via proxy (mTLS)", and
+    // then emitted straight to WorkOS with a local key — the exact thing the
+    // proxy exists to prevent.
+    proxyUrl: config.proxyUrl ?? undefined,
   };
 }
 

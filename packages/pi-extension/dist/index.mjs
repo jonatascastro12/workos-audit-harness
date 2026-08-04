@@ -13553,6 +13553,10 @@ function sanitizeStoredConfig(raw) {
   const config = {};
   for (const key of CONFIG_KEYS2) {
     const value = raw[key];
+    if (key === "proxyUrl" && value === null) {
+      config.proxyUrl = null;
+      continue;
+    }
     if (typeof value === "string" && value.trim())
       config[key] = value;
   }
@@ -13715,7 +13719,7 @@ function getConfig() {
   const actorName = process.env.PI_WORKOS_AUDIT_LOGS_ACTOR_NAME || stored.actorName || detectedActor.actorName;
   const location = process.env.PI_WORKOS_AUDIT_LOGS_LOCATION || stored.location || "local";
   const userAgent = process.env.PI_WORKOS_AUDIT_LOGS_USER_AGENT || stored.userAgent || USER_AGENT3;
-  const proxyUrl = process.env.PI_WORKOS_AUDIT_LOGS_PROXY_URL || process.env.WORKOS_AUDIT_PROXY_URL || stored.proxyUrl || readManagedConfig().proxyUrl;
+  const proxyUrl = trimToUndefined2(process.env.PI_WORKOS_AUDIT_LOGS_PROXY_URL) ?? trimToUndefined2(process.env.WORKOS_AUDIT_PROXY_URL) ?? (Object.hasOwn(stored, "proxyUrl") ? stored.proxyUrl : readManagedConfig().proxyUrl);
   const configured = true;
   return {
     enabled: configured && loggingEnabled,
@@ -13734,7 +13738,13 @@ function getConfig() {
 function summarizeConfig(config) {
   if (!config.loggingEnabled)
     return "audit: off (disabled)";
-  const credentialSource = config.proxyUrl ? "proxy (mTLS)" : config.apiKey ? "api key" : "workos cli";
+  if (config.proxyUrl) {
+    if (!getDeviceCertLabel()) {
+      return `audit: NOT recording — proxy ${config.proxyUrl} configured but no device certificate found`;
+    }
+    return `audit: on via proxy (mTLS) ${config.proxyUrl}, identity from device certificate`;
+  }
+  const credentialSource = config.apiKey ? "api key" : "workos cli";
   const orgSource = config.organizationId ? config.organizationId : "auto org: Audit Log Harness";
   return `audit: on via ${credentialSource}, ${orgSource} (${config.actorType}:${config.actorId})`;
 }
@@ -13748,7 +13758,8 @@ function auditCoreConfig(config) {
     apiKey: config.apiKey,
     organizationId: config.organizationId,
     organizationName: undefined,
-    apiBaseUrl: undefined
+    apiBaseUrl: undefined,
+    proxyUrl: config.proxyUrl ?? undefined
   };
 }
 async function runAuditHarness(config, command, payload, extraArgs = []) {
