@@ -1,7 +1,57 @@
 import { randomUUID } from 'node:crypto';
-import { execFileSync } from 'node:child_process';
+import { spawn } from 'node:child_process';
 import { ensureOrganization, getEffectiveApiKey, apiUrl, runWorkos, USER_AGENT } from '../workos-client.mjs';
 import { getDeviceCertLabel } from '../device-cert.mjs';
+
+// Bound a single attempt. Previously unbounded: a stalled connection would hang
+// the caller indefinitely — for a long-lived host that means a wedged emit queue.
+const CONNECT_TIMEOUT_SECONDS = 5;
+const MAX_TIME_SECONDS = 10;
+
+// Run curl WITHOUT blocking the event loop.
+//
+// This used to be execFileSync. That is fine for the Claude Code hooks, where a
+// throwaway process exists only to emit one event — but pi and openclaw load the
+// audit extension *in-process* and long-lived. execFileSync stops the whole
+// runtime, so an mTLS POST (~600ms: new process, new TLS + mTLS handshake, no
+// connection reuse) froze the host's UI on every lifecycle event, several times
+// per turn. Those callers already queue emits off their critical path; a
+// synchronous exec defeated that entirely, because nothing else can run while it
+// blocks. Note the fix is asynchrony, not parallelism — no worker threads
+// involved, and ordering is still whatever the caller's queue imposes.
+//
+// Never rejects: resolves with the exit code plus captured output so the caller
+// can classify the failure. An audit emission must not throw into a host hook.
+function runCurl(args, input) {
+  return new Promise((resolve) => {
+    let child;
+    try {
+      child = spawn('/usr/bin/curl', args, {
+        stdio: ['pipe', 'pipe', 'pipe'],
+        env: { ...process.env, CURL_SSL_BACKEND: 'secure-transport' },
+      });
+    } catch (error) {
+      resolve({ code: null, stdout: '', stderr: String(error?.message || error) });
+      return;
+    }
+
+    let stdout = '';
+    let stderr = '';
+    child.stdout.setEncoding('utf8');
+    child.stderr.setEncoding('utf8');
+    child.stdout.on('data', (chunk) => { stdout += chunk; });
+    child.stderr.on('data', (chunk) => { stderr += chunk; });
+    // spawn reports a missing/unexecutable binary via 'error', not a throw.
+    child.on('error', (error) => {
+      resolve({ code: null, stdout, stderr: stderr || String(error?.message || error) });
+    });
+    child.on('close', (code) => resolve({ code, stdout, stderr }));
+    // curl can exit before reading the body (bad flag, DNS failure), which makes
+    // this write EPIPE. Swallow it: 'close' already carries the real outcome.
+    child.stdin.on('error', () => {});
+    child.stdin.end(input);
+  });
+}
 
 function toRestEvent(event) {
   const { occurredAt, occurred_at, context, actor, targets, ...rest } = event;
@@ -26,7 +76,7 @@ function toRestEvent(event) {
 // can't use a keychain key, so we shell out to system `curl` on the Secure
 // Transport backend (proxy spec §3.2, §4.3). Failures are non-fatal by design:
 // log and no-op so an audit emission can never block/break a Claude Code hook.
-function emitViaProxy(event, config) {
+async function emitViaProxy(event, config) {
   const label = getDeviceCertLabel();
   if (!label) {
     return { ok: false, transport: 'proxy', skipped: true, reason: 'no-device-certificate' };
@@ -42,47 +92,41 @@ function emitViaProxy(event, config) {
     return { ok: false, transport: 'proxy', error: detail, ...(status ? { status } : {}), action: event.action };
   };
 
-  let stdout;
-  try {
-    // `--fail-with-body` only fails on >= 400, and we deliberately do NOT follow
-    // redirects, so a 3xx would otherwise exit 0 and be reported as a success
-    // with the event silently dropped. That is the worst failure mode an audit
-    // pipeline can have — a Cloudflare Access policy that stops covering the
-    // ingest path answers with a 302 to the login page, which would look like
-    // healthy ingestion on every machine at once. So ask curl to append the
-    // status code and assert 2xx ourselves rather than trusting its exit code.
-    //
-    // The body is kept (not sent to /dev/null) because the proxy explains itself
-    // in it — "audit ingestion is paused: <reason>", "unknown or unassigned
-    // device" — and that text is the whole diagnosis when a fleet goes quiet.
-    stdout = execFileSync(
-      '/usr/bin/curl',
-      [
-        '-sS',
-        '--fail-with-body',
-        '-w', '\n%{http_code}',
-        '-X', 'POST',
-        '--cert', label,
-        '-H', 'Content-Type: application/json',
-        '--data-binary', '@-',
-        config.proxyUrl,
-      ],
-      {
-        input: JSON.stringify(payload),
-        encoding: 'utf8',
-        stdio: ['pipe', 'pipe', 'pipe'],
-        env: { ...process.env, CURL_SSL_BACKEND: 'secure-transport' },
-      },
-    );
-  } catch (error) {
-    // >= 400: curl exits non-zero but --fail-with-body still wrote the body,
-    // so recover the proxy's explanation from stdout when there is one.
-    const { status, body } = splitCurlOutput(error.stdout);
-    const reason = error.stderr?.toString?.().trim() || error.message || String(error);
+  // `--fail-with-body` only fails on >= 400, and we deliberately do NOT follow
+  // redirects, so a 3xx would otherwise exit 0 and be reported as a success with
+  // the event silently dropped. That is the worst failure mode an audit pipeline
+  // can have — a Cloudflare Access policy that stops covering the ingest path
+  // answers with a 302 to the login page, which would look like healthy
+  // ingestion on every machine at once. So ask curl to append the status code
+  // and assert 2xx ourselves rather than trusting its exit code.
+  //
+  // The body is kept (not sent to /dev/null) because the proxy explains itself
+  // in it — "audit ingestion is paused: <reason>", "unknown or unassigned
+  // device" — and that text is the whole diagnosis when a fleet goes quiet.
+  const { code, stdout, stderr } = await runCurl(
+    [
+      '-sS',
+      '--fail-with-body',
+      '--connect-timeout', String(CONNECT_TIMEOUT_SECONDS),
+      '--max-time', String(MAX_TIME_SECONDS),
+      '-w', '\n%{http_code}',
+      '-X', 'POST',
+      '--cert', label,
+      '-H', 'Content-Type: application/json',
+      '--data-binary', '@-',
+      config.proxyUrl,
+    ],
+    JSON.stringify(payload),
+  );
+
+  // --fail-with-body still writes the body on >= 400, so recover the proxy's
+  // explanation from stdout even when curl itself reports failure.
+  const { status, body } = splitCurlOutput(stdout);
+
+  if (code !== 0) {
+    const reason = stderr.trim() || `curl exited with code ${code === null ? 'unknown' : code}`;
     return fail(body ? `${reason} :: ${body}` : reason, status);
   }
-
-  const { status, body } = splitCurlOutput(stdout);
   if (status === null) return fail('could not read proxy response status');
   if (status < 200 || status > 299) {
     return fail(body ? `proxy returned HTTP ${status} :: ${body}` : `proxy returned HTTP ${status}`, status);

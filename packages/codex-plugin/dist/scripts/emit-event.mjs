@@ -3864,7 +3864,7 @@ function createToolTimingStore({ baseEnvNames, fallbackDirName, timingKeyExtras 
 
 // ../audit-core/src/cli/emit-event.mjs
 import { randomUUID } from "node:crypto";
-import { execFileSync as execFileSync3 } from "node:child_process";
+import { spawn } from "node:child_process";
 
 // ../audit-core/src/workos-client.mjs
 import os2 from "node:os";
@@ -8689,6 +8689,38 @@ function getDeviceCertLabel() {
 }
 
 // ../audit-core/src/cli/emit-event.mjs
+var CONNECT_TIMEOUT_SECONDS = 5;
+var MAX_TIME_SECONDS = 10;
+function runCurl(args, input) {
+  return new Promise((resolve) => {
+    let child;
+    try {
+      child = spawn("/usr/bin/curl", args, {
+        stdio: ["pipe", "pipe", "pipe"],
+        env: { ...process.env, CURL_SSL_BACKEND: "secure-transport" }
+      });
+    } catch (error) {
+      resolve({ code: null, stdout: "", stderr: String(error?.message || error) });
+      return;
+    }
+    let stdout = "";
+    let stderr = "";
+    child.stdout.setEncoding("utf8");
+    child.stderr.setEncoding("utf8");
+    child.stdout.on("data", (chunk) => {
+      stdout += chunk;
+    });
+    child.stderr.on("data", (chunk) => {
+      stderr += chunk;
+    });
+    child.on("error", (error) => {
+      resolve({ code: null, stdout, stderr: stderr || String(error?.message || error) });
+    });
+    child.on("close", (code) => resolve({ code, stdout, stderr }));
+    child.stdin.on("error", () => {});
+    child.stdin.end(input);
+  });
+}
 function toRestEvent(event) {
   const { occurredAt, occurred_at, context, actor, targets, ...rest } = event;
   const normalizedContext = context ? {
@@ -8703,7 +8735,7 @@ function toRestEvent(event) {
     ...normalizedContext ? { context: normalizedContext } : {}
   };
 }
-function emitViaProxy(event, config) {
+async function emitViaProxy(event, config) {
   const label = getDeviceCertLabel();
   if (!label) {
     return { ok: false, transport: "proxy", skipped: true, reason: "no-device-certificate" };
@@ -8715,35 +8747,31 @@ function emitViaProxy(event, config) {
 `);
     return { ok: false, transport: "proxy", error: detail, ...status2 ? { status: status2 } : {}, action: event.action };
   };
-  let stdout;
-  try {
-    stdout = execFileSync3("/usr/bin/curl", [
-      "-sS",
-      "--fail-with-body",
-      "-w",
-      `
+  const { code, stdout, stderr } = await runCurl([
+    "-sS",
+    "--fail-with-body",
+    "--connect-timeout",
+    String(CONNECT_TIMEOUT_SECONDS),
+    "--max-time",
+    String(MAX_TIME_SECONDS),
+    "-w",
+    `
 %{http_code}`,
-      "-X",
-      "POST",
-      "--cert",
-      label,
-      "-H",
-      "Content-Type: application/json",
-      "--data-binary",
-      "@-",
-      config.proxyUrl
-    ], {
-      input: JSON.stringify(payload),
-      encoding: "utf8",
-      stdio: ["pipe", "pipe", "pipe"],
-      env: { ...process.env, CURL_SSL_BACKEND: "secure-transport" }
-    });
-  } catch (error) {
-    const { status: status2, body: body2 } = splitCurlOutput(error.stdout);
-    const reason = error.stderr?.toString?.().trim() || error.message || String(error);
-    return fail(body2 ? `${reason} :: ${body2}` : reason, status2);
-  }
+    "-X",
+    "POST",
+    "--cert",
+    label,
+    "-H",
+    "Content-Type: application/json",
+    "--data-binary",
+    "@-",
+    config.proxyUrl
+  ], JSON.stringify(payload));
   const { status, body } = splitCurlOutput(stdout);
+  if (code !== 0) {
+    const reason = stderr.trim() || `curl exited with code ${code === null ? "unknown" : code}`;
+    return fail(body ? `${reason} :: ${body}` : reason, status);
+  }
   if (status === null)
     return fail("could not read proxy response status");
   if (status < 200 || status > 299) {
