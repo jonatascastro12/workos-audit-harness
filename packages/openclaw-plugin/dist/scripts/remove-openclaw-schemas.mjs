@@ -8760,6 +8760,7 @@ function getOpenClawAuditSchemaDefinitions(prefix = "openclaw") {
       targets: [{ type: "session" }, { type: "message" }],
       metadata: {
         from: "string",
+        message_preview: "string",
         content_length: "number",
         content_sha256: "string",
         timestamp: "number",
@@ -8779,6 +8780,7 @@ function getOpenClawAuditSchemaDefinitions(prefix = "openclaw") {
       metadata: {
         to: "string",
         success: "boolean",
+        message_preview: "string",
         content_length: "number",
         content_sha256: "string",
         error_preview: "string",
