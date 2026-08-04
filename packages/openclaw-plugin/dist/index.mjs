@@ -13989,6 +13989,7 @@ function buildEvent(kind, payload, context, config) {
     targets = [sessionTarget(payload, context), messageTarget(payload)].filter(Boolean);
     metadata = compactMetadata({
       from: pick3(payload.from, payload.senderId, payload.sender_id),
+      message_preview: typeof content === "string" ? truncateMetadataString(content) : undefined,
       content_length: typeof content === "string" ? content.length : undefined,
       content_sha256: typeof content === "string" ? sha256(content) : undefined,
       timestamp: payload.timestamp,
@@ -14002,6 +14003,7 @@ function buildEvent(kind, payload, context, config) {
     metadata = compactMetadata({
       to: payload.to,
       success: payload.success,
+      message_preview: typeof content === "string" ? truncateMetadataString(content) : undefined,
       content_length: typeof content === "string" ? content.length : undefined,
       content_sha256: typeof content === "string" ? sha256(content) : undefined,
       error_preview: payload.error ? truncateMetadataString(payload.error) : undefined,
