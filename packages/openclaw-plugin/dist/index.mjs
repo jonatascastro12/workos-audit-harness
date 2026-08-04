@@ -13189,6 +13189,7 @@ function getDeviceCertLabel() {
 // ../audit-core/src/cli/emit-event.mjs
 var CONNECT_TIMEOUT_SECONDS = 5;
 var MAX_TIME_SECONDS = 10;
+var PROXY_MAX_BATCH_EVENTS = 25;
 function runCurl(args, input) {
   return new Promise((resolve) => {
     let child;
@@ -13233,18 +13234,7 @@ function toRestEvent(event) {
     ...normalizedContext ? { context: normalizedContext } : {}
   };
 }
-async function emitViaProxy(event, config) {
-  const label = getDeviceCertLabel();
-  if (!label) {
-    return { ok: false, transport: "proxy", skipped: true, reason: "no-device-certificate" };
-  }
-  const payload = toRestEvent(event);
-  delete payload.actor;
-  const fail = (detail, status2) => {
-    process.stderr.write(`workos-audit: proxy emit failed (${detail})
-`);
-    return { ok: false, transport: "proxy", error: detail, ...status2 ? { status: status2 } : {}, action: event.action };
-  };
+async function postToProxy(requestBody, label, config) {
   const { code, stdout, stderr } = await runCurl([
     "-sS",
     "--fail-with-body",
@@ -13264,18 +13254,114 @@ async function emitViaProxy(event, config) {
     "--data-binary",
     "@-",
     config.proxyUrl
-  ], JSON.stringify(payload));
+  ], JSON.stringify(requestBody));
   const { status, body } = splitCurlOutput(stdout);
   if (code !== 0) {
     const reason = stderr.trim() || `curl exited with code ${code === null ? "unknown" : code}`;
-    return fail(body ? `${reason} :: ${body}` : reason, status);
+    return { error: body ? `${reason} :: ${body}` : reason, status };
   }
   if (status === null)
-    return fail("could not read proxy response status");
+    return { error: "could not read proxy response status", status: null };
   if (status < 200 || status > 299) {
-    return fail(body ? `proxy returned HTTP ${status} :: ${body}` : `proxy returned HTTP ${status}`, status);
+    return {
+      error: body ? `proxy returned HTTP ${status} :: ${body}` : `proxy returned HTTP ${status}`,
+      status
+    };
+  }
+  return { status, body };
+}
+function warn(detail) {
+  process.stderr.write(`workos-audit: proxy emit failed (${detail})
+`);
+}
+function proxyPayload(event) {
+  const payload = toRestEvent(event);
+  delete payload.actor;
+  return payload;
+}
+async function emitViaProxy(event, config) {
+  const label = getDeviceCertLabel();
+  if (!label) {
+    return { ok: false, transport: "proxy", skipped: true, reason: "no-device-certificate" };
+  }
+  const { error, status } = await postToProxy(proxyPayload(event), label, config);
+  if (error) {
+    warn(error);
+    return { ok: false, transport: "proxy", error, ...status ? { status } : {}, action: event.action };
   }
   return { ok: true, transport: "proxy", status, action: event.action };
+}
+async function emitBatchViaProxy(events, config) {
+  const label = getDeviceCertLabel();
+  if (!label) {
+    return { ok: false, transport: "proxy", skipped: true, reason: "no-device-certificate", accepted: 0 };
+  }
+  let accepted = 0;
+  const errors = [];
+  for (let i = 0;i < events.length; i += PROXY_MAX_BATCH_EVENTS) {
+    const chunk = events.slice(i, i + PROXY_MAX_BATCH_EVENTS);
+    const { error, status, body } = await postToProxy({ events: chunk.map(proxyPayload) }, label, config);
+    if (error) {
+      if (status === 422 || status === 413) {
+        const single = await Promise.all(chunk.map((event) => emitViaProxy(event, config)));
+        accepted += single.filter((r) => r.ok).length;
+        const failed = single.filter((r) => !r.ok);
+        if (failed.length > 0)
+          errors.push(`${failed.length}/${chunk.length} failed after per-event retry`);
+        continue;
+      }
+      warn(error);
+      errors.push(error);
+      continue;
+    }
+    let report;
+    try {
+      report = JSON.parse(body);
+    } catch {
+      report = null;
+    }
+    accepted += typeof report?.accepted === "number" ? report.accepted : chunk.length;
+    const rejected = Array.isArray(report?.rejected) ? report.rejected : [];
+    if (rejected.length > 0) {
+      const detail = rejected.map((r) => `#${i + (r?.index ?? 0)} ${r?.reason ?? "unknown"}`).join(", ");
+      warn(`proxy rejected ${rejected.length}/${chunk.length} event(s) (HTTP ${status}): ${detail}`);
+      errors.push(detail);
+    }
+  }
+  return {
+    ok: errors.length === 0,
+    transport: "proxy",
+    accepted,
+    total: events.length,
+    ...errors.length > 0 ? { error: errors.join("; ") } : {}
+  };
+}
+async function emitEvents(events, config) {
+  const list = Array.isArray(events) ? events.filter(Boolean) : [];
+  if (list.length === 0)
+    return { ok: true, accepted: 0, total: 0 };
+  if (list.length === 1) {
+    const result = await emitEvent(list[0], config);
+    return { ...result, accepted: result.ok ? 1 : 0, total: 1 };
+  }
+  if (config.proxyUrl)
+    return emitBatchViaProxy(list, config);
+  let accepted = 0;
+  const errors = [];
+  for (const event of list) {
+    try {
+      await emitEvent(event, config);
+      accepted += 1;
+    } catch (error) {
+      errors.push(String(error?.message || error));
+    }
+  }
+  return {
+    ok: errors.length === 0,
+    accepted,
+    total: list.length,
+    ...errors.length > 0 ? { error: errors.join("; ") } : {}
+  };
 }
 function splitCurlOutput(raw) {
   const text = String(raw ?? "");
@@ -13329,6 +13415,79 @@ async function emitEvent(event, config) {
   args.push("--occurred-at", new Date(occurredAt).toISOString(), "--targets", JSON.stringify(event.targets || []), "--context", JSON.stringify(context), "--metadata", JSON.stringify(event.metadata || {}), "--json", "--mode", "agent");
   runWorkos(args);
   return { ok: true, transport: "workos-cli", organizationId: orgId, action: event.action };
+}
+
+// ../audit-core/src/event-batcher.mjs
+var DEFAULT_MAX_BATCH_SIZE = 20;
+var DEFAULT_MAX_DELAY_MS = 200;
+function createEventBatcher({
+  config,
+  maxBatchSize = DEFAULT_MAX_BATCH_SIZE,
+  maxDelayMs = DEFAULT_MAX_DELAY_MS,
+  onError,
+  send = emitEvents
+} = {}) {
+  let buffer = [];
+  let timer = null;
+  let chain = Promise.resolve();
+  const report = (detail) => {
+    if (onError)
+      onError(detail);
+    else
+      process.stderr.write(`workos-audit: ${detail}
+`);
+  };
+  function clearTimer() {
+    if (timer !== null) {
+      clearTimeout(timer);
+      timer = null;
+    }
+  }
+  function sendNow() {
+    clearTimer();
+    if (buffer.length === 0)
+      return chain;
+    const batch = buffer;
+    buffer = [];
+    chain = chain.catch(() => {
+      return;
+    }).then(async () => {
+      const result = await send(batch, config);
+      if (result && result.ok === false && result.error) {
+        report(`batch of ${batch.length} failed: ${result.error}`);
+      }
+    }).catch((error) => report(`batch of ${batch.length} threw: ${String(error?.message || error)}`));
+    return chain;
+  }
+  return {
+    add(event) {
+      if (!event)
+        return;
+      buffer.push(event);
+      if (buffer.length >= maxBatchSize) {
+        sendNow();
+        return;
+      }
+      if (timer === null) {
+        timer = setTimeout(() => {
+          timer = null;
+          sendNow();
+        }, maxDelayMs);
+        timer.unref?.();
+      }
+    },
+    async flush() {
+      for (let pass = 0;pass < 10; pass++) {
+        await sendNow();
+        if (buffer.length === 0)
+          return;
+      }
+      await sendNow();
+    },
+    get pending() {
+      return buffer.length;
+    }
+  };
 }
 
 // ../audit-core/src/hook-runtime.mjs
@@ -13978,12 +14137,28 @@ function buildEvent(kind, payload, context, config) {
     metadata
   };
 }
-async function record3(kind, payload, context) {
+var batchers = new Map;
+function batcherFor(config) {
+  const key = config.proxyUrl ?? `direct:${config.organizationId ?? ""}`;
+  let batcher = batchers.get(key);
+  if (!batcher) {
+    batcher = createEventBatcher({
+      config,
+      onError: (detail) => console.error(`[${PLUGIN_ID}] ${detail}`)
+    });
+    batchers.set(key, batcher);
+  }
+  return batcher;
+}
+async function flushRecorded() {
+  await Promise.all([...batchers.values()].map((b) => b.flush()));
+}
+function record3(kind, payload, context) {
   const config = loadHookConfig(context);
   if (config.recordingEnabled === false)
     return;
   try {
-    await emitEvent(buildEvent(kind, payload, context, config), config);
+    batcherFor(config).add(buildEvent(kind, payload, context, config));
   } catch (error) {
     console.error(`[${PLUGIN_ID}] ${kind} audit event failed: ${String(error?.message || error)}`);
   }
@@ -14072,7 +14247,10 @@ var openclaw_plugin_default = definePluginEntry({
       }
     });
     api.on("session_start", (event, context) => record3("session.started", event, context), { timeoutMs: HOOK_TIMEOUT_MS });
-    api.on("session_end", (event, context) => record3("session.ended", event, context), { timeoutMs: HOOK_TIMEOUT_MS });
+    api.on("session_end", async (event, context) => {
+      record3("session.ended", event, context);
+      await flushRecorded();
+    }, { timeoutMs: HOOK_TIMEOUT_MS });
     api.on("message_received", (event, context) => record3("prompt.submitted", event, context), { timeoutMs: HOOK_TIMEOUT_MS });
     api.on("message_sent", (event, context) => record3("message.sent", event, context), { timeoutMs: HOOK_TIMEOUT_MS });
     api.on("before_agent_run", (event, context) => record3("agent.run.started", event, context), { timeoutMs: HOOK_TIMEOUT_MS });

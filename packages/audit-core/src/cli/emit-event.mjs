@@ -8,6 +8,10 @@ import { getDeviceCertLabel } from '../device-cert.mjs';
 const CONNECT_TIMEOUT_SECONDS = 5;
 const MAX_TIME_SECONDS = 10;
 
+// Must not exceed the proxy's MAX_BATCH_EVENTS (packages/proxy/src/events.ts),
+// which answers 413 above its cap. Chunk here instead of relying on the caller.
+const PROXY_MAX_BATCH_EVENTS = 25;
+
 // Run curl WITHOUT blocking the event loop.
 //
 // This used to be execFileSync. That is fine for the Claude Code hooks, where a
@@ -76,22 +80,9 @@ function toRestEvent(event) {
 // can't use a keychain key, so we shell out to system `curl` on the Secure
 // Transport backend (proxy spec §3.2, §4.3). Failures are non-fatal by design:
 // log and no-op so an audit emission can never block/break a Claude Code hook.
-async function emitViaProxy(event, config) {
-  const label = getDeviceCertLabel();
-  if (!label) {
-    return { ok: false, transport: 'proxy', skipped: true, reason: 'no-device-certificate' };
-  }
-
-  // The proxy sets actor + organization_id itself; never send a client-claimed
-  // identity. Send only the event payload (action, occurred_at, targets, …).
-  const payload = toRestEvent(event);
-  delete payload.actor;
-
-  const fail = (detail, status) => {
-    process.stderr.write(`workos-audit: proxy emit failed (${detail})\n`);
-    return { ok: false, transport: 'proxy', error: detail, ...(status ? { status } : {}), action: event.action };
-  };
-
+// POST a JSON body to the proxy over mTLS. Returns { status, body } on a 2xx,
+// or { error, status } otherwise — never throws.
+async function postToProxy(requestBody, label, config) {
   // `--fail-with-body` only fails on >= 400, and we deliberately do NOT follow
   // redirects, so a 3xx would otherwise exit 0 and be reported as a success with
   // the event silently dropped. That is the worst failure mode an audit pipeline
@@ -116,7 +107,7 @@ async function emitViaProxy(event, config) {
       '--data-binary', '@-',
       config.proxyUrl,
     ],
-    JSON.stringify(payload),
+    JSON.stringify(requestBody),
   );
 
   // --fail-with-body still writes the body on >= 400, so recover the proxy's
@@ -125,14 +116,142 @@ async function emitViaProxy(event, config) {
 
   if (code !== 0) {
     const reason = stderr.trim() || `curl exited with code ${code === null ? 'unknown' : code}`;
-    return fail(body ? `${reason} :: ${body}` : reason, status);
+    return { error: body ? `${reason} :: ${body}` : reason, status };
   }
-  if (status === null) return fail('could not read proxy response status');
+  if (status === null) return { error: 'could not read proxy response status', status: null };
   if (status < 200 || status > 299) {
-    return fail(body ? `proxy returned HTTP ${status} :: ${body}` : `proxy returned HTTP ${status}`, status);
+    return {
+      error: body ? `proxy returned HTTP ${status} :: ${body}` : `proxy returned HTTP ${status}`,
+      status,
+    };
+  }
+  return { status, body };
+}
+
+function warn(detail) {
+  process.stderr.write(`workos-audit: proxy emit failed (${detail})\n`);
+}
+
+// The proxy sets actor + organization_id itself; never send a client-claimed
+// identity. Send only the event payload (action, occurred_at, targets, …).
+function proxyPayload(event) {
+  const payload = toRestEvent(event);
+  delete payload.actor;
+  return payload;
+}
+
+async function emitViaProxy(event, config) {
+  const label = getDeviceCertLabel();
+  if (!label) {
+    return { ok: false, transport: 'proxy', skipped: true, reason: 'no-device-certificate' };
   }
 
+  // Deliberately a bare event object, not {events:[…]}: this is the wire format
+  // every deployed proxy already understands. Client and proxy version
+  // independently (MDM hands out the URL; the Worker deploys on its own), so the
+  // single-event path must never require a newer proxy than the fleet is running.
+  const { error, status } = await postToProxy(proxyPayload(event), label, config);
+  if (error) {
+    warn(error);
+    return { ok: false, transport: 'proxy', error, ...(status ? { status } : {}), action: event.action };
+  }
   return { ok: true, transport: 'proxy', status, action: event.action };
+}
+
+// Send several events in ONE request — one process, one TLS + mTLS handshake
+// instead of one per event. That handshake is the expensive part (~600ms), so
+// coalescing a turn's worth of lifecycle events is the difference between
+// seconds of background work and a fraction of one.
+//
+// Chunked to the proxy's documented cap so an oversized batch is split rather
+// than rejected wholesale with a 413.
+async function emitBatchViaProxy(events, config) {
+  const label = getDeviceCertLabel();
+  if (!label) {
+    return { ok: false, transport: 'proxy', skipped: true, reason: 'no-device-certificate', accepted: 0 };
+  }
+
+  let accepted = 0;
+  const errors = [];
+  for (let i = 0; i < events.length; i += PROXY_MAX_BATCH_EVENTS) {
+    const chunk = events.slice(i, i + PROXY_MAX_BATCH_EVENTS);
+    const { error, status, body } = await postToProxy(
+      { events: chunk.map(proxyPayload) },
+      label,
+      config,
+    );
+    if (error) {
+      // A proxy that predates batch support answers 422 ("invalid audit event
+      // payload") to {events:[…]}, and one with a smaller cap answers 413. The
+      // proxy and the clients deploy independently, so that skew is normal
+      // during a rollout — resend the chunk one event at a time rather than
+      // dropping a whole batch of real audit events over a version mismatch.
+      if (status === 422 || status === 413) {
+        const single = await Promise.all(chunk.map((event) => emitViaProxy(event, config)));
+        accepted += single.filter((r) => r.ok).length;
+        const failed = single.filter((r) => !r.ok);
+        if (failed.length > 0) errors.push(`${failed.length}/${chunk.length} failed after per-event retry`);
+        continue;
+      }
+      warn(error);
+      errors.push(error);
+      continue;
+    }
+    // The proxy reports per-event outcomes; surface rejections rather than
+    // treating a 202 as "all landed".
+    let report;
+    try {
+      report = JSON.parse(body);
+    } catch {
+      report = null;
+    }
+    accepted += typeof report?.accepted === 'number' ? report.accepted : chunk.length;
+    const rejected = Array.isArray(report?.rejected) ? report.rejected : [];
+    if (rejected.length > 0) {
+      const detail = rejected.map((r) => `#${i + (r?.index ?? 0)} ${r?.reason ?? 'unknown'}`).join(', ');
+      warn(`proxy rejected ${rejected.length}/${chunk.length} event(s) (HTTP ${status}): ${detail}`);
+      errors.push(detail);
+    }
+  }
+
+  return {
+    ok: errors.length === 0,
+    transport: 'proxy',
+    accepted,
+    total: events.length,
+    ...(errors.length > 0 ? { error: errors.join('; ') } : {}),
+  };
+}
+
+// Emit a list of events. Batches through the proxy when there is one; falls back
+// to sequential single emits otherwise, since the direct WorkOS API has no batch
+// form. A single event always takes the plain single-event path so it never
+// depends on proxy batch support.
+export async function emitEvents(events, config) {
+  const list = Array.isArray(events) ? events.filter(Boolean) : [];
+  if (list.length === 0) return { ok: true, accepted: 0, total: 0 };
+  if (list.length === 1) {
+    const result = await emitEvent(list[0], config);
+    return { ...result, accepted: result.ok ? 1 : 0, total: 1 };
+  }
+  if (config.proxyUrl) return emitBatchViaProxy(list, config);
+
+  let accepted = 0;
+  const errors = [];
+  for (const event of list) {
+    try {
+      await emitEvent(event, config);
+      accepted += 1;
+    } catch (error) {
+      errors.push(String(error?.message || error));
+    }
+  }
+  return {
+    ok: errors.length === 0,
+    accepted,
+    total: list.length,
+    ...(errors.length > 0 ? { error: errors.join('; ') } : {}),
+  };
 }
 
 // Split curl's `<body>\n<http_code>` output. The status is taken from after the

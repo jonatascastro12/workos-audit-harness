@@ -4,7 +4,7 @@ import path from 'node:path';
 import { definePluginEntry } from 'openclaw/plugin-sdk/core';
 import { Type } from 'typebox';
 import { queryAuditLogs, MAX_QUERY_MAX_ROWS } from '@workos-inc/audit-core/audit-query';
-import { emitEvent } from '@workos-inc/audit-core/emit-event';
+import { createEventBatcher } from '@workos-inc/audit-core/event-batcher';
 import { summarizeWorkosCliAuth } from '@workos-inc/audit-core/workos-client';
 import { getDeviceCertLabel } from '@workos-inc/audit-core/device-cert';
 import {
@@ -413,11 +413,39 @@ function buildEvent(kind, payload, context, config) {
   };
 }
 
-async function record(kind, payload, context) {
+// One batcher per hook config, keyed by the resolved proxy/credential target so a
+// config change starts a fresh buffer rather than sending events somewhere they
+// were not meant to go. Keyed rather than recreated per event, because a batcher
+// that is rebuilt each call can never accumulate anything to batch.
+const batchers = new Map();
+
+function batcherFor(config) {
+  const key = config.proxyUrl ?? `direct:${config.organizationId ?? ''}`;
+  let batcher = batchers.get(key);
+  if (!batcher) {
+    batcher = createEventBatcher({
+      config,
+      onError: (detail) => console.error(`[${PLUGIN_ID}] ${detail}`),
+    });
+    batchers.set(key, batcher);
+  }
+  return batcher;
+}
+
+// Drain every buffer. openclaw awaits its hooks, so session_end waiting here is
+// what stops an ordinary exit from dropping the tail of the session.
+async function flushRecorded() {
+  await Promise.all([...batchers.values()].map((b) => b.flush()));
+}
+
+function record(kind, payload, context) {
   const config = loadHookConfig(context);
   if (config.recordingEnabled === false) return;
   try {
-    await emitEvent(buildEvent(kind, payload, context, config), config);
+    // Buffered, not sent. Previously this awaited the emit inside the hook, so
+    // every lifecycle event cost a full mTLS handshake on openclaw's critical
+    // path; now a burst leaves as one request.
+    batcherFor(config).add(buildEvent(kind, payload, context, config));
   } catch (error) {
     console.error(`[${PLUGIN_ID}] ${kind} audit event failed: ${String(error?.message || error)}`);
   }
@@ -522,7 +550,10 @@ export default definePluginEntry({
     });
 
     api.on('session_start', (event, context) => record('session.started', event, context), { timeoutMs: HOOK_TIMEOUT_MS });
-    api.on('session_end', (event, context) => record('session.ended', event, context), { timeoutMs: HOOK_TIMEOUT_MS });
+    api.on('session_end', async (event, context) => {
+      record('session.ended', event, context);
+      await flushRecorded();
+    }, { timeoutMs: HOOK_TIMEOUT_MS });
     api.on('message_received', (event, context) => record('prompt.submitted', event, context), { timeoutMs: HOOK_TIMEOUT_MS });
     api.on('message_sent', (event, context) => record('message.sent', event, context), { timeoutMs: HOOK_TIMEOUT_MS });
     api.on('before_agent_run', (event, context) => record('agent.run.started', event, context), { timeoutMs: HOOK_TIMEOUT_MS });
