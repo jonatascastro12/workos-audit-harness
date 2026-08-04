@@ -3921,8 +3921,19 @@ var init_webapi_CxKOxXjo = __esm(() => {
 });
 
 // ../../node_modules/@inquirer/core/dist/lib/key.js
-var isUpKey = (key, keybindings = []) => key.name === "up" || keybindings.includes("vim") && key.name === "k" || keybindings.includes("emacs") && key.ctrl && key.name === "p";
-var isDownKey = (key, keybindings = []) => key.name === "down" || keybindings.includes("vim") && key.name === "j" || keybindings.includes("emacs") && key.ctrl && key.name === "n";
+var keybindings = ["emacs", "vim"];
+var keybindingLookup = new Set(keybindings);
+function isKeybinding(value) {
+  return keybindingLookup.has(value);
+}
+function getDefaultKeybindings() {
+  const env = process.env["INQUIRER_KEYBINDINGS"];
+  if (!env)
+    return [];
+  return Array.from(new Set(env.toLowerCase().split(/[\s,]+/).filter(isKeybinding)));
+}
+var isUpKey = (key, keybindings2 = []) => key.name === "up" || keybindings2.includes("vim") && key.name === "k" || keybindings2.includes("emacs") && key.ctrl && key.name === "p";
+var isDownKey = (key, keybindings2 = []) => key.name === "down" || keybindings2.includes("vim") && key.name === "j" || keybindings2.includes("emacs") && key.ctrl && key.name === "n";
 var isBackspaceKey = (key) => key.name === "backspace";
 var isTabKey = (key) => key.name === "tab";
 var isNumberKey = (key) => "1234567890".includes(key.name);
@@ -4396,6 +4407,7 @@ var defaultTheme = {
     interval: 80,
     frames: ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"].map((frame) => styleText("yellow", frame))
   },
+  keybindings: [],
   style: {
     answer: (text) => styleText("cyan", text),
     message: (text) => styleText("bold", text),
@@ -4406,6 +4418,12 @@ var defaultTheme = {
     key: (text) => styleText("cyan", styleText("bold", `<${text}>`))
   }
 };
+function getDefaultTheme() {
+  return {
+    ...defaultTheme,
+    keybindings: getDefaultKeybindings()
+  };
+}
 
 // ../../node_modules/@inquirer/core/dist/lib/make-theme.js
 function isPlainObject(value) {
@@ -4429,7 +4447,7 @@ function deepMerge(...objects) {
 }
 function makeTheme(...themes) {
   const themesToMerge = [
-    defaultTheme,
+    getDefaultTheme(),
     ...themes.filter((theme) => theme != null)
   ];
   return deepMerge(...themesToMerge);
@@ -4846,7 +4864,7 @@ function wrapAnsi(string, columns, options) {
 // ../../node_modules/@inquirer/core/dist/lib/utils.js
 function breakLines(content, width) {
   return content.split(`
-`).flatMap((line) => wrapAnsi(line, width, { trim: false, hard: true }).split(`
+`).flatMap((line) => wrapAnsi(line, width, { trim: false, wordWrap: false }).split(`
 `).map((str) => str.trimEnd())).join(`
 `);
 }
@@ -5548,8 +5566,7 @@ var selectTheme = {
     keysHelpTip: (keys) => keys.map(([key, action]) => `${styleText3("bold", key)} ${styleText3("dim", action)}`).join(styleText3("dim", " • "))
   },
   i18n: { disabledError: "This option is disabled and cannot be selected." },
-  indexMode: "hidden",
-  keybindings: []
+  indexMode: "hidden"
 };
 function isSelectable(item) {
   return !Separator.isSeparator(item) && !item.disabled;
@@ -5586,11 +5603,11 @@ function normalizeChoices(choices) {
 var dist_default7 = createPrompt((config, done) => {
   const { loop = true, pageSize = 7 } = config;
   const theme = makeTheme(selectTheme, config.theme);
-  const { keybindings } = theme;
+  const { keybindings: keybindings2 } = theme;
   const [status, setStatus] = useState("idle");
   const prefix = usePrefix({ status, theme });
   const searchTimeoutRef = useRef();
-  const searchEnabled = !keybindings.includes("vim");
+  const searchEnabled = !keybindings2.includes("vim");
   const items = useMemo(() => normalizeChoices(config.choices), [config.choices]);
   const bounds = useMemo(() => {
     const first = items.findIndex(isNavigable);
@@ -5623,10 +5640,10 @@ var dist_default7 = createPrompt((config, done) => {
         setStatus("done");
         done(selectedChoice.value);
       }
-    } else if (isUpKey(key, keybindings) || isDownKey(key, keybindings)) {
+    } else if (isUpKey(key, keybindings2) || isDownKey(key, keybindings2)) {
       rl.clearLine(0);
-      if (loop || isUpKey(key, keybindings) && active !== bounds.first || isDownKey(key, keybindings) && active !== bounds.last) {
-        const offset = isUpKey(key, keybindings) ? -1 : 1;
+      if (loop || isUpKey(key, keybindings2) && active !== bounds.first || isDownKey(key, keybindings2) && active !== bounds.last) {
+        const offset = isUpKey(key, keybindings2) ? -1 : 1;
         let next = active;
         do {
           next = (next + offset + items.length) % items.length;
@@ -10477,6 +10494,63 @@ function createSdk(config) {
   });
 }
 
+// ../audit-core/src/device-cert.mjs
+import { execFileSync } from "node:child_process";
+var LABEL_RE = /"(OktaManagementAttestation for [^"]+)"/;
+var cached;
+function getDeviceCertLabel() {
+  if (cached !== undefined)
+    return cached;
+  try {
+    const out = execFileSync("security", ["find-identity"], {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"]
+    });
+    cached = LABEL_RE.exec(out)?.[1] ?? null;
+  } catch {
+    cached = null;
+  }
+  return cached;
+}
+
+// ../audit-core/src/print-config-status.mjs
+function printConfigStatus({ configLoader }) {
+  const config = configLoader.loadConfig();
+  const workosCli = summarizeWorkosCliAuth();
+  const credentialSource = config.apiKey ? "api-key" : workosCli.loggedIn ? "workos-cli" : "none";
+  const proxyUrl = config.proxyUrl || null;
+  const deviceCertLabel = proxyUrl ? getDeviceCertLabel() : null;
+  let writeTransport;
+  if (proxyUrl) {
+    writeTransport = deviceCertLabel ? "proxy" : "proxy-no-device-certificate";
+  } else {
+    writeTransport = credentialSource === "none" ? "none" : credentialSource;
+  }
+  const configured = writeTransport === "proxy" || credentialSource !== "none";
+  console.log(JSON.stringify({
+    configured,
+    writeTransport,
+    proxyUrl,
+    proxySource: proxyUrl ? config.sources.proxyUrl : null,
+    deviceCertificate: proxyUrl ? deviceCertLabel ?? null : null,
+    credentialSource,
+    workosCli,
+    organizationResolution: proxyUrl ? "proxy-controlled (server-side)" : config.organizationId ? "explicit" : "auto-find-or-create Audit Log Harness",
+    identitySource: proxyUrl ? "proxy (device certificate -> MDM assignment)" : "local config",
+    configPath: config.configPath,
+    apiKey: maskSecret(config.apiKey),
+    organizationId: config.organizationId || null,
+    actionPrefix: config.actionPrefix,
+    actorId: config.actorId,
+    actorType: config.actorType,
+    actorName: config.actorName,
+    location: config.location,
+    userAgent: config.userAgent,
+    recordingEnabled: config.recordingEnabled !== false,
+    sources: config.sources
+  }, null, 2));
+}
+
 // ../audit-core/src/config.mjs
 import os2 from "node:os";
 import path3 from "node:path";
@@ -10887,22 +10961,7 @@ Runs an interactive wizard that writes:
 Do not pass secrets as command-line arguments.`);
 }
 function showConfig() {
-  const config = readFileConfig();
-  console.log(JSON.stringify({
-    configPath: getConfigFilePath(),
-    configured: true,
-    credentialSource: config.apiKey ? "api-key" : "workos-cli",
-    organizationResolution: config.organizationId ? "explicit" : "auto-find-or-create Audit Log Harness",
-    apiKey: maskSecret(config.apiKey),
-    organizationId: config.organizationId || null,
-    actionPrefix: config.actionPrefix || "claude",
-    actorId: config.actorId || null,
-    actorType: config.actorType || "user",
-    actorName: config.actorName || null,
-    location: config.location || "claude-code",
-    userAgent: config.userAgent || "claude-code-workos-audit/1",
-    recordingEnabled: config.recordingEnabled !== false
-  }, null, 2));
+  printConfigStatus({ configLoader });
 }
 async function promptApiKey(existingValue) {
   if (existingValue) {
@@ -11027,8 +11086,44 @@ No organizations found for this credential. Leaving blank will create "Audit Log
   }
   return selection;
 }
+async function configureViaProxy(current, resolved) {
+  console.log("Configure WorkOS Audit for Claude Code");
+  console.log(`Config file: ${getConfigFilePath()}`);
+  console.log(`
+Ingestion proxy: ${resolved.proxyUrl}`);
+  console.log(`  source: ${resolved.sources.proxyUrl}`);
+  console.log(`  Events are sent to the proxy over mTLS with this machine's device certificate.
+` + `  The proxy holds the WorkOS API key and stamps the actor, organization, and
+` + "  IP itself, so no API key or organization is needed (or used) here.");
+  const certLabel = getDeviceCertLabel();
+  if (certLabel) {
+    console.log(`  device certificate: ${certLabel}`);
+  } else {
+    console.log(`  WARNING: no device certificate found in the keychain. Recording will be
+` + "  skipped until this machine has its MDM-issued certificate.");
+  }
+  const recordingEnabled = await dist_default4({
+    message: "Record audit events from this Claude Code install? (answer No for query-only)",
+    default: current.recordingEnabled !== false
+  });
+  let actionPrefix = current.actionPrefix;
+  if (recordingEnabled) {
+    actionPrefix = await promptOptional("Action prefix", current.actionPrefix, "claude");
+  }
+  const filePath = writeFileConfig({ ...current, actionPrefix, recordingEnabled });
+  console.log(`
+Saved WorkOS Audit config to ${filePath}`);
+  if (!recordingEnabled) {
+    console.log("Recording is OFF — hooks will short-circuit; only the query MCP tool will be active.");
+  }
+  console.log("Restart Claude Code so hooks and MCP servers reload the configuration.");
+}
 async function configure() {
   const current = readFileConfig();
+  const resolved = loadConfig();
+  if (resolved.proxyUrl) {
+    return configureViaProxy(current, resolved);
+  }
   const cliAuth = summarizeWorkosCliAuth();
   console.log("Configure WorkOS Audit for Claude Code");
   console.log(`Config file: ${getConfigFilePath()}`);

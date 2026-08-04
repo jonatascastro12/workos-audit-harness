@@ -8713,10 +8713,19 @@ function emitViaProxy(event, config) {
   }
   const payload = toRestEvent(event);
   delete payload.actor;
+  const fail = (detail, status2) => {
+    process.stderr.write(`workos-audit: proxy emit failed (${detail})
+`);
+    return { ok: false, transport: "proxy", error: detail, ...status2 ? { status: status2 } : {}, action: event.action };
+  };
+  let stdout;
   try {
-    execFileSync3("/usr/bin/curl", [
+    stdout = execFileSync3("/usr/bin/curl", [
       "-sS",
       "--fail-with-body",
+      "-w",
+      `
+%{http_code}`,
       "-X",
       "POST",
       "--cert",
@@ -8729,16 +8738,32 @@ function emitViaProxy(event, config) {
     ], {
       input: JSON.stringify(payload),
       encoding: "utf8",
-      stdio: ["pipe", "ignore", "pipe"],
+      stdio: ["pipe", "pipe", "pipe"],
       env: { ...process.env, CURL_SSL_BACKEND: "secure-transport" }
     });
-    return { ok: true, transport: "proxy", action: event.action };
   } catch (error) {
-    const detail = error.stderr?.toString?.().trim() || error.message || String(error);
-    process.stderr.write(`workos-audit: proxy emit failed (${detail})
-`);
-    return { ok: false, transport: "proxy", error: detail, action: event.action };
+    const { status: status2, body: body2 } = splitCurlOutput(error.stdout);
+    const reason = error.stderr?.toString?.().trim() || error.message || String(error);
+    return fail(body2 ? `${reason} :: ${body2}` : reason, status2);
   }
+  const { status, body } = splitCurlOutput(stdout);
+  if (status === null)
+    return fail("could not read proxy response status");
+  if (status < 200 || status > 299) {
+    return fail(body ? `proxy returned HTTP ${status} :: ${body}` : `proxy returned HTTP ${status}`, status);
+  }
+  return { ok: true, transport: "proxy", status, action: event.action };
+}
+function splitCurlOutput(raw) {
+  const text = String(raw ?? "");
+  const cut = text.lastIndexOf(`
+`);
+  const parsed = Number.parseInt(cut === -1 ? text : text.slice(cut + 1), 10);
+  const body = (cut === -1 ? "" : text.slice(0, cut)).replace(/\s+/g, " ").trim();
+  return {
+    status: Number.isInteger(parsed) ? parsed : null,
+    body: body.length > 200 ? `${body.slice(0, 200)}…` : body
+  };
 }
 async function emitEvent(event, config) {
   if (config.proxyUrl) {

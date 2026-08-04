@@ -37,12 +37,30 @@ function emitViaProxy(event, config) {
   const payload = toRestEvent(event);
   delete payload.actor;
 
+  const fail = (detail, status) => {
+    process.stderr.write(`workos-audit: proxy emit failed (${detail})\n`);
+    return { ok: false, transport: 'proxy', error: detail, ...(status ? { status } : {}), action: event.action };
+  };
+
+  let stdout;
   try {
-    execFileSync(
+    // `--fail-with-body` only fails on >= 400, and we deliberately do NOT follow
+    // redirects, so a 3xx would otherwise exit 0 and be reported as a success
+    // with the event silently dropped. That is the worst failure mode an audit
+    // pipeline can have — a Cloudflare Access policy that stops covering the
+    // ingest path answers with a 302 to the login page, which would look like
+    // healthy ingestion on every machine at once. So ask curl to append the
+    // status code and assert 2xx ourselves rather than trusting its exit code.
+    //
+    // The body is kept (not sent to /dev/null) because the proxy explains itself
+    // in it — "audit ingestion is paused: <reason>", "unknown or unassigned
+    // device" — and that text is the whole diagnosis when a fleet goes quiet.
+    stdout = execFileSync(
       '/usr/bin/curl',
       [
         '-sS',
         '--fail-with-body',
+        '-w', '\n%{http_code}',
         '-X', 'POST',
         '--cert', label,
         '-H', 'Content-Type: application/json',
@@ -52,16 +70,39 @@ function emitViaProxy(event, config) {
       {
         input: JSON.stringify(payload),
         encoding: 'utf8',
-        stdio: ['pipe', 'ignore', 'pipe'],
+        stdio: ['pipe', 'pipe', 'pipe'],
         env: { ...process.env, CURL_SSL_BACKEND: 'secure-transport' },
       },
     );
-    return { ok: true, transport: 'proxy', action: event.action };
   } catch (error) {
-    const detail = error.stderr?.toString?.().trim() || error.message || String(error);
-    process.stderr.write(`workos-audit: proxy emit failed (${detail})\n`);
-    return { ok: false, transport: 'proxy', error: detail, action: event.action };
+    // >= 400: curl exits non-zero but --fail-with-body still wrote the body,
+    // so recover the proxy's explanation from stdout when there is one.
+    const { status, body } = splitCurlOutput(error.stdout);
+    const reason = error.stderr?.toString?.().trim() || error.message || String(error);
+    return fail(body ? `${reason} :: ${body}` : reason, status);
   }
+
+  const { status, body } = splitCurlOutput(stdout);
+  if (status === null) return fail('could not read proxy response status');
+  if (status < 200 || status > 299) {
+    return fail(body ? `proxy returned HTTP ${status} :: ${body}` : `proxy returned HTTP ${status}`, status);
+  }
+
+  return { ok: true, transport: 'proxy', status, action: event.action };
+}
+
+// Split curl's `<body>\n<http_code>` output. The status is taken from after the
+// LAST newline so a multi-line body can't be mistaken for it, and the body is
+// truncated because a rejection can be a full HTML error page.
+function splitCurlOutput(raw) {
+  const text = String(raw ?? '');
+  const cut = text.lastIndexOf('\n');
+  const parsed = Number.parseInt(cut === -1 ? text : text.slice(cut + 1), 10);
+  const body = (cut === -1 ? '' : text.slice(0, cut)).replace(/\s+/g, ' ').trim();
+  return {
+    status: Number.isInteger(parsed) ? parsed : null,
+    body: body.length > 200 ? `${body.slice(0, 200)}…` : body,
+  };
 }
 
 export async function emitEvent(event, config) {

@@ -8462,17 +8462,49 @@ function summarizeWorkosCliAuth() {
   };
 }
 
+// ../audit-core/src/device-cert.mjs
+import { execFileSync } from "node:child_process";
+var LABEL_RE = /"(OktaManagementAttestation for [^"]+)"/;
+var cached;
+function getDeviceCertLabel() {
+  if (cached !== undefined)
+    return cached;
+  try {
+    const out = execFileSync("security", ["find-identity"], {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"]
+    });
+    cached = LABEL_RE.exec(out)?.[1] ?? null;
+  } catch {
+    cached = null;
+  }
+  return cached;
+}
+
 // ../audit-core/src/print-config-status.mjs
 function printConfigStatus({ configLoader }) {
   const config = configLoader.loadConfig();
   const workosCli = summarizeWorkosCliAuth();
   const credentialSource = config.apiKey ? "api-key" : workosCli.loggedIn ? "workos-cli" : "none";
-  const configured = credentialSource !== "none";
+  const proxyUrl = config.proxyUrl || null;
+  const deviceCertLabel = proxyUrl ? getDeviceCertLabel() : null;
+  let writeTransport;
+  if (proxyUrl) {
+    writeTransport = deviceCertLabel ? "proxy" : "proxy-no-device-certificate";
+  } else {
+    writeTransport = credentialSource === "none" ? "none" : credentialSource;
+  }
+  const configured = writeTransport === "proxy" || credentialSource !== "none";
   console.log(JSON.stringify({
     configured,
+    writeTransport,
+    proxyUrl,
+    proxySource: proxyUrl ? config.sources.proxyUrl : null,
+    deviceCertificate: proxyUrl ? deviceCertLabel ?? null : null,
     credentialSource,
     workosCli,
-    organizationResolution: config.organizationId ? "explicit" : "auto-find-or-create Audit Log Harness",
+    organizationResolution: proxyUrl ? "proxy-controlled (server-side)" : config.organizationId ? "explicit" : "auto-find-or-create Audit Log Harness",
+    identitySource: proxyUrl ? "proxy (device certificate -> MDM assignment)" : "local config",
     configPath: config.configPath,
     apiKey: maskSecret(config.apiKey),
     organizationId: config.organizationId || null,
