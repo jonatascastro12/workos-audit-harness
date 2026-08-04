@@ -13,7 +13,6 @@
     ".": "./index.mjs",
     "./config": "./src/config.mjs",
     "./mcp-server": "./src/mcp-server.mjs",
-    "./send-event": "./src/send-event.mjs",
     "./schema-cli": "./src/schema-cli.mjs",
     "./hook-runtime": "./src/hook-runtime.mjs",
     "./print-config-status": "./src/print-config-status.mjs",
