@@ -18,6 +18,7 @@
     "./hook-runtime": "./src/hook-runtime.mjs",
     "./print-config-status": "./src/print-config-status.mjs",
     "./util": "./src/util.mjs",
+    "./device-cert": "./src/device-cert.mjs",
     "./harness-path": "./src/harness-path.mjs",
     "./audit-query": "./src/audit-query.mjs",
     "./emit-event": "./src/cli/emit-event.mjs",

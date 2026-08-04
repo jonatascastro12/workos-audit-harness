@@ -5,30 +5,20 @@ import {
   getEffectiveApiKey,
   summarizeWorkosCliAuth,
 } from '@workos-inc/audit-core/workos-client';
-import { clearFileConfig, getConfigFilePath, maskSecret, readFileConfig, trimToUndefined, writeFileConfig } from './config-file.mjs';
+import { getDeviceCertLabel } from '@workos-inc/audit-core/device-cert';
+import { printConfigStatus } from '@workos-inc/audit-core/print-config-status';
+import { clearFileConfig, configLoader, getConfigFilePath, loadConfig, maskSecret, readFileConfig, trimToUndefined, writeFileConfig } from './config-file.mjs';
 import { getClaudeAuditSchemaDefinitions } from './claude-audit-schemas.mjs';
 
 function usage() {
   console.log(`Usage: node scripts/configure.mjs [--show|--clear|--reconfigure]\n\nRuns an interactive wizard that writes:\n  ${getConfigFilePath()}\n\nDo not pass secrets as command-line arguments.`);
 }
 
+// One source of truth for "what is my state?" — the same resolved view hooks
+// use, rather than a second hand-rolled summary that can drift from it (the
+// previous one hardcoded `configured: true` and never mentioned the proxy).
 function showConfig() {
-  const config = readFileConfig();
-  console.log(JSON.stringify({
-    configPath: getConfigFilePath(),
-    configured: true,
-    credentialSource: config.apiKey ? 'api-key' : 'workos-cli',
-    organizationResolution: config.organizationId ? 'explicit' : 'auto-find-or-create Audit Log Harness',
-    apiKey: maskSecret(config.apiKey),
-    organizationId: config.organizationId || null,
-    actionPrefix: config.actionPrefix || 'claude',
-    actorId: config.actorId || null,
-    actorType: config.actorType || 'user',
-    actorName: config.actorName || null,
-    location: config.location || 'claude-code',
-    userAgent: config.userAgent || 'claude-code-workos-audit/1',
-    recordingEnabled: config.recordingEnabled !== false,
-  }, null, 2));
+  printConfigStatus({ configLoader });
 }
 
 async function promptApiKey(existingValue) {
@@ -166,8 +156,65 @@ async function pickOrganization(apiKey, currentOrganizationId) {
   return selection;
 }
 
+// Proxy-managed machines take a much shorter path through the wizard.
+//
+// When an ingestion proxy is configured (normally by MDM), the proxy holds the
+// `sk_` key, resolves the device to a person, and picks the organization — so
+// asking for a credential, an organization, or offering to seed schemas is
+// asking for things this machine must not have and will never use. Only the
+// two settings the client still controls are worth prompting for: whether to
+// record at all, and the action prefix (the proxy forwards `action` verbatim).
+async function configureViaProxy(current, resolved) {
+  console.log('Configure WorkOS Audit for Claude Code');
+  console.log(`Config file: ${getConfigFilePath()}`);
+  console.log(`\nIngestion proxy: ${resolved.proxyUrl}`);
+  console.log(`  source: ${resolved.sources.proxyUrl}`);
+  console.log(
+    '  Events are sent to the proxy over mTLS with this machine\'s device certificate.\n'
+    + '  The proxy holds the WorkOS API key and stamps the actor, organization, and\n'
+    + '  IP itself, so no API key or organization is needed (or used) here.',
+  );
+
+  const certLabel = getDeviceCertLabel();
+  if (certLabel) {
+    console.log(`  device certificate: ${certLabel}`);
+  } else {
+    console.log(
+      '  WARNING: no device certificate found in the keychain. Recording will be\n'
+      + '  skipped until this machine has its MDM-issued certificate.',
+    );
+  }
+
+  const recordingEnabled = await confirm({
+    message: 'Record audit events from this Claude Code install? (answer No for query-only)',
+    default: current.recordingEnabled !== false,
+  });
+
+  let actionPrefix = current.actionPrefix;
+  if (recordingEnabled) {
+    actionPrefix = await promptOptional('Action prefix', current.actionPrefix, 'claude');
+  }
+
+  // Preserve everything else untouched: the identity fields are overwritten by
+  // the proxy, but a machine can move between proxy and direct modes and we
+  // must not silently discard values it would need again.
+  const filePath = writeFileConfig({ ...current, actionPrefix, recordingEnabled });
+  console.log(`\nSaved WorkOS Audit config to ${filePath}`);
+  if (!recordingEnabled) {
+    console.log('Recording is OFF — hooks will short-circuit; only the query MCP tool will be active.');
+  }
+  console.log('Restart Claude Code so hooks and MCP servers reload the configuration.');
+}
+
 async function configure() {
   const current = readFileConfig();
+  const resolved = loadConfig();
+
+  // Branch before any credential prompt — see configureViaProxy.
+  if (resolved.proxyUrl) {
+    return configureViaProxy(current, resolved);
+  }
+
   const cliAuth = summarizeWorkosCliAuth();
 
   console.log('Configure WorkOS Audit for Claude Code');

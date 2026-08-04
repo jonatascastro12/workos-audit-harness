@@ -2,7 +2,7 @@
   "id": "workos-audit",
   "name": "WorkOS Audit",
   "description": "Emit OpenClaw lifecycle events to WorkOS and query audit logs.",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "activation": {
     "onStartup": true
   },

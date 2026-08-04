@@ -1117,27 +1117,27 @@ function spkiFromX509(buf) {
 function extractX509SPKI(x509) {
   return spkiFromX509(processPEMData(x509, /(?:-----(?:BEGIN|END) CERTIFICATE-----|\s)/g));
 }
-async function importSPKI(spki, alg, options3) {
+async function importSPKI(spki, alg, options) {
   if (typeof spki !== "string" || spki.indexOf("-----BEGIN PUBLIC KEY-----") !== 0)
     throw new TypeError('"spki" must be SPKI formatted string');
-  return fromSPKI(spki, alg, options3);
+  return fromSPKI(spki, alg, options);
 }
-async function importX509(x509, alg, options3) {
+async function importX509(x509, alg, options) {
   if (typeof x509 !== "string" || x509.indexOf("-----BEGIN CERTIFICATE-----") !== 0)
     throw new TypeError('"x509" must be X.509 formatted string');
-  return fromX509(x509, alg, options3);
+  return fromX509(x509, alg, options);
 }
-async function importPKCS8(pkcs8, alg, options3) {
+async function importPKCS8(pkcs8, alg, options) {
   if (typeof pkcs8 !== "string" || pkcs8.indexOf("-----BEGIN PRIVATE KEY-----") !== 0)
     throw new TypeError('"pkcs8" must be PKCS#8 formatted string');
-  return fromPKCS8(pkcs8, alg, options3);
+  return fromPKCS8(pkcs8, alg, options);
 }
-async function importJWK(jwk, alg, options3) {
+async function importJWK(jwk, alg, options) {
   if (!isObject(jwk))
     throw new TypeError("JWK must be an object");
   let ext;
   alg ??= jwk.alg;
-  ext ??= options3?.extractable ?? jwk.ext;
+  ext ??= options?.extractable ?? jwk.ext;
   switch (jwk.kty) {
     case "oct":
       if (typeof jwk.k !== "string" || !jwk.k)
@@ -1215,7 +1215,7 @@ function assertEncryptedKey(encryptedKey) {
   if (encryptedKey === undefined)
     throw new JWEInvalid("JWE Encrypted Key missing");
 }
-async function decryptKeyManagement(alg, key, encryptedKey, joseHeader, options3) {
+async function decryptKeyManagement(alg, key, encryptedKey, joseHeader, options) {
   switch (alg) {
     case "dir":
       if (encryptedKey !== undefined)
@@ -1265,7 +1265,7 @@ async function decryptKeyManagement(alg, key, encryptedKey, joseHeader, options3
       assertEncryptedKey(encryptedKey);
       if (typeof joseHeader.p2c !== "number")
         throw new JWEInvalid(`JOSE Header "p2c" (PBES2 Count) missing or invalid`);
-      const p2cLimit = options3?.maxPBES2Count || 1e4;
+      const p2cLimit = options?.maxPBES2Count || 1e4;
       if (joseHeader.p2c > p2cLimit)
         throw new JWEInvalid(`JOSE Header "p2c" (PBES2 Count) out is of acceptable bounds`);
       if (typeof joseHeader.p2s !== "string")
@@ -1460,7 +1460,7 @@ async function decompress(input, maxLength) {
   }
   return concat(...chunks);
 }
-async function flattenedDecrypt(jwe, key, options3) {
+async function flattenedDecrypt(jwe, key, options) {
   if (!isObject(jwe))
     throw new JWEInvalid("Flattened JWE must be an object");
   if (jwe.protected === undefined && jwe.header === undefined && jwe.unprotected === undefined)
@@ -1496,7 +1496,7 @@ async function flattenedDecrypt(jwe, key, options3) {
     ...jwe.header,
     ...jwe.unprotected
   };
-  validateCrit(JWEInvalid, /* @__PURE__ */ new Map, options3?.crit, parsedProt, joseHeader);
+  validateCrit(JWEInvalid, /* @__PURE__ */ new Map, options?.crit, parsedProt, joseHeader);
   if (joseHeader.zip !== undefined && joseHeader.zip !== "DEF")
     throw new JOSENotSupported('Unsupported JWE "zip" (Compression Algorithm) Header Parameter value.');
   if (joseHeader.zip !== undefined && !parsedProt?.zip)
@@ -1506,8 +1506,8 @@ async function flattenedDecrypt(jwe, key, options3) {
     throw new JWEInvalid("missing JWE Algorithm (alg) in JWE Header");
   if (typeof enc !== "string" || !enc)
     throw new JWEInvalid("missing JWE Encryption Algorithm (enc) in JWE Header");
-  const keyManagementAlgorithms = options3 && validateAlgorithms("keyManagementAlgorithms", options3.keyManagementAlgorithms);
-  const contentEncryptionAlgorithms = options3 && validateAlgorithms("contentEncryptionAlgorithms", options3.contentEncryptionAlgorithms);
+  const keyManagementAlgorithms = options && validateAlgorithms("keyManagementAlgorithms", options.keyManagementAlgorithms);
+  const contentEncryptionAlgorithms = options && validateAlgorithms("contentEncryptionAlgorithms", options.contentEncryptionAlgorithms);
   if (keyManagementAlgorithms && !keyManagementAlgorithms.has(alg) || !keyManagementAlgorithms && alg.startsWith("PBES2"))
     throw new JOSEAlgNotAllowed('"alg" (Algorithm) Header Parameter value not allowed');
   if (contentEncryptionAlgorithms && !contentEncryptionAlgorithms.has(enc))
@@ -1524,7 +1524,7 @@ async function flattenedDecrypt(jwe, key, options3) {
   const k = await normalizeKey(key, alg);
   let cek;
   try {
-    cek = await decryptKeyManagement(alg, k, encryptedKey, joseHeader, options3);
+    cek = await decryptKeyManagement(alg, k, encryptedKey, joseHeader, options);
   } catch (err) {
     if (err instanceof TypeError || err instanceof JWEInvalid || err instanceof JOSENotSupported)
       throw err;
@@ -1546,7 +1546,7 @@ async function flattenedDecrypt(jwe, key, options3) {
   const plaintext = await decrypt$1(enc, cek, ciphertext, iv, tag2, additionalData);
   const result = { plaintext };
   if (joseHeader.zip === "DEF") {
-    const maxDecompressedLength = options3?.maxDecompressedLength ?? 250000;
+    const maxDecompressedLength = options?.maxDecompressedLength ?? 250000;
     if (maxDecompressedLength === 0)
       throw new JOSENotSupported('JWE "zip" (Compression Algorithm) Header Parameter is not supported.');
     if (maxDecompressedLength !== Infinity && (!Number.isSafeInteger(maxDecompressedLength) || maxDecompressedLength < 1))
@@ -1572,7 +1572,7 @@ async function flattenedDecrypt(jwe, key, options3) {
     };
   return result;
 }
-async function compactDecrypt(jwe, key, options3) {
+async function compactDecrypt(jwe, key, options) {
   if (jwe instanceof Uint8Array)
     jwe = decoder.decode(jwe);
   if (typeof jwe !== "string")
@@ -1586,7 +1586,7 @@ async function compactDecrypt(jwe, key, options3) {
     protected: protectedHeader,
     tag: tag2 || undefined,
     encrypted_key: encryptedKey || undefined
-  }, key, options3);
+  }, key, options);
   const result = {
     plaintext: decrypted.plaintext,
     protectedHeader: decrypted.protectedHeader
@@ -1598,7 +1598,7 @@ async function compactDecrypt(jwe, key, options3) {
     };
   return result;
 }
-async function generalDecrypt(jwe, key, options3) {
+async function generalDecrypt(jwe, key, options) {
   if (!isObject(jwe))
     throw new JWEInvalid("General JWE must be an object");
   if (!Array.isArray(jwe.recipients) || !jwe.recipients.every(isObject))
@@ -1616,11 +1616,11 @@ async function generalDecrypt(jwe, key, options3) {
         protected: jwe.protected,
         tag: jwe.tag,
         unprotected: jwe.unprotected
-      }, key, options3);
+      }, key, options);
     } catch {}
   throw new JWEDecryptionFailed;
 }
-async function flattenedVerify(jws, key, options3) {
+async function flattenedVerify(jws, key, options) {
   if (!isObject(jws))
     throw new JWSInvalid("Flattened JWS must be an object");
   if (jws.protected === undefined && jws.header === undefined)
@@ -1647,7 +1647,7 @@ async function flattenedVerify(jws, key, options3) {
     ...parsedProt,
     ...jws.header
   };
-  const extensions = validateCrit(JWSInvalid, new Map([["b64", true]]), options3?.crit, parsedProt, joseHeader);
+  const extensions = validateCrit(JWSInvalid, new Map([["b64", true]]), options?.crit, parsedProt, joseHeader);
   let b64 = true;
   if (extensions.has("b64")) {
     b64 = parsedProt.b64;
@@ -1657,7 +1657,7 @@ async function flattenedVerify(jws, key, options3) {
   const { alg } = joseHeader;
   if (typeof alg !== "string" || !alg)
     throw new JWSInvalid('JWS "alg" (Algorithm) Header Parameter missing or invalid');
-  const algorithms = options3 && validateAlgorithms("algorithms", options3.algorithms);
+  const algorithms = options && validateAlgorithms("algorithms", options.algorithms);
   if (algorithms && !algorithms.has(alg))
     throw new JOSEAlgNotAllowed('"alg" (Algorithm) Header Parameter value not allowed');
   if (b64) {
@@ -1695,7 +1695,7 @@ async function flattenedVerify(jws, key, options3) {
     };
   return result;
 }
-async function compactVerify(jws, key, options3) {
+async function compactVerify(jws, key, options) {
   if (jws instanceof Uint8Array)
     jws = decoder.decode(jws);
   if (typeof jws !== "string")
@@ -1707,7 +1707,7 @@ async function compactVerify(jws, key, options3) {
     payload,
     protected: protectedHeader,
     signature
-  }, key, options3);
+  }, key, options);
   const result = {
     payload: verified.payload,
     protectedHeader: verified.protectedHeader
@@ -1719,7 +1719,7 @@ async function compactVerify(jws, key, options3) {
     };
   return result;
 }
-async function generalVerify(jws, key, options3) {
+async function generalVerify(jws, key, options) {
   if (!isObject(jws))
     throw new JWSInvalid("General JWS must be an object");
   if (!Array.isArray(jws.signatures) || !jws.signatures.every(isObject))
@@ -1731,7 +1731,7 @@ async function generalVerify(jws, key, options3) {
         payload: jws.payload,
         protected: signature.protected,
         signature: signature.signature
-      }, key, options3);
+      }, key, options);
     } catch {}
   throw new JWSSignatureVerificationFailed;
 }
@@ -1787,17 +1787,17 @@ function validateInput(label, input) {
     throw new TypeError(`Invalid ${label} input`);
   return input;
 }
-function validateClaimsSet(protectedHeader, encodedPayload, options3 = {}) {
+function validateClaimsSet(protectedHeader, encodedPayload, options = {}) {
   let payload;
   try {
     payload = JSON.parse(decoder.decode(encodedPayload));
   } catch {}
   if (!isObject(payload))
     throw new JWTInvalid("JWT Claims Set must be a top-level JSON object");
-  const { typ } = options3;
+  const { typ } = options;
   if (typ && (typeof protectedHeader.typ !== "string" || normalizeTyp(protectedHeader.typ) !== normalizeTyp(typ)))
     throw new JWTClaimValidationFailed('unexpected "typ" JWT header value', payload, "typ", "check_failed");
-  const { requiredClaims = [], issuer, subject, audience, maxTokenAge } = options3;
+  const { requiredClaims = [], issuer, subject, audience, maxTokenAge } = options;
   const presenceCheck = [...requiredClaims];
   if (maxTokenAge !== undefined)
     presenceCheck.push("iat");
@@ -1817,12 +1817,12 @@ function validateClaimsSet(protectedHeader, encodedPayload, options3 = {}) {
   if (audience && !checkAudiencePresence(payload.aud, typeof audience === "string" ? [audience] : audience))
     throw new JWTClaimValidationFailed('unexpected "aud" claim value', payload, "aud", "check_failed");
   let tolerance;
-  switch (typeof options3.clockTolerance) {
+  switch (typeof options.clockTolerance) {
     case "string":
-      tolerance = secs(options3.clockTolerance);
+      tolerance = secs(options.clockTolerance);
       break;
     case "number":
-      tolerance = options3.clockTolerance;
+      tolerance = options.clockTolerance;
       break;
     case "undefined":
       tolerance = 0;
@@ -1830,7 +1830,7 @@ function validateClaimsSet(protectedHeader, encodedPayload, options3 = {}) {
     default:
       throw new TypeError("Invalid clockTolerance option type");
   }
-  const { currentDate } = options3;
+  const { currentDate } = options;
   const now = epoch(currentDate || /* @__PURE__ */ new Date);
   if ((payload.iat !== undefined || maxTokenAge) && typeof payload.iat !== "number")
     throw new JWTClaimValidationFailed('"iat" claim must be a number', payload, "iat", "invalid");
@@ -1856,12 +1856,12 @@ function validateClaimsSet(protectedHeader, encodedPayload, options3 = {}) {
   }
   return payload;
 }
-async function jwtVerify(jwt, key, options3) {
-  const verified = await compactVerify(jwt, key, options3);
+async function jwtVerify(jwt, key, options) {
+  const verified = await compactVerify(jwt, key, options);
   if (verified.protectedHeader.crit?.includes("b64") && verified.protectedHeader.b64 === false)
     throw new JWTInvalid("JWTs MUST NOT use unencoded payload");
   const result = {
-    payload: validateClaimsSet(verified.protectedHeader, verified.payload, options3),
+    payload: validateClaimsSet(verified.protectedHeader, verified.payload, options),
     protectedHeader: verified.protectedHeader
   };
   if (typeof key === "function")
@@ -1871,9 +1871,9 @@ async function jwtVerify(jwt, key, options3) {
     };
   return result;
 }
-async function jwtDecrypt(jwt, key, options3) {
-  const decrypted = await compactDecrypt(jwt, key, options3);
-  const payload = validateClaimsSet(decrypted.protectedHeader, decrypted.plaintext, options3);
+async function jwtDecrypt(jwt, key, options) {
+  const decrypted = await compactDecrypt(jwt, key, options);
+  const payload = validateClaimsSet(decrypted.protectedHeader, decrypted.plaintext, options);
   const { protectedHeader } = decrypted;
   if (protectedHeader.iss !== undefined && protectedHeader.iss !== payload.iss)
     throw new JWTClaimValidationFailed('replicated "iss" claim header parameter mismatch', payload, "iss", "mismatch");
@@ -2052,8 +2052,8 @@ function isFreshJwksCache(input, cacheMaxAge) {
     return false;
   return true;
 }
-function createRemoteJWKSet(url, options3) {
-  const set = new RemoteJWKSet(url, options3);
+function createRemoteJWKSet(url, options) {
+  const set = new RemoteJWKSet(url, options);
   const remoteJWKSet = async (protectedHeader, token) => set.getKey(protectedHeader, token);
   Object.defineProperties(remoteJWKSet, {
     coolingDown: {
@@ -2134,13 +2134,13 @@ function decodeJwt(jwt) {
     throw new JWTInvalid("Invalid JWT Claims Set");
   return result;
 }
-function getModulusLengthOption(options3) {
-  const modulusLength = options3?.modulusLength ?? 2048;
+function getModulusLengthOption(options) {
+  const modulusLength = options?.modulusLength ?? 2048;
   if (typeof modulusLength !== "number" || modulusLength < 2048)
     throw new JOSENotSupported("Invalid or unsupported modulusLength option provided, 2048 bits or larger keys must be used");
   return modulusLength;
 }
-async function generateKeyPair(alg, options3) {
+async function generateKeyPair(alg, options) {
   let algorithm;
   let keyUsages;
   switch (alg) {
@@ -2151,7 +2151,7 @@ async function generateKeyPair(alg, options3) {
         name: "RSA-PSS",
         hash: `SHA-${alg.slice(-3)}`,
         publicExponent: Uint8Array.of(1, 0, 1),
-        modulusLength: getModulusLengthOption(options3)
+        modulusLength: getModulusLengthOption(options)
       };
       keyUsages = ["sign", "verify"];
       break;
@@ -2162,7 +2162,7 @@ async function generateKeyPair(alg, options3) {
         name: "RSASSA-PKCS1-v1_5",
         hash: `SHA-${alg.slice(-3)}`,
         publicExponent: Uint8Array.of(1, 0, 1),
-        modulusLength: getModulusLengthOption(options3)
+        modulusLength: getModulusLengthOption(options)
       };
       keyUsages = ["sign", "verify"];
       break;
@@ -2174,7 +2174,7 @@ async function generateKeyPair(alg, options3) {
         name: "RSA-OAEP",
         hash: `SHA-${parseInt(alg.slice(-3), 10) || 1}`,
         publicExponent: Uint8Array.of(1, 0, 1),
-        modulusLength: getModulusLengthOption(options3)
+        modulusLength: getModulusLengthOption(options)
       };
       keyUsages = [
         "decrypt",
@@ -2220,7 +2220,7 @@ async function generateKeyPair(alg, options3) {
     case "ECDH-ES+A192KW":
     case "ECDH-ES+A256KW": {
       keyUsages = ["deriveBits"];
-      const crv = options3?.crv ?? "P-256";
+      const crv = options?.crv ?? "P-256";
       switch (crv) {
         case "P-256":
         case "P-384":
@@ -2241,9 +2241,9 @@ async function generateKeyPair(alg, options3) {
     default:
       throw new JOSENotSupported('Invalid or unsupported JWK "alg" (Algorithm) Parameter value');
   }
-  return crypto.subtle.generateKey(algorithm, options3?.extractable ?? false, keyUsages);
+  return crypto.subtle.generateKey(algorithm, options?.extractable ?? false, keyUsages);
 }
-async function generateSecret(alg, options3) {
+async function generateSecret(alg, options) {
   let length;
   let algorithm;
   let keyUsages;
@@ -2290,7 +2290,7 @@ async function generateSecret(alg, options3) {
     default:
       throw new JOSENotSupported('Invalid or unsupported JWK "alg" (Algorithm) Parameter value');
   }
-  return crypto.subtle.generateKey(algorithm, options3?.extractable ?? false, keyUsages);
+  return crypto.subtle.generateKey(algorithm, options?.extractable ?? false, keyUsages);
 }
 var __defProp2, __exportAll = (all, no_symbols) => {
   let target2 = {};
@@ -2551,7 +2551,7 @@ ${(b64.match(/.{1,64}/g) || []).join(`
     if (bytesEqual(curveOid, oid))
       return name;
   throw new Error("Unsupported named curve");
-}, genericImport = async (keyFormat, keyData, alg, options3) => {
+}, genericImport = async (keyFormat, keyData, alg, options) => {
   let algorithm;
   let keyUsages;
   const isPublic = keyFormat === "spki";
@@ -2604,7 +2604,7 @@ ${(b64.match(/.{1,64}/g) || []).join(`
     case "ECDH-ES+A192KW":
     case "ECDH-ES+A256KW":
       try {
-        const namedCurve = options3.getNamedCurve(keyData);
+        const namedCurve = options.getNamedCurve(keyData);
         algorithm = namedCurve === "X25519" ? { name: "X25519" } : {
           name: "ECDH",
           namedCurve
@@ -2628,12 +2628,12 @@ ${(b64.match(/.{1,64}/g) || []).join(`
     default:
       throw new JOSENotSupported('Invalid or unsupported "alg" (Algorithm) value');
   }
-  return crypto.subtle.importKey(keyFormat, keyData, algorithm, options3?.extractable ?? (isPublic ? true : false), keyUsages);
+  return crypto.subtle.importKey(keyFormat, keyData, algorithm, options?.extractable ?? (isPublic ? true : false), keyUsages);
 }, processPEMData = (pem, pattern2) => {
   return decodeBase64(pem.replace(pattern2, ""));
-}, fromPKCS8 = (pem, alg, options3) => {
+}, fromPKCS8 = (pem, alg, options) => {
   const keyData = processPEMData(pem, /(?:-----(?:BEGIN|END) PRIVATE KEY-----|\s)/g);
-  let opts = options3;
+  let opts = options;
   if (alg?.startsWith?.("ECDH-ES")) {
     opts ||= {};
     opts.getNamedCurve = (keyData2) => {
@@ -2643,9 +2643,9 @@ ${(b64.match(/.{1,64}/g) || []).join(`
     };
   }
   return genericImport("pkcs8", keyData, alg, opts);
-}, fromSPKI = (pem, alg, options3) => {
+}, fromSPKI = (pem, alg, options) => {
   const keyData = processPEMData(pem, /(?:-----(?:BEGIN|END) PUBLIC KEY-----|\s)/g);
-  let opts = options3;
+  let opts = options;
   if (alg?.startsWith?.("ECDH-ES")) {
     opts ||= {};
     opts.getNamedCurve = (keyData2) => {
@@ -2655,14 +2655,14 @@ ${(b64.match(/.{1,64}/g) || []).join(`
     };
   }
   return genericImport("spki", keyData, alg, opts);
-}, fromX509 = (pem, alg, options3) => {
+}, fromX509 = (pem, alg, options) => {
   let spki;
   try {
     spki = extractX509SPKI(pem);
   } catch (cause) {
     throw new TypeError("Failed to parse the X.509 certificate", { cause });
   }
-  return fromSPKI(formatPEM(encodeBase64(spki), "PUBLIC KEY"), alg, options3);
+  return fromSPKI(formatPEM(encodeBase64(spki), "PUBLIC KEY"), alg, options);
 }, unsupportedAlgHeader = 'Invalid or unsupported "alg" (JWE Algorithm) header value', tag = (key) => key?.[Symbol.toStringTag], jwkMatchesOp = (alg, key, usage) => {
   if (key.use !== undefined) {
     let expected;
@@ -2801,7 +2801,7 @@ ${(b64.match(/.{1,64}/g) || []).join(`
     this.#iv = iv;
     return this;
   }
-  async encrypt(key, options3) {
+  async encrypt(key, options) {
     if (!this.#protectedHeader && !this.#unprotectedHeader && !this.#sharedUnprotectedHeader)
       throw new JWEInvalid("either setProtectedHeader, setUnprotectedHeader, or sharedUnprotectedHeader must be called before #encrypt()");
     if (!isDisjoint(this.#protectedHeader, this.#unprotectedHeader, this.#sharedUnprotectedHeader))
@@ -2811,7 +2811,7 @@ ${(b64.match(/.{1,64}/g) || []).join(`
       ...this.#unprotectedHeader,
       ...this.#sharedUnprotectedHeader
     };
-    validateCrit(JWEInvalid, /* @__PURE__ */ new Map, options3?.crit, this.#protectedHeader, joseHeader);
+    validateCrit(JWEInvalid, /* @__PURE__ */ new Map, options?.crit, this.#protectedHeader, joseHeader);
     if (joseHeader.zip !== undefined && joseHeader.zip !== "DEF")
       throw new JOSENotSupported('Unsupported JWE "zip" (Compression Algorithm) Header Parameter value.');
     if (joseHeader.zip !== undefined && !this.#protectedHeader?.zip)
@@ -2831,7 +2831,7 @@ ${(b64.match(/.{1,64}/g) || []).join(`
       const k = await normalizeKey(key, alg);
       ({ cek, encryptedKey, parameters: parameters3 } = await encryptKeyManagement(alg, enc, k, this.#cek, this.#keyManagementParameters));
       if (parameters3)
-        if (options3 && unprotected in options3)
+        if (options && unprotected in options)
           if (!this.#unprotectedHeader)
             this.setUnprotectedHeader(parameters3);
           else
@@ -2893,10 +2893,10 @@ ${(b64.match(/.{1,64}/g) || []).join(`
   keyManagementParameters;
   key;
   options;
-  constructor(enc, key, options3) {
+  constructor(enc, key, options) {
     this.#parent = enc;
     this.key = key;
-    this.options = options3;
+    this.options = options;
   }
   setUnprotectedHeader(unprotectedHeader) {
     assertNotSet(this.unprotectedHeader, "setUnprotectedHeader");
@@ -2926,8 +2926,8 @@ ${(b64.match(/.{1,64}/g) || []).join(`
   constructor(plaintext) {
     this.#plaintext = plaintext;
   }
-  addRecipient(key, options3) {
-    const recipient = new IndividualRecipient(this, key, { crit: options3?.crit });
+  addRecipient(key, options) {
+    const recipient = new IndividualRecipient(this, key, { crit: options?.crit });
     this.#recipients.push(recipient);
     return recipient;
   }
@@ -3125,8 +3125,8 @@ ${(b64.match(/.{1,64}/g) || []).join(`
     this.#flattened.setKeyManagementParameters(parameters3);
     return this;
   }
-  async encrypt(key, options3) {
-    const jwe = await this.#flattened.encrypt(key, options3);
+  async encrypt(key, options) {
+    const jwe = await this.#flattened.encrypt(key, options);
     return [
       jwe.protected,
       jwe.encrypted_key,
@@ -3154,7 +3154,7 @@ ${(b64.match(/.{1,64}/g) || []).join(`
     this.#unprotectedHeader = unprotectedHeader;
     return this;
   }
-  async sign(key, options3) {
+  async sign(key, options) {
     if (!this.#protectedHeader && !this.#unprotectedHeader)
       throw new JWSInvalid("either setProtectedHeader or setUnprotectedHeader must be called before #sign()");
     if (!isDisjoint(this.#protectedHeader, this.#unprotectedHeader))
@@ -3163,7 +3163,7 @@ ${(b64.match(/.{1,64}/g) || []).join(`
       ...this.#protectedHeader,
       ...this.#unprotectedHeader
     };
-    const extensions = validateCrit(JWSInvalid, new Map([["b64", true]]), options3?.crit, this.#protectedHeader, joseHeader);
+    const extensions = validateCrit(JWSInvalid, new Map([["b64", true]]), options?.crit, this.#protectedHeader, joseHeader);
     let b64 = true;
     if (extensions.has("b64")) {
       b64 = this.#protectedHeader.b64;
@@ -3212,8 +3212,8 @@ ${(b64.match(/.{1,64}/g) || []).join(`
     this.#flattened.setProtectedHeader(protectedHeader);
     return this;
   }
-  async sign(key, options3) {
-    const jws = await this.#flattened.sign(key, options3);
+  async sign(key, options) {
+    const jws = await this.#flattened.sign(key, options);
     if (jws.payload === undefined)
       throw new TypeError("use the flattened module for creating JWS with b64: false");
     return `${jws.protected}.${jws.payload}.${jws.signature}`;
@@ -3224,10 +3224,10 @@ ${(b64.match(/.{1,64}/g) || []).join(`
   unprotectedHeader;
   options;
   key;
-  constructor(sig, key, options3) {
+  constructor(sig, key, options) {
     this.#parent = sig;
     this.key = key;
-    this.options = options3;
+    this.options = options;
   }
   setProtectedHeader(protectedHeader) {
     assertNotSet(this.protectedHeader, "setProtectedHeader");
@@ -3254,8 +3254,8 @@ ${(b64.match(/.{1,64}/g) || []).join(`
   constructor(payload) {
     this.#payload = payload;
   }
-  addSignature(key, options3) {
-    const signature = new IndividualSignature(this, key, options3);
+  addSignature(key, options) {
+    const signature = new IndividualSignature(this, key, options);
     this.#signatures.push(signature);
     return signature;
   }
@@ -3318,12 +3318,12 @@ ${(b64.match(/.{1,64}/g) || []).join(`
     this.#protectedHeader = protectedHeader;
     return this;
   }
-  async sign(key, options3) {
+  async sign(key, options) {
     const sig = new CompactSign(this.#jwt.data());
     sig.setProtectedHeader(this.#protectedHeader);
     if (Array.isArray(this.#protectedHeader?.crit) && this.#protectedHeader.crit.includes("b64") && this.#protectedHeader.b64 === false)
       throw new JWTInvalid("JWTs MUST NOT use unencoded payload");
-    return sig.sign(key, options3);
+    return sig.sign(key, options);
   }
 }, EncryptJWT = class {
   #cek;
@@ -3397,7 +3397,7 @@ ${(b64.match(/.{1,64}/g) || []).join(`
     this.#replicateAudienceAsHeader = true;
     return this;
   }
-  async encrypt(key, options3) {
+  async encrypt(key, options) {
     const enc = new CompactEncrypt(this.#jwt.data());
     if (this.#protectedHeader && (this.#replicateIssuerAsHeader || this.#replicateSubjectAsHeader || this.#replicateAudienceAsHeader))
       this.#protectedHeader = {
@@ -3413,7 +3413,7 @@ ${(b64.match(/.{1,64}/g) || []).join(`
       enc.setContentEncryptionKey(this.#cek);
     if (this.#keyManagementParameters)
       enc.setKeyManagementParameters(this.#keyManagementParameters);
-    return enc.encrypt(key, options3);
+    return enc.encrypt(key, options);
   }
 }, check2 = (value, description) => {
   if (typeof value !== "string" || !value)
@@ -3490,24 +3490,24 @@ ${(b64.match(/.{1,64}/g) || []).join(`
   #customFetch;
   #local;
   #cache;
-  constructor(url, options3) {
+  constructor(url, options) {
     if (!(url instanceof URL))
       throw new TypeError("url must be an instance of URL");
     this.#url = new URL(url.href);
-    this.#timeoutDuration = typeof options3?.timeoutDuration === "number" ? options3?.timeoutDuration : 5000;
-    this.#cooldownDuration = typeof options3?.cooldownDuration === "number" ? options3?.cooldownDuration : 30000;
-    this.#cacheMaxAge = typeof options3?.cacheMaxAge === "number" ? options3?.cacheMaxAge : 600000;
-    this.#headers = new Headers(options3?.headers);
+    this.#timeoutDuration = typeof options?.timeoutDuration === "number" ? options?.timeoutDuration : 5000;
+    this.#cooldownDuration = typeof options?.cooldownDuration === "number" ? options?.cooldownDuration : 30000;
+    this.#cacheMaxAge = typeof options?.cacheMaxAge === "number" ? options?.cacheMaxAge : 600000;
+    this.#headers = new Headers(options?.headers);
     if (USER_AGENT && !this.#headers.has("User-Agent"))
       this.#headers.set("User-Agent", USER_AGENT);
     if (!this.#headers.has("accept")) {
       this.#headers.set("accept", "application/json");
       this.#headers.append("accept", "application/jwk-set+json");
     }
-    this.#customFetch = options3?.[customFetch];
-    if (options3?.[jwksCache] !== undefined) {
-      this.#cache = options3?.[jwksCache];
-      if (isFreshJwksCache(options3?.[jwksCache], this.#cacheMaxAge)) {
+    this.#customFetch = options?.[customFetch];
+    if (options?.[jwksCache] !== undefined) {
+      this.#cache = options?.[jwksCache];
+      if (isFreshJwksCache(options?.[jwksCache], this.#cacheMaxAge)) {
         this.#jwksTimestamp = this.#cache.uat;
         this.#local = createLocalJWKSet(this.#cache.jwks);
       }
@@ -3593,7 +3593,7 @@ ${(b64.match(/.{1,64}/g) || []).join(`
     this.#jwt.iat = input;
     return this;
   }
-  static decode(jwt, options3) {
+  static decode(jwt, options) {
     if (typeof jwt !== "string")
       throw new JWTInvalid("Unsecured JWT must be a string");
     const { 0: encodedHeader, 1: encodedPayload, 2: signature, length } = jwt.split(".");
@@ -3608,7 +3608,7 @@ ${(b64.match(/.{1,64}/g) || []).join(`
       throw new JWTInvalid("Invalid Unsecured JWT");
     }
     return {
-      payload: validateClaimsSet(header, decode2(encodedPayload), options3),
+      payload: validateClaimsSet(header, decode2(encodedPayload), options),
       header
     };
   }
@@ -3642,8 +3642,8 @@ var init_webapi_CxKOxXjo = __esm(() => {
   JOSEError = class extends Error {
     static code = "ERR_JOSE_GENERIC";
     code = "ERR_JOSE_GENERIC";
-    constructor(message2, options3) {
-      super(message2, options3);
+    constructor(message2, options) {
+      super(message2, options);
       this.name = this.constructor.name;
       Error.captureStackTrace?.(this, this.constructor);
     }
@@ -3693,8 +3693,8 @@ var init_webapi_CxKOxXjo = __esm(() => {
   JWEDecryptionFailed = class extends JOSEError {
     static code = "ERR_JWE_DECRYPTION_FAILED";
     code = "ERR_JWE_DECRYPTION_FAILED";
-    constructor(message2 = "decryption operation failed", options3) {
-      super(message2, options3);
+    constructor(message2 = "decryption operation failed", options) {
+      super(message2, options);
     }
   };
   JWEInvalid = class extends JOSEError {
@@ -3720,30 +3720,30 @@ var init_webapi_CxKOxXjo = __esm(() => {
   JWKSNoMatchingKey = class extends JOSEError {
     static code = "ERR_JWKS_NO_MATCHING_KEY";
     code = "ERR_JWKS_NO_MATCHING_KEY";
-    constructor(message2 = "no applicable key found in the JSON Web Key Set", options3) {
-      super(message2, options3);
+    constructor(message2 = "no applicable key found in the JSON Web Key Set", options) {
+      super(message2, options);
     }
   };
   JWKSMultipleMatchingKeys = class extends JOSEError {
     [Symbol.asyncIterator];
     static code = "ERR_JWKS_MULTIPLE_MATCHING_KEYS";
     code = "ERR_JWKS_MULTIPLE_MATCHING_KEYS";
-    constructor(message2 = "multiple matching keys found in the JSON Web Key Set", options3) {
-      super(message2, options3);
+    constructor(message2 = "multiple matching keys found in the JSON Web Key Set", options) {
+      super(message2, options);
     }
   };
   JWKSTimeout = class extends JOSEError {
     static code = "ERR_JWKS_TIMEOUT";
     code = "ERR_JWKS_TIMEOUT";
-    constructor(message2 = "request timed out", options3) {
-      super(message2, options3);
+    constructor(message2 = "request timed out", options) {
+      super(message2, options);
     }
   };
   JWSSignatureVerificationFailed = class extends JOSEError {
     static code = "ERR_JWS_SIGNATURE_VERIFICATION_FAILED";
     code = "ERR_JWS_SIGNATURE_VERIFICATION_FAILED";
-    constructor(message2 = "signature verification failed", options3) {
-      super(message2, options3);
+    constructor(message2 = "signature verification failed", options) {
+      super(message2, options);
     }
   };
   unprotected = Symbol();
@@ -3793,8 +3793,10 @@ function Assign(left, right) {
 var exports_guard = {};
 __export(exports_guard, {
   Values: () => Values,
-  TakeLeft: () => TakeLeft,
   Symbols: () => Symbols,
+  SomeAll: () => SomeAll,
+  Some: () => Some,
+  ShiftLeft: () => ShiftLeft,
   Keys: () => Keys,
   IsValueLike: () => IsValueLike,
   IsUnsafePropertyKey: () => IsUnsafePropertyKey,
@@ -3810,7 +3812,6 @@ __export(exports_guard, {
   IsMaxLength: () => IsMaxLength2,
   IsLessThan: () => IsLessThan,
   IsLessEqualThan: () => IsLessEqualThan,
-  IsIterator: () => IsIterator,
   IsInteger: () => IsInteger,
   IsGreaterThan: () => IsGreaterThan,
   IsGreaterEqualThan: () => IsGreaterEqualThan,
@@ -3821,19 +3822,25 @@ __export(exports_guard, {
   IsClassInstance: () => IsClassInstance,
   IsBoolean: () => IsBoolean,
   IsBigInt: () => IsBigInt,
-  IsAsyncIterator: () => IsAsyncIterator,
   IsArray: () => IsArray,
   HasPropertyKey: () => HasPropertyKey,
   GraphemeCount: () => GraphemeCount2,
   EveryAll: () => EveryAll,
   Every: () => Every,
   EntriesRegExp: () => EntriesRegExp,
-  Entries: () => Entries
+  Entries: () => Entries,
+  Counted: () => Counted
 });
 
 // ../../node_modules/typebox/build/guard/string.mjs
 function IsBetween(value, min, max) {
   return value >= min && value <= max;
+}
+function IsZeroWidthJoiner(value) {
+  return value === 8205;
+}
+function IsHighSurrogate(value) {
+  return IsBetween(value, 55296, 56319);
 }
 function IsRegionalIndicator(value) {
   return IsBetween(value, 127462, 127487);
@@ -3873,7 +3880,7 @@ function NextGraphemeClusterIndex(value, clusterStart) {
   return clusterEnd;
 }
 function IsGraphemeCodePoint(value) {
-  return IsBetween(value, 55296, 56319) || IsBetween(value, 768, 879) || value === 8205;
+  return IsHighSurrogate(value) || IsCombiningMark(value) || IsVariationSelector(value) || IsZeroWidthJoiner(value);
 }
 function GraphemeCount(value) {
   let count = 0;
@@ -3939,9 +3946,6 @@ function IsMaxLengthFast(value, maxLength) {
 function IsArray(value) {
   return Array.isArray(value);
 }
-function IsAsyncIterator(value) {
-  return IsObject(value) && Symbol.asyncIterator in value;
-}
 function IsBigInt(value) {
   return IsEqual(typeof value, "bigint");
 }
@@ -3963,9 +3967,6 @@ function IsFunction(value) {
 }
 function IsInteger(value) {
   return Number.isInteger(value);
-}
-function IsIterator(value) {
-  return IsObject(value) && Symbol.iterator in value;
 }
 function IsNull(value) {
   return IsEqual(value, null);
@@ -4013,7 +4014,7 @@ function IsMultipleOf(dividend, divisor) {
   if (IsInteger(dividend) && 1 / divisor % 1 === 0)
     return true;
   const mod = dividend % divisor;
-  return Math.min(Math.abs(mod), Math.abs(mod - divisor)) < tolerance;
+  return Math.min(Math.abs(mod), Math.abs(mod - divisor), Math.abs(mod + divisor)) < tolerance;
 }
 function IsClassInstance(value) {
   if (!IsObject(value))
@@ -4050,7 +4051,25 @@ function EveryAll(value, offset, callback) {
   }
   return result;
 }
-function TakeLeft(array, true_, false_) {
+function Some(value, callback) {
+  for (let index = 0;index < value.length; index++) {
+    if (callback(value[index], index))
+      return true;
+  }
+  return false;
+}
+function SomeAll(value, callback) {
+  let result = false;
+  for (let index = 0;index < value.length; index++) {
+    if (callback(value[index], index))
+      result = true;
+  }
+  return result;
+}
+function Counted(value, callback) {
+  return value.reduce((result, value2, index) => callback(value2, index) ? ++result : result, 0);
+}
+function ShiftLeft(array, true_, false_) {
   return IsEqual(array.length, 0) ? false_() : true_(array[0], array.slice(1));
 }
 function IsUnsafePropertyKey(key) {
@@ -4086,20 +4105,99 @@ function DeepEqualArray(left, right) {
 function IsDeepEqual(left, right) {
   return IsArray(left) ? DeepEqualArray(left, right) : IsObject(left) ? DeepEqualObject(left, right) : IsEqual(left, right);
 }
-// ../../node_modules/typebox/build/system/memory/clone.mjs
-function IsGuard(value) {
-  return exports_guard.IsObject(value) && exports_guard.HasPropertyKey(value, "~guard");
+// ../../node_modules/typebox/build/guard/globals.mjs
+var exports_globals = {};
+__export(exports_globals, {
+  IsUint8ClampedArray: () => IsUint8ClampedArray,
+  IsUint8Array: () => IsUint8Array,
+  IsUint32Array: () => IsUint32Array,
+  IsUint16Array: () => IsUint16Array,
+  IsTypeArray: () => IsTypeArray,
+  IsString: () => IsString2,
+  IsSet: () => IsSet,
+  IsRegExp: () => IsRegExp,
+  IsNumber: () => IsNumber2,
+  IsMap: () => IsMap,
+  IsInt8Array: () => IsInt8Array,
+  IsInt32Array: () => IsInt32Array,
+  IsInt16Array: () => IsInt16Array,
+  IsFloat64Array: () => IsFloat64Array,
+  IsFloat32Array: () => IsFloat32Array,
+  IsDate: () => IsDate,
+  IsBoolean: () => IsBoolean2,
+  IsBigUint64Array: () => IsBigUint64Array,
+  IsBigInt64Array: () => IsBigInt64Array
+});
+function IsBoolean2(value) {
+  return value instanceof Boolean;
 }
-function FromGuard(value) {
+function IsNumber2(value) {
+  return value instanceof Number;
+}
+function IsString2(value) {
+  return value instanceof String;
+}
+function IsTypeArray(value) {
+  return globalThis.ArrayBuffer.isView(value);
+}
+function IsInt8Array(value) {
+  return value instanceof globalThis.Int8Array;
+}
+function IsUint8Array(value) {
+  return value instanceof globalThis.Uint8Array;
+}
+function IsUint8ClampedArray(value) {
+  return value instanceof globalThis.Uint8ClampedArray;
+}
+function IsInt16Array(value) {
+  return value instanceof globalThis.Int16Array;
+}
+function IsUint16Array(value) {
+  return value instanceof globalThis.Uint16Array;
+}
+function IsInt32Array(value) {
+  return value instanceof globalThis.Int32Array;
+}
+function IsUint32Array(value) {
+  return value instanceof globalThis.Uint32Array;
+}
+function IsFloat32Array(value) {
+  return value instanceof globalThis.Float32Array;
+}
+function IsFloat64Array(value) {
+  return value instanceof globalThis.Float64Array;
+}
+function IsBigInt64Array(value) {
+  return value instanceof globalThis.BigInt64Array;
+}
+function IsBigUint64Array(value) {
+  return value instanceof globalThis.BigUint64Array;
+}
+function IsRegExp(value) {
+  return value instanceof globalThis.RegExp;
+}
+function IsDate(value) {
+  return value instanceof globalThis.Date;
+}
+function IsSet(value) {
+  return value instanceof globalThis.Set;
+}
+function IsMap(value) {
+  return value instanceof globalThis.Map;
+}
+// ../../node_modules/typebox/build/system/memory/clone.mjs
+function FromClassInstance(value) {
   return value;
 }
-function FromArray(value) {
-  return value.map((value2) => FromValue(value2));
+function IsTypeObject(value) {
+  return exports_guard.HasPropertyKey(value, "~kind") || exports_guard.HasPropertyKey(value, "~unsafe");
 }
-function FromObject(value) {
+function FromTypeObject(value) {
   const result = {};
   const descriptors = Object.getOwnPropertyDescriptors(value);
   for (const key of Object.keys(descriptors)) {
+    if (exports_guard.IsUnsafePropertyKey(key))
+      continue;
     const descriptor = descriptors[key];
     if (exports_guard.HasPropertyKey(descriptor, "value")) {
       Object.defineProperty(result, key, { ...descriptor, value: FromValue(descriptor.value) });
@@ -4107,14 +4205,38 @@ function FromObject(value) {
   }
   return result;
 }
+function FromPlainObject(value) {
+  const result = {};
+  for (const key of exports_guard.Keys(value)) {
+    if (exports_guard.IsUnsafePropertyKey(key))
+      continue;
+    result[key] = FromValue(value[key]);
+  }
+  for (const key of exports_guard.Symbols(value)) {
+    result[key] = FromValue(value[key]);
+  }
+  return result;
+}
+function FromObject(value) {
+  return exports_guard.IsClassInstance(value) ? FromClassInstance(value) : IsTypeObject(value) ? FromTypeObject(value) : FromPlainObject(value);
+}
+function FromArray(value) {
+  return value.map((element) => FromValue(element));
+}
+function FromTypedArray(value) {
+  return value.slice();
+}
 function FromRegExp(value) {
   return new RegExp(value.source, value.flags);
 }
-function FromUnknown(value) {
-  return value;
+function FromMap(value) {
+  return new Map(FromValue([...value.entries()]));
+}
+function FromSet(value) {
+  return new Set(FromValue([...value.values()]));
 }
 function FromValue(value) {
-  return value instanceof RegExp ? FromRegExp(value) : IsGuard(value) ? FromGuard(value) : exports_guard.IsArray(value) ? FromArray(value) : exports_guard.IsObject(value) ? FromObject(value) : FromUnknown(value);
+  return exports_globals.IsTypeArray(value) ? FromTypedArray(value) : exports_globals.IsRegExp(value) ? FromRegExp(value) : exports_globals.IsMap(value) ? FromMap(value) : exports_globals.IsSet(value) ? FromSet(value) : exports_guard.IsArray(value) ? FromArray(value) : exports_guard.IsObject(value) ? FromObject(value) : value;
 }
 function Clone(value) {
   Metrics.clone += 1;
@@ -4130,18 +4252,22 @@ __export(exports_settings, {
 var settings = {
   immutableTypes: false,
   maxErrors: 8,
+  maxInstantiationCount: 128,
   useAcceleration: true,
   exactOptionalPropertyTypes: false,
   enumerableKind: false,
-  correctiveParse: false
+  correctiveParse: false,
+  unionPrioritySort: true
 };
 function Reset() {
   settings.immutableTypes = false;
   settings.maxErrors = 8;
+  settings.maxInstantiationCount = 128;
   settings.useAcceleration = true;
   settings.exactOptionalPropertyTypes = false;
   settings.enumerableKind = false;
   settings.correctiveParse = false;
+  settings.unionPrioritySort = true;
 }
 function Set2(options) {
   for (const key of exports_guard.Keys(options)) {
@@ -4220,133 +4346,38 @@ function IsSchema(value) {
   return exports_guard.IsObject(value);
 }
 
-// ../../node_modules/typebox/build/type/action/_optional.mjs
-function OptionalAddAction(type) {
-  return exports_memory.Create({ ["~kind"]: "OptionalAddAction" }, { type }, {});
-}
-function IsOptionalAddAction(value) {
-  return exports_guard.IsObject(value) && exports_guard.HasPropertyKey(value, "~kind") && exports_guard.HasPropertyKey(value, "type") && exports_guard.IsEqual(value["~kind"], "OptionalAddAction") && IsSchema(value.type);
-}
-function OptionalRemoveAction(type) {
-  return exports_memory.Create({ ["~kind"]: "OptionalRemoveAction" }, { type }, {});
-}
-function IsOptionalRemoveAction(value) {
-  return exports_guard.IsObject(value) && exports_guard.HasPropertyKey(value, "~kind") && exports_guard.HasPropertyKey(value, "type") && exports_guard.IsEqual(value["~kind"], "OptionalRemoveAction") && IsSchema(value.type);
-}
-// ../../node_modules/typebox/build/type/action/_readonly.mjs
-function ReadonlyAddAction(type) {
-  return exports_memory.Create({ ["~kind"]: "ReadonlyAddAction" }, { type }, {});
-}
-function IsReadonlyAddAction(value) {
-  return exports_guard.IsObject(value) && exports_guard.HasPropertyKey(value, "~kind") && exports_guard.HasPropertyKey(value, "type") && exports_guard.IsEqual(value["~kind"], "ReadonlyAddAction") && IsSchema(value.type);
-}
-function ReadonlyRemoveAction(type) {
-  return exports_memory.Create({ ["~kind"]: "ReadonlyRemoveAction" }, { type }, {});
-}
-function IsReadonlyRemoveAction(value) {
-  return exports_guard.IsObject(value) && exports_guard.HasPropertyKey(value, "~kind") && exports_guard.HasPropertyKey(value, "type") && exports_guard.IsEqual(value["~kind"], "ReadonlyRemoveAction") && IsSchema(value.type);
-}
 // ../../node_modules/typebox/build/type/types/deferred.mjs
 function Deferred(action, parameters, options) {
-  return exports_memory.Create({ "~kind": "Deferred" }, { action, parameters, options }, {});
+  return exports_memory.Create({ "~kind": "Deferred" }, { type: "deferred", action, parameters, options }, {});
 }
 function IsDeferred(value) {
   return IsKind(value, "Deferred");
 }
 
-// ../../node_modules/typebox/build/type/types/promise.mjs
-function _Promise_(item, options) {
-  return exports_memory.Create({ ["~kind"]: "Promise" }, { type: "promise", item }, options);
-}
-function IsPromise(value) {
-  return IsKind(value, "Promise");
-}
-function PromiseOptions(type) {
-  return exports_memory.Discard(type, ["~kind", "type", "item"]);
-}
-
-// ../../node_modules/typebox/build/type/types/_immutable.mjs
-function ImmutableAdd(type) {
-  return exports_memory.Update(type, { "~immutable": true }, {});
-}
-function Immutable(type) {
-  return ImmutableAdd(type);
-}
-function IsImmutable(value) {
-  return IsSchema(value) && exports_guard.HasPropertyKey(value, "~immutable");
-}
-
-// ../../node_modules/typebox/build/type/types/_optional.mjs
-function OptionalRemove(type) {
-  const result = exports_memory.Discard(type, ["~optional"]);
-  return result;
-}
-function OptionalAdd(type) {
-  return exports_memory.Update(type, { "~optional": true }, {});
-}
-function Optional(type) {
-  return OptionalAdd(type);
-}
-function IsOptional(value) {
-  return IsSchema(value) && exports_guard.HasPropertyKey(value, "~optional");
-}
-
-// ../../node_modules/typebox/build/type/types/_readonly.mjs
-function ReadonlyRemove(type) {
-  return exports_memory.Discard(type, ["~readonly"]);
-}
-function ReadonlyAdd(type) {
+// ../../node_modules/typebox/build/type/engine/readonly/instantiate_add.mjs
+function AddReadonlyOperation(type) {
   return exports_memory.Update(type, { "~readonly": true }, {});
 }
-function Readonly(type) {
-  return ReadonlyAdd(type);
+function AddReadonlyAction(type, options) {
+  const result = exports_memory.Update(AddReadonlyOperation(type), {}, options);
+  return result;
 }
-function IsReadonly(value) {
-  return IsSchema(value) && exports_guard.HasPropertyKey(value, "~readonly");
-}
-
-// ../../node_modules/typebox/build/type/types/base.mjs
-function BaseProperty(value) {
-  return {
-    enumerable: exports_settings.Get().enumerableKind,
-    writable: false,
-    configurable: false,
-    value
-  };
+function AddReadonlyInstantiate(context, state, type, options) {
+  const instantiatedType = InstantiateType(context, state, type);
+  return AddReadonlyAction(instantiatedType, options);
 }
 
-class Base {
-  constructor() {
-    globalThis.Object.defineProperty(this, "~kind", BaseProperty("Base"));
-    globalThis.Object.defineProperty(this, "~guard", BaseProperty({
-      check: (value) => this.Check(value),
-      errors: (value) => this.Errors(value)
-    }));
-  }
-  Check(_value) {
-    return true;
-  }
-  Errors(_value) {
-    return [];
-  }
-  Convert(value) {
-    return value;
-  }
-  Clean(value) {
-    return value;
-  }
-  Default(value) {
-    return value;
-  }
-  Create() {
-    throw new Error("Create not implemented");
-  }
-  Clone() {
-    throw Error("Clone not implemented");
-  }
+// ../../node_modules/typebox/build/type/engine/optional/instantiate_add.mjs
+function AddOptionalOperation(type) {
+  return exports_memory.Update(type, { "~optional": true }, {});
 }
-function IsBase(value) {
-  return IsKind(value, "Base");
+function AddOptionalAction(type, options) {
+  const result = exports_memory.Update(AddOptionalOperation(type), {}, options);
+  return result;
+}
+function AddOptionalInstantiate(context, state, type, options) {
+  const instantiatedType = InstantiateType(context, state, type);
+  return AddOptionalAction(instantiatedType, options);
 }
 
 // ../../node_modules/typebox/build/type/types/array.mjs
@@ -4358,17 +4389,6 @@ function IsArray2(value) {
 }
 function ArrayOptions(type) {
   return exports_memory.Discard(type, ["~kind", "type", "items"]);
-}
-
-// ../../node_modules/typebox/build/type/types/async_iterator.mjs
-function AsyncIterator(iteratorItems, options) {
-  return exports_memory.Create({ "~kind": "AsyncIterator" }, { type: "asyncIterator", iteratorItems }, options);
-}
-function IsAsyncIterator2(value) {
-  return IsKind(value, "AsyncIterator");
-}
-function AsyncIteratorOptions(type) {
-  return exports_memory.Discard(type, ["~kind", "type", "iteratorItems"]);
 }
 
 // ../../node_modules/typebox/build/type/types/constructor.mjs
@@ -4426,6 +4446,22 @@ function IsNever(value) {
   return IsKind(value, "Never");
 }
 
+// ../../node_modules/typebox/build/type/action/_add_optional.mjs
+function AddOptionalDeferred(type, options = {}) {
+  return Deferred("AddOptional", [type], options);
+}
+function AddOptional(type, options = {}) {
+  return AddOptionalAction(type, options);
+}
+
+// ../../node_modules/typebox/build/type/types/_optional.mjs
+function Optional(type) {
+  return AddOptional(type);
+}
+function IsOptional(value) {
+  return IsSchema(value) && exports_guard.HasPropertyKey(value, "~optional");
+}
+
 // ../../node_modules/typebox/build/type/types/properties.mjs
 function RequiredArray(properties) {
   return exports_guard.Keys(properties).filter((key) => !IsOptional(properties[key]));
@@ -4448,17 +4484,6 @@ function IsObject2(value) {
 }
 function ObjectOptions(type) {
   return exports_memory.Discard(type, ["~kind", "type", "properties", "required"]);
-}
-
-// ../../node_modules/typebox/build/type/types/union.mjs
-function Union(anyOf, options = {}) {
-  return exports_memory.Create({ "~kind": "Union" }, { anyOf }, options);
-}
-function IsUnion(value) {
-  return IsKind(value, "Union");
-}
-function UnionOptions(type) {
-  return exports_memory.Discard(type, ["~kind", "anyOf"]);
 }
 
 // ../../node_modules/typebox/build/type/types/unknown.mjs
@@ -4510,6 +4535,17 @@ function IsInfer(value) {
   return IsKind(value, "Infer");
 }
 
+// ../../node_modules/typebox/build/type/types/dependent.mjs
+function Dependent(if_, then_, else_, options = {}) {
+  return exports_memory.Create({ "~kind": "Dependent" }, { if: if_, then: then_, else: else_ }, options);
+}
+function IsDependent(value) {
+  return IsKind(value, "Dependent");
+}
+function DependentOptions(type) {
+  return exports_memory.Discard(type, ["~kind", "if", "then", "else"]);
+}
+
 // ../../node_modules/typebox/build/type/engine/enum/typescript_enum_to_enum_values.mjs
 function IsTypeScriptEnumLike(value) {
   return exports_guard.IsObjectNotArray(value);
@@ -4520,6 +4556,9 @@ function TypeScriptEnumToEnumValues(type) {
 }
 
 // ../../node_modules/typebox/build/type/types/enum.mjs
+function IsEnumValue(value) {
+  return exports_guard.IsString(value) || exports_guard.IsNumber(value);
+}
 function Enum(value, options) {
   const values = IsTypeScriptEnumLike(value) ? TypeScriptEnumToEnumValues(value) : value;
   return exports_memory.Create({ "~kind": "Enum" }, { enum: values }, options);
@@ -4606,17 +4645,38 @@ function Encode(type, callback) {
 function IsCodec(value) {
   return IsSchema(value) && exports_guard.HasPropertyKey(value, "~codec") && exports_guard.IsObject(value["~codec"]) && exports_guard.HasPropertyKey(value["~codec"], "encode") && exports_guard.HasPropertyKey(value["~codec"], "decode");
 }
+// ../../node_modules/typebox/build/type/types/_immutable.mjs
+function Immutable(type) {
+  return AddImmutable(type);
+}
+function IsImmutable(value) {
+  return IsSchema(value) && exports_guard.HasPropertyKey(value, "~immutable");
+}
+// ../../node_modules/typebox/build/type/action/_add_readonly.mjs
+function AddReadonlyDeferred(type, options = {}) {
+  return Deferred("AddReadonly", [type], options);
+}
+function AddReadonly(type, options = {}) {
+  return AddReadonlyAction(type, options);
+}
+
+// ../../node_modules/typebox/build/type/types/_readonly.mjs
+function Readonly(type) {
+  return AddReadonly(type);
+}
+function IsReadonly(value) {
+  return IsSchema(value) && exports_guard.HasPropertyKey(value, "~readonly");
+}
 // ../../node_modules/typebox/build/type/types/_refine.mjs
 function RefineAdd(type, refinement) {
   const refinements = IsRefine(type) ? [...type["~refine"], refinement] : [refinement];
   return exports_memory.Update(type, { "~refine": refinements }, {});
 }
 function Refine(...args) {
-  const [type, check, error_or_message] = exports_arguments.Match(args, {
+  const [type, check, error] = exports_arguments.Match(args, {
     3: (type2, check2, error2) => [type2, check2, error2],
     2: (type2, check2) => [type2, check2, () => "Refine Error"]
   });
-  const error = exports_guard.IsString(error_or_message) ? () => error_or_message : error_or_message;
   return RefineAdd(type, { check, error });
 }
 function IsRefinement(value) {
@@ -4637,7 +4697,7 @@ function IsBigInt2(value) {
 function Boolean2(options) {
   return exports_memory.Create({ "~kind": "Boolean" }, { type: "boolean" }, options);
 }
-function IsBoolean2(value) {
+function IsBoolean3(value) {
   return IsKind(value, "Boolean");
 }
 // ../../node_modules/typebox/build/type/types/identifier.mjs
@@ -4654,16 +4714,6 @@ function Integer(options) {
 }
 function IsInteger2(value) {
   return IsKind(value, "Integer");
-}
-// ../../node_modules/typebox/build/type/types/iterator.mjs
-function Iterator(iteratorItems, options) {
-  return exports_memory.Create({ "~kind": "Iterator" }, { type: "iterator", iteratorItems }, options);
-}
-function IsIterator2(value) {
-  return IsKind(value, "Iterator");
-}
-function IteratorOptions(type) {
-  return exports_memory.Discard(type, ["~kind", "type", "iteratorItems"]);
 }
 // ../../node_modules/typebox/build/type/types/literal.mjs
 class InvalidLiteralValue extends Error {
@@ -4705,11 +4755,11 @@ function IsNull2(value) {
   return IsKind(value, "Null");
 }
 // ../../node_modules/typebox/build/type/types/number.mjs
-var NumberPattern = "-?(?:0|[1-9][0-9]*)(?:.[0-9]+)?";
+var NumberPattern = "-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?";
 function Number2(options) {
   return exports_memory.Create({ "~kind": "Number" }, { type: "number" }, options);
 }
-function IsNumber2(value) {
+function IsNumber3(value) {
   return IsKind(value, "Number");
 }
 // ../../node_modules/typebox/build/type/types/symbol.mjs
@@ -4736,8 +4786,19 @@ var StringPattern = ".*";
 function String2(options) {
   return exports_memory.Create({ "~kind": "String" }, { type: "string" }, options);
 }
-function IsString2(value) {
+function IsString3(value) {
   return IsKind(value, "String");
+}
+
+// ../../node_modules/typebox/build/type/types/union.mjs
+function Union(anyOf, options = {}) {
+  return exports_memory.Create({ "~kind": "Union" }, { anyOf }, options);
+}
+function IsUnion(value) {
+  return IsKind(value, "Union");
+}
+function UnionOptions(type) {
+  return exports_memory.Discard(type, ["~kind", "anyOf"]);
 }
 
 // ../../node_modules/typebox/build/type/engine/patterns/pattern.mjs
@@ -4752,7 +4813,7 @@ function FromLiteral(_value) {
   return true;
 }
 function FromTypesReduce(types) {
-  return exports_guard.TakeLeft(types, (left, right) => FromType(left) ? FromTypesReduce(right) : false, () => true);
+  return exports_guard.ShiftLeft(types, (left, right) => FromType(left) ? FromTypesReduce(right) : false, () => true);
 }
 function FromTypes(types) {
   const result = exports_guard.IsEqual(types.length, 0) ? false : FromTypesReduce(types);
@@ -4773,20 +4834,20 @@ function TemplateLiteralCreate(pattern) {
 
 // ../../node_modules/typebox/build/type/engine/template_literal/decode.mjs
 function FromLiteralPush(variants, value, result = []) {
-  return exports_guard.TakeLeft(variants, (left, right) => FromLiteralPush(right, value, [...result, `${left}${value}`]), () => result);
+  return exports_guard.ShiftLeft(variants, (left, right) => FromLiteralPush(right, value, [...result, `${left}${value}`]), () => result);
 }
 function FromLiteral2(variants, value) {
   return exports_guard.IsEqual(variants.length, 0) ? [`${value}`] : FromLiteralPush(variants, value);
 }
 function FromUnion(variants, types, result = []) {
-  return exports_guard.TakeLeft(types, (left, right) => FromUnion(variants, right, [...result, ...FromType2(variants, left)]), () => result);
+  return exports_guard.ShiftLeft(types, (left, right) => FromUnion(variants, right, [...result, ...FromType2(variants, left)]), () => result);
 }
 function FromType2(variants, type) {
   const result = IsUnion(type) ? FromUnion(variants, type.anyOf) : IsLiteral(type) ? FromLiteral2(variants, type.const) : Unreachable();
   return result;
 }
 function DecodeFromSpan(variants, types) {
-  return exports_guard.TakeLeft(types, (left, right) => DecodeFromSpan(FromType2(variants, left), right), () => variants);
+  return exports_guard.ShiftLeft(types, (left, right) => DecodeFromSpan(FromType2(variants, left), right), () => variants);
 }
 function VariantsToLiterals(variants) {
   return variants.map((variant) => Literal(variant));
@@ -4828,37 +4889,6 @@ function FromBooleanKey(value) {
   return _Object_({ true: value, false: value });
 }
 
-// ../../node_modules/typebox/build/type/engine/enum/enum_to_union.mjs
-function FromEnumValue(value) {
-  return exports_guard.IsString(value) || exports_guard.IsNumber(value) ? Literal(value) : exports_guard.IsNull(value) ? Null() : Never();
-}
-function EnumValuesToVariants(values) {
-  const result = values.map((value) => FromEnumValue(value));
-  return result;
-}
-function EnumValuesToUnion(values) {
-  const variants = EnumValuesToVariants(values);
-  const result = Union(variants);
-  return result;
-}
-function EnumToUnion(type) {
-  const result = EnumValuesToUnion(type.enum);
-  return result;
-}
-
-// ../../node_modules/typebox/build/type/engine/record/from_key_enum.mjs
-function FromEnumKey(values, value) {
-  const unionKey = EnumValuesToUnion(values);
-  const result = FromKey(unionKey, value);
-  return result;
-}
-
-// ../../node_modules/typebox/build/type/engine/record/from_key_integer.mjs
-function FromIntegerKey(_key, value) {
-  const result = CreateRecord(IntegerKey, value);
-  return result;
-}
-
 // ../../node_modules/typebox/build/type/types/tuple.mjs
 function Tuple(types, options = {}) {
   const [items, minItems, additionalItems] = [types, types.length, false];
@@ -4869,6 +4899,48 @@ function IsTuple(value) {
 }
 function TupleOptions(type) {
   return exports_memory.Discard(type, ["~kind", "type", "items", "minItems", "additionalItems"]);
+}
+
+// ../../node_modules/typebox/build/type/engine/readonly/instantiate_remove.mjs
+function RemoveReadonlyOperation(type) {
+  return exports_memory.Discard(type, ["~readonly"]);
+}
+function RemoveReadonlyAction(type, options) {
+  const result = exports_memory.Update(RemoveReadonlyOperation(type), {}, options);
+  return result;
+}
+function RemoveReadonlyInstantiate(context, state, type, options) {
+  const instantiatedType = InstantiateType(context, state, type);
+  return RemoveReadonlyAction(instantiatedType, options);
+}
+
+// ../../node_modules/typebox/build/type/action/_remove_readonly.mjs
+function RemoveReadonlyDeferred(type, options = {}) {
+  return Deferred("RemoveReadonly", [type], options);
+}
+function RemoveReadonly(type, options = {}) {
+  return RemoveReadonlyAction(type, options);
+}
+
+// ../../node_modules/typebox/build/type/engine/optional/instantiate_remove.mjs
+function RemoveOptionalOperation(type) {
+  return exports_memory.Discard(type, ["~optional"]);
+}
+function RemoveOptionalAction(type, options) {
+  const result = exports_memory.Update(RemoveOptionalOperation(type), {}, options);
+  return result;
+}
+function RemoveOptionalInstantiate(context, state, type, options) {
+  const instantiatedType = InstantiateType(context, state, type);
+  return RemoveOptionalAction(instantiatedType, options);
+}
+
+// ../../node_modules/typebox/build/type/action/_remove_optional.mjs
+function RemoveOptionalDeferred(type, options = {}) {
+  return Deferred("RemoveOptional", [type], options);
+}
+function RemoveOptional(type, options = {}) {
+  return RemoveOptionalAction(type, options);
 }
 
 // ../../node_modules/typebox/build/type/engine/tuple/to_object.mjs
@@ -4895,8 +4967,8 @@ function CompositeProperty(left, right) {
   const isReadonly = IsReadonlyProperty(left, right);
   const isOptional = IsOptionalProperty(left, right);
   const evaluated = EvaluateIntersect([left, right]);
-  const property = ReadonlyRemove(OptionalRemove(evaluated));
-  return isReadonly && isOptional ? ReadonlyAdd(OptionalAdd(property)) : isReadonly && !isOptional ? ReadonlyAdd(property) : !isReadonly && isOptional ? OptionalAdd(property) : property;
+  const property = RemoveReadonly(RemoveOptional(evaluated));
+  return isReadonly && isOptional ? AddReadonly(AddOptional(property)) : isReadonly && !isOptional ? AddReadonly(property) : !isReadonly && isOptional ? AddOptional(property) : property;
 }
 function CompositePropertyKey(left, right, key) {
   return key in left ? key in right ? CompositeProperty(left[key], right[key]) : left[key] : (key in right) ? right[key] : Never();
@@ -4944,30 +5016,79 @@ function DistributeOperation(left, right) {
   return result;
 }
 function DistributeType(type, types, result = []) {
-  return exports_guard.TakeLeft(types, (left, right) => DistributeType(type, right, [...result, DistributeOperation(type, left)]), () => exports_guard.IsEqual(result.length, 0) ? [type] : result);
+  return exports_guard.ShiftLeft(types, (left, right) => DistributeType(type, right, [...result, DistributeOperation(type, left)]), () => exports_guard.IsEqual(result.length, 0) ? [type] : result);
 }
 function DistributeUnion(types, distribution, result = []) {
-  return exports_guard.TakeLeft(types, (left, right) => DistributeUnion(right, distribution, [...result, ...Distribute([left], distribution)]), () => result);
+  return exports_guard.ShiftLeft(types, (left, right) => DistributeUnion(right, distribution, [...result, ...Distribute([left], distribution)]), () => result);
 }
 function Distribute(types, result = []) {
-  return exports_guard.TakeLeft(types, (left, right) => IsUnion(left) ? Distribute(right, DistributeUnion(left.anyOf, result)) : Distribute(right, DistributeType(left, result)), () => result);
+  return exports_guard.ShiftLeft(types, (left, right) => IsUnion(left) ? Distribute(right, DistributeUnion(left.anyOf, result)) : Distribute(right, DistributeType(left, result)), () => result);
+}
+
+// ../../node_modules/typebox/build/type/engine/exclude/operation.mjs
+function ExcludeType(left, right) {
+  const check = Extends({}, left, right);
+  const result = exports_result.IsExtendsTrueLike(check) ? [] : [left];
+  return result;
+}
+function ExcludeUnion(types, right) {
+  return types.reduce((result, head) => {
+    return [...result, ...ExcludeType(head, right)];
+  }, []);
+}
+function ExcludeOperation(left, right) {
+  const evaluated = EvaluateType(left);
+  const canonical = IsUnion(evaluated) ? evaluated.anyOf : [evaluated];
+  const remaining = ExcludeUnion(canonical, right);
+  const result = EvaluateUnion(remaining);
+  return result;
 }
 
 // ../../node_modules/typebox/build/type/engine/evaluate/evaluate.mjs
+function EvaluateDependent(if_, then_, else_) {
+  const intersect = Intersect([if_, then_]);
+  const excluded = ExcludeOperation(else_, if_);
+  const result = EvaluateUnion([intersect, excluded]);
+  return result;
+}
+function EvaluateEnum(values) {
+  const result = values.map((value) => Literal(value));
+  return EvaluateUnion(result);
+}
 function EvaluateIntersect(types) {
   const distribution = Distribute(types);
-  const result = Broaden(distribution);
+  const broadend = Broaden(distribution);
+  const result = EvaluateUnionFast(broadend);
+  return result;
+}
+function EvaluateTemplateLiteral(pattern) {
+  const evaluated = TemplateLiteralDecode(pattern);
+  const result = EvaluateType(evaluated);
   return result;
 }
 function EvaluateUnion(types) {
-  const result = Broaden(types);
+  const broadend = Broaden(types);
+  const result = EvaluateUnionFast(broadend);
   return result;
 }
 function EvaluateType(type) {
-  return IsIntersect(type) ? EvaluateIntersect(type.allOf) : IsUnion(type) ? EvaluateUnion(type.anyOf) : type;
+  return IsDependent(type) ? EvaluateDependent(type.if, type.then, type.else) : IsEnum(type) ? EvaluateEnum(type.enum) : IsIntersect(type) ? EvaluateIntersect(type.allOf) : IsTemplateLiteral(type) ? EvaluateTemplateLiteral(type.pattern) : IsUnion(type) ? EvaluateUnion(type.anyOf) : type;
 }
 function EvaluateUnionFast(types) {
   const result = exports_guard.IsEqual(types.length, 1) ? types[0] : exports_guard.IsEqual(types.length, 0) ? Never() : Union(types);
+  return result;
+}
+
+// ../../node_modules/typebox/build/type/engine/record/from_key_enum.mjs
+function FromEnumKey(values, value) {
+  const unionKey = EvaluateEnum(values);
+  const result = FromKey(unionKey, value);
+  return result;
+}
+
+// ../../node_modules/typebox/build/type/engine/record/from_key_integer.mjs
+function FromIntegerKey(_key, value) {
+  const result = CreateRecord(IntegerKey, value);
   return result;
 }
 
@@ -4998,7 +5119,7 @@ function FromStringKey(key, value) {
 function FromTemplateKey(pattern, value) {
   const types = ParsePatternIntoTypes(pattern);
   const finite = IsTemplateLiteralFinite(types);
-  const result = finite ? FromKey(TemplateLiteralDecode(pattern), value) : CreateRecord(pattern, value);
+  const result = finite ? FromKey(EvaluateTemplateLiteral(pattern), value) : CreateRecord(pattern, value);
   return result;
 }
 
@@ -5015,7 +5136,7 @@ function Flatten(types) {
 
 // ../../node_modules/typebox/build/type/engine/record/from_key_union.mjs
 function StringOrNumberCheck(types) {
-  return types.some((type) => IsString2(type) || IsNumber2(type) || IsInteger2(type));
+  return types.some((type) => IsString3(type) || IsNumber3(type) || IsInteger2(type));
 }
 function TryBuildRecord(types, value) {
   return exports_guard.IsEqual(StringOrNumberCheck(types), true) ? CreateRecord(StringKey, value) : undefined;
@@ -5038,7 +5159,7 @@ function FromUnionKey(types, value) {
 
 // ../../node_modules/typebox/build/type/engine/record/from_key.mjs
 function FromKey(key, value) {
-  const result = IsAny(key) ? FromAnyKey(value) : IsBoolean2(key) ? FromBooleanKey(value) : IsEnum(key) ? FromEnumKey(key.enum, value) : IsInteger2(key) ? FromIntegerKey(key, value) : IsIntersect(key) ? FromIntersectKey(key.allOf, value) : IsLiteral(key) ? FromLiteralKey(key.const, value) : IsNumber2(key) ? FromNumberKey(key, value) : IsUnion(key) ? FromUnionKey(key.anyOf, value) : IsString2(key) ? FromStringKey(key, value) : IsTemplateLiteral(key) ? FromTemplateKey(key.pattern, value) : _Object_({});
+  const result = IsAny(key) ? FromAnyKey(value) : IsBoolean3(key) ? FromBooleanKey(value) : IsEnum(key) ? FromEnumKey(key.enum, value) : IsInteger2(key) ? FromIntegerKey(key, value) : IsIntersect(key) ? FromIntersectKey(key.allOf, value) : IsLiteral(key) ? FromLiteralKey(key.const, value) : IsNumber3(key) ? FromNumberKey(key, value) : IsUnion(key) ? FromUnionKey(key.anyOf, value) : IsString3(key) ? FromStringKey(key, value) : IsTemplateLiteral(key) ? FromTemplateKey(key.pattern, value) : _Object_({});
   return result;
 }
 
@@ -5063,15 +5184,19 @@ function RecordDeferred(key, value, options = {}) {
 function Record(key, value, options = {}) {
   return RecordAction(key, value, options);
 }
-function RecordFromPattern(key, value) {
-  return CreateRecord(key, value);
+function RecordFromPattern(pattern, value) {
+  return CreateRecord(pattern, value);
+}
+function RecordPatternToType(pattern) {
+  const result = exports_guard.IsEqual(pattern, StringKey) ? String2() : exports_guard.IsEqual(pattern, IntegerKey) ? Integer() : exports_guard.IsEqual(pattern, NumberKey) ? Number2() : TemplateLiteralDecodeUnsafe(pattern);
+  return result;
 }
 function RecordPattern(type) {
   return exports_guard.Keys(type.patternProperties)[0];
 }
 function RecordKey(type) {
   const pattern = RecordPattern(type);
-  const result = exports_guard.IsEqual(pattern, StringKey) ? String2() : exports_guard.IsEqual(pattern, IntegerKey) ? Integer() : exports_guard.IsEqual(pattern, NumberKey) ? Number2() : TemplateLiteralDecodeUnsafe(pattern);
+  const result = RecordPatternToType(pattern);
   return result;
 }
 function RecordValue(type) {
@@ -5110,20 +5235,17 @@ function IsVoid(value) {
 }
 // ../../node_modules/typebox/build/type/script/mapping.mjs
 function IntrinsicOrCall(ref2, parameters) {
-  return exports_guard.IsEqual(ref2, "Array") ? _Array_(parameters[0]) : exports_guard.IsEqual(ref2, "AsyncIterator") ? AsyncIterator(parameters[0]) : exports_guard.IsEqual(ref2, "Iterator") ? Iterator(parameters[0]) : exports_guard.IsEqual(ref2, "Promise") ? _Promise_(parameters[0]) : exports_guard.IsEqual(ref2, "Awaited") ? AwaitedDeferred(parameters[0]) : exports_guard.IsEqual(ref2, "Capitalize") ? CapitalizeDeferred(parameters[0]) : exports_guard.IsEqual(ref2, "ConstructorParameters") ? ConstructorParametersDeferred(parameters[0]) : exports_guard.IsEqual(ref2, "Evaluate") ? EvaluateDeferred(parameters[0]) : exports_guard.IsEqual(ref2, "Exclude") ? ExcludeDeferred(parameters[0], parameters[1]) : exports_guard.IsEqual(ref2, "Extract") ? ExtractDeferred(parameters[0], parameters[1]) : exports_guard.IsEqual(ref2, "Index") ? IndexDeferred(parameters[0], parameters[1]) : exports_guard.IsEqual(ref2, "InstanceType") ? InstanceTypeDeferred(parameters[0]) : exports_guard.IsEqual(ref2, "Lowercase") ? LowercaseDeferred(parameters[0]) : exports_guard.IsEqual(ref2, "NonNullable") ? NonNullableDeferred(parameters[0]) : exports_guard.IsEqual(ref2, "Omit") ? OmitDeferred(parameters[0], parameters[1]) : exports_guard.IsEqual(ref2, "Options") ? OptionsDeferred(parameters[0], parameters[1]) : exports_guard.IsEqual(ref2, "Parameters") ? ParametersDeferred(parameters[0]) : exports_guard.IsEqual(ref2, "Partial") ? PartialDeferred(parameters[0]) : exports_guard.IsEqual(ref2, "Pick") ? PickDeferred(parameters[0], parameters[1]) : exports_guard.IsEqual(ref2, "Readonly") ? ReadonlyObjectDeferred(parameters[0]) : exports_guard.IsEqual(ref2, "KeyOf") ? KeyOfDeferred(parameters[0]) : exports_guard.IsEqual(ref2, "Record") ? RecordDeferred(parameters[0], parameters[1]) : exports_guard.IsEqual(ref2, "Required") ? RequiredDeferred(parameters[0]) : exports_guard.IsEqual(ref2, "ReturnType") ? ReturnTypeDeferred(parameters[0]) : exports_guard.IsEqual(ref2, "Uncapitalize") ? UncapitalizeDeferred(parameters[0]) : exports_guard.IsEqual(ref2, "Uppercase") ? UppercaseDeferred(parameters[0]) : CallConstruct(Ref(ref2), parameters);
+  return exports_guard.IsEqual(ref2, "Array") ? _Array_(parameters[0]) : exports_guard.IsEqual(ref2, "Capitalize") ? CapitalizeDeferred(parameters[0]) : exports_guard.IsEqual(ref2, "ConstructorParameters") ? ConstructorParametersDeferred(parameters[0]) : exports_guard.IsEqual(ref2, "Evaluate") ? EvaluateDeferred(parameters[0]) : exports_guard.IsEqual(ref2, "Exclude") ? ExcludeDeferred(parameters[0], parameters[1]) : exports_guard.IsEqual(ref2, "Extract") ? ExtractDeferred(parameters[0], parameters[1]) : exports_guard.IsEqual(ref2, "Index") ? IndexDeferred(parameters[0], parameters[1]) : exports_guard.IsEqual(ref2, "InstanceType") ? InstanceTypeDeferred(parameters[0]) : exports_guard.IsEqual(ref2, "Lowercase") ? LowercaseDeferred(parameters[0]) : exports_guard.IsEqual(ref2, "NonNullable") ? NonNullableDeferred(parameters[0]) : exports_guard.IsEqual(ref2, "Omit") ? OmitDeferred(parameters[0], parameters[1]) : exports_guard.IsEqual(ref2, "Parameters") ? ParametersDeferred(parameters[0]) : exports_guard.IsEqual(ref2, "Partial") ? PartialDeferred(parameters[0]) : exports_guard.IsEqual(ref2, "Pick") ? PickDeferred(parameters[0], parameters[1]) : exports_guard.IsEqual(ref2, "Readonly") ? ReadonlyObjectDeferred(parameters[0]) : exports_guard.IsEqual(ref2, "KeyOf") ? KeyOfDeferred(parameters[0]) : exports_guard.IsEqual(ref2, "Record") ? RecordDeferred(parameters[0], parameters[1]) : exports_guard.IsEqual(ref2, "Required") ? RequiredDeferred(parameters[0]) : exports_guard.IsEqual(ref2, "ReturnType") ? ReturnTypeDeferred(parameters[0]) : exports_guard.IsEqual(ref2, "Uncapitalize") ? UncapitalizeDeferred(parameters[0]) : exports_guard.IsEqual(ref2, "Uppercase") ? UppercaseDeferred(parameters[0]) : CallConstruct(Ref(ref2), parameters);
 }
 function Unreachable2() {
   throw Error("Unreachable");
 }
-var DelimitedDecode = (input, result = []) => {
-  return input.reduce((result2, left) => {
-    return exports_guard.IsArray(left) && exports_guard.IsEqual(left.length, 2) ? [...result2, left[0]] : [...result2, left];
-  }, []);
-};
-var Delimited = (input) => {
-  const [left, right] = input;
-  return DelimitedDecode([...left, ...right]);
-};
+function DelimitedDecode(input, result = []) {
+  return exports_guard.ShiftLeft(input, (left, right) => DelimitedDecode(right, [...result, left[1]]), () => result);
+}
+function Delimited(input) {
+  return exports_guard.IsEqual(input.length, 3) ? [input[0], ...DelimitedDecode(input[1])] : [];
+}
 function GenericParameterExtendsEqualsMapping(input) {
   return Parameter(input[0], input[2], input[4]);
 }
@@ -5199,8 +5321,17 @@ function KeywordVoidMapping(input) {
 function KeywordThisMapping(input) {
   return This();
 }
-function KeywordMapping(input) {
-  return input;
+function LiteralBigIntMapping(input) {
+  return Literal(BigInt(input));
+}
+function LiteralBooleanMapping(input) {
+  return Literal(exports_guard.IsEqual(input, "true"));
+}
+function LiteralNumberMapping(input) {
+  return Literal(parseFloat(input));
+}
+function LiteralStringMapping(input) {
+  return Literal(input);
 }
 function TemplateInterpolateMapping(input) {
   return input[1];
@@ -5217,20 +5348,8 @@ function TemplateLiteralTypesMapping(input) {
 function TemplateLiteralMapping(input) {
   return TemplateLiteralDeferred(input);
 }
-function LiteralBigIntMapping(input) {
-  return Literal(BigInt(input));
-}
-function LiteralBooleanMapping(input) {
-  return Literal(exports_guard.IsEqual(input, "true"));
-}
-function LiteralNumberMapping(input) {
-  return Literal(parseFloat(input));
-}
-function LiteralStringMapping(input) {
-  return Literal(input);
-}
-function LiteralMapping(input) {
-  return input;
+function DependentMapping(input) {
+  return exports_guard.IsEqual(input.length, 6) ? Dependent(input[1], input[3], input[5]) : Dependent(input[1], input[3], Unknown());
 }
 function KeyOfMapping(input) {
   return input.length > 0;
@@ -5246,18 +5365,24 @@ function ExtendsMapping(input) {
 function BaseMapping(input) {
   return exports_guard.IsArray(input) && exports_guard.IsEqual(input.length, 3) ? input[1] : input;
 }
-var FactorIndexArray = (Type, indexArray) => {
+function WithMapping(input) {
+  return exports_guard.IsEqual(input.length, 2) ? input[1] : [];
+}
+function FactorIndexArray(Type, indexArray) {
   return indexArray.reduce((result, left) => {
     const _left = left;
     return exports_guard.IsEqual(_left.length, 1) ? IndexDeferred(result, _left[0]) : exports_guard.IsEqual(_left.length, 0) ? _Array_(result) : Unreachable2();
   }, Type);
-};
-var FactorExtends = (type, extend) => {
+}
+function FactorExtends(type, extend) {
   return exports_guard.IsEqual(extend.length, 3) ? ConditionalDeferred(type, extend[0], extend[1], extend[2]) : type;
-};
+}
+function FactorWith(type, withClause) {
+  return exports_guard.IsArray(withClause) && exports_guard.IsEqual(withClause.length, 0) ? type : WithDeferred(type, withClause);
+}
 function FactorMapping(input) {
-  const [keyOf, type, indexArray, extend] = input;
-  return keyOf ? FactorExtends(KeyOfDeferred(FactorIndexArray(type, indexArray)), extend) : FactorExtends(FactorIndexArray(type, indexArray), extend);
+  const [keyOf, type, indexArray, extend, withClause] = input;
+  return FactorWith(keyOf ? FactorExtends(KeyOfDeferred(FactorIndexArray(type, indexArray)), extend) : FactorExtends(FactorIndexArray(type, indexArray), extend), withClause);
 }
 function ExprBinaryMapping(left, rest2) {
   return exports_guard.IsEqual(rest2.length, 3) ? (() => {
@@ -5287,7 +5412,7 @@ function ExprMapping(input) {
   return ExprBinaryMapping(left, rest2);
 }
 function ExprReadonlyMapping(input) {
-  return ImmutableAdd(input[1]);
+  return AddImmutableDeferred(input[1]);
 }
 function ExprPipeMapping(input) {
   return input[1];
@@ -5311,7 +5436,7 @@ function PropertyKeyQuotedMapping(input) {
   return input;
 }
 function PropertyKeyIndexMapping(input) {
-  return IsInteger2(input[3]) ? IntegerKey : IsNumber2(input[3]) ? NumberKey : IsSymbol2(input[3]) ? StringKey : IsString2(input[3]) ? StringKey : Unreachable2();
+  return IsInteger2(input[3]) ? IntegerKey : IsNumber3(input[3]) ? NumberKey : IsSymbol2(input[3]) ? StringKey : IsString3(input[3]) ? StringKey : Unreachable2();
 }
 function PropertyKeyMapping(input) {
   return input;
@@ -5325,7 +5450,7 @@ function OptionalMapping(input) {
 function PropertyMapping(input) {
   const [isReadonly, key, isOptional, _colon, type] = input;
   return {
-    [key]: isReadonly && isOptional ? ReadonlyAdd(OptionalAdd(type)) : isReadonly && !isOptional ? ReadonlyAdd(type) : !isReadonly && isOptional ? OptionalAdd(type) : type
+    [key]: isReadonly && isOptional ? AddReadonlyDeferred(AddOptionalDeferred(type)) : isReadonly && !isOptional ? AddReadonlyDeferred(type) : !isReadonly && isOptional ? AddOptionalDeferred(type) : type
   };
 }
 function PropertyDelimiterMapping(input) {
@@ -5349,19 +5474,13 @@ function _Object_Mapping(input) {
   return _Object_(properties2, options);
 }
 function ElementNamedMapping(input) {
-  return exports_guard.IsEqual(input.length, 5) ? ReadonlyAdd(OptionalAdd(input[4])) : exports_guard.IsEqual(input.length, 3) ? input[2] : exports_guard.IsEqual(input.length, 4) ? exports_guard.IsEqual(input[2], "readonly") ? ReadonlyAdd(input[3]) : OptionalAdd(input[3]) : Unreachable2();
-}
-function ElementReadonlyOptionalMapping(input) {
-  return ReadonlyAdd(OptionalAdd(input[1]));
-}
-function ElementReadonlyMapping(input) {
-  return ReadonlyAdd(input[1]);
-}
-function ElementOptionalMapping(input) {
-  return OptionalAdd(input[0]);
+  return exports_guard.IsEqual(input.length, 5) ? AddReadonlyDeferred(AddOptionalDeferred(input[4])) : exports_guard.IsEqual(input.length, 3) ? input[2] : exports_guard.IsEqual(input.length, 4) ? exports_guard.IsEqual(input[2], "readonly") ? AddReadonlyDeferred(input[3]) : AddOptionalDeferred(input[3]) : Unreachable2();
 }
 function ElementBaseMapping(input) {
-  return input;
+  if (!exports_guard.IsArray(input) || !exports_guard.IsEqual(input.length, 3))
+    return input;
+  const [isReadonly, type, isOptional] = input;
+  return isReadonly && isOptional ? AddReadonlyDeferred(AddOptionalDeferred(type)) : isReadonly && !isOptional ? AddReadonlyDeferred(type) : !isReadonly && isOptional ? AddOptionalDeferred(type) : type;
 }
 function ElementMapping(input) {
   return exports_guard.IsEqual(input.length, 2) ? Rest(input[1]) : exports_guard.IsEqual(input.length, 1) ? input[0] : Unreachable2();
@@ -5369,17 +5488,17 @@ function ElementMapping(input) {
 function ElementListMapping(input) {
   return Delimited(input);
 }
-function TupleMapping(input) {
+function _Tuple_Mapping(input) {
   return Tuple(input[1]);
 }
 function ParameterReadonlyOptionalMapping(input) {
-  return ReadonlyAdd(OptionalAdd(input[4]));
+  return AddReadonlyDeferred(AddOptionalDeferred(input[4]));
 }
 function ParameterReadonlyMapping(input) {
-  return ReadonlyAdd(input[3]);
+  return AddReadonlyDeferred(input[3]);
 }
 function ParameterOptionalMapping(input) {
-  return OptionalAdd(input[3]);
+  return AddOptionalDeferred(input[3]);
 }
 function ParameterTypeMapping(input) {
   return input[2];
@@ -5396,17 +5515,17 @@ function ParameterListMapping(input) {
 function _Function_Mapping(input) {
   return _Function_(input[1], input[4]);
 }
-function ConstructorMapping(input) {
+function _Constructor_Mapping(input) {
   return Constructor(input[2], input[5]);
 }
 function ApplyReadonly(state, type) {
-  return exports_guard.IsEqual(state, "remove") ? ReadonlyRemoveAction(type) : exports_guard.IsEqual(state, "add") ? ReadonlyAddAction(type) : type;
+  return exports_guard.IsEqual(state, "remove") ? RemoveReadonlyDeferred(type) : exports_guard.IsEqual(state, "add") ? AddReadonlyDeferred(type) : type;
 }
 function MappedReadonlyMapping(input) {
   return exports_guard.IsEqual(input.length, 2) && exports_guard.IsEqual(input[0], "-") ? "remove" : exports_guard.IsEqual(input.length, 2) && exports_guard.IsEqual(input[0], "+") ? "add" : exports_guard.IsEqual(input.length, 1) ? "add" : "none";
 }
 function ApplyOptional(state, type) {
-  return exports_guard.IsEqual(state, "remove") ? OptionalRemoveAction(type) : exports_guard.IsEqual(state, "add") ? OptionalAddAction(type) : type;
+  return exports_guard.IsEqual(state, "remove") ? RemoveOptionalDeferred(type) : exports_guard.IsEqual(state, "add") ? AddOptionalDeferred(type) : type;
 }
 function MappedOptionalMapping(input) {
   return exports_guard.IsEqual(input.length, 2) && exports_guard.IsEqual(input[0], "-") ? "remove" : exports_guard.IsEqual(input.length, 2) && exports_guard.IsEqual(input[0], "+") ? "add" : exports_guard.IsEqual(input.length, 1) ? "add" : "none";
@@ -5414,48 +5533,51 @@ function MappedOptionalMapping(input) {
 function MappedAsMapping(input) {
   return exports_guard.IsEqual(input.length, 2) ? [input[1]] : [];
 }
-function MappedMapping(input) {
+function _Mapped_Mapping(input) {
   return exports_guard.IsArray(input[6]) && exports_guard.IsEqual(input[6].length, 1) ? MappedDeferred(Identifier(input[3]), input[5], input[6][0], ApplyReadonly(input[1], ApplyOptional(input[8], input[10]))) : MappedDeferred(Identifier(input[3]), input[5], Ref(input[3]), ApplyReadonly(input[1], ApplyOptional(input[8], input[10])));
 }
 function ReferenceMapping(input) {
   return Ref(input);
 }
-function OptionsMapping(input) {
-  return OptionsDeferred(input[2], input[4]);
+function WithBigIntMapping(input) {
+  return BigInt(input);
 }
-function JsonNumberMapping(input) {
+function WithNumberMapping(input) {
   return parseFloat(input);
 }
-function JsonBooleanMapping(input) {
+function WithBooleanMapping(input) {
   return exports_guard.IsEqual(input, "true");
 }
-function JsonStringMapping(input) {
+function WithStringMapping(input) {
   return input;
 }
-function JsonNullMapping(input) {
+function WithNullMapping(input) {
   return null;
 }
-function JsonPropertyMapping(input) {
+function WithUndefinedMapping(input) {
+  return;
+}
+function WithPropertyMapping(input) {
   return { [input[0]]: input[2] };
 }
-function JsonPropertyListMapping(input) {
+function WithPropertyListMapping(input) {
   return Delimited(input);
 }
-function JsonObjectMappingReduce(propertyList) {
+function WithObjectMappingReduce(propertyList) {
   return propertyList.reduce((result, left) => {
     return exports_memory.Assign(result, left);
   }, {});
 }
-function JsonObjectMapping(input) {
-  return JsonObjectMappingReduce(input[1]);
+function WithObjectMapping(input) {
+  return WithObjectMappingReduce(input[1]);
 }
-function JsonElementListMapping(input) {
+function WithElementListMapping(input) {
   return Delimited(input);
 }
-function JsonArrayMapping(input) {
+function WithArrayMapping(input) {
   return input[1];
 }
-function JsonMapping(input) {
+function WithValueMapping(input) {
   return input;
 }
 function PatternBigIntMapping(input) {
@@ -5526,15 +5648,14 @@ function ModuleDeclarationDelimiterMapping(input) {
   return input;
 }
 function ModuleDeclarationListMapping(input) {
-  return PropertiesReduce(Delimited(input));
+  return Delimited(input);
 }
 function ModuleDeclarationMapping(input) {
   return input[1];
 }
 function ModuleMapping(input) {
-  const moduleDeclaration = input[0];
-  const moduleDeclarationList = input[1];
-  return ModuleDeferred(exports_memory.Assign(moduleDeclaration, moduleDeclarationList[0]));
+  const [moduleDeclaration, moduleDeclarationList] = [input[0], input[1]];
+  return ModuleDeferred(exports_memory.Assign(moduleDeclaration, PropertiesReduce(moduleDeclarationList)[0]));
 }
 function ScriptMapping(input) {
   return input;
@@ -5710,7 +5831,7 @@ function TakeOne(input) {
   return result;
 }
 function IsInputMatchSentinal(end, input) {
-  return TakeLeft(end, (left, right) => input.startsWith(left) ? true : IsInputMatchSentinal(right, input), () => false);
+  return ShiftLeft(end, (left, right) => input.startsWith(left) ? true : IsInputMatchSentinal(right, input), () => false);
 }
 function Until(end, input, result = "") {
   return Match2(TakeOne(input), (One, Rest2) => IsInputMatchSentinal(end, input) ? [result, input] : Until(end, Rest2, `${result}${One}`), () => []);
@@ -5750,11 +5871,11 @@ var GenericParameterExtends = (input) => If(If(Ident(input), ([_0, input2]) => I
 var GenericParameterEquals = (input) => If(If(Ident(input), ([_0, input2]) => If(Const("=", input2), ([_1, input3]) => If(Type(input3), ([_2, input4]) => [[_0, _1, _2], input4]))), ([_0, input2]) => [GenericParameterEqualsMapping(_0), input2]);
 var GenericParameterIdentifier = (input) => If(Ident(input), ([_0, input2]) => [GenericParameterIdentifierMapping(_0), input2]);
 var GenericParameter = (input) => If(If(GenericParameterExtendsEquals(input), ([_0, input2]) => [_0, input2], () => If(GenericParameterExtends(input), ([_0, input2]) => [_0, input2], () => If(GenericParameterEquals(input), ([_0, input2]) => [_0, input2], () => If(GenericParameterIdentifier(input), ([_0, input2]) => [_0, input2], () => [])))), ([_0, input2]) => [GenericParameterMapping(_0), input2]);
-var GenericParameterList_0 = (input, result = []) => If(If(GenericParameter(input), ([_0, input2]) => If(Const(",", input2), ([_1, input3]) => [[_0, _1], input3])), ([_0, input2]) => GenericParameterList_0(input2, [...result, _0]), () => [result, input]);
-var GenericParameterList = (input) => If(If(GenericParameterList_0(input), ([_0, input2]) => If(If(If(GenericParameter(input2), ([_02, input3]) => [[_02], input3]), ([_02, input3]) => [_02, input3], () => If([[], input2], ([_02, input3]) => [_02, input3], () => [])), ([_1, input3]) => [[_0, _1], input3])), ([_0, input2]) => [GenericParameterListMapping(_0), input2]);
+var GenericParameterList_0 = (input, result = []) => If(If(Const(",", input), ([_0, input2]) => If(GenericParameter(input2), ([_1, input3]) => [[_0, _1], input3])), ([_0, input2]) => GenericParameterList_0(input2, [...result, _0]), () => [result, input]);
+var GenericParameterList = (input) => If(If(If(GenericParameter(input), ([_0, input2]) => If(GenericParameterList_0(input2), ([_1, input3]) => If(If(Const(",", input3), ([_02, input4]) => [[_02], input4], () => [[], input3]), ([_2, input4]) => [[_0, _1, _2], input4]))), ([_0, input2]) => [_0, input2], () => If([[], input], ([_0, input2]) => [_0, input2], () => [])), ([_0, input2]) => [GenericParameterListMapping(_0), input2]);
 var GenericParameters = (input) => If(If(Const("<", input), ([_0, input2]) => If(GenericParameterList(input2), ([_1, input3]) => If(Const(">", input3), ([_2, input4]) => [[_0, _1, _2], input4]))), ([_0, input2]) => [GenericParametersMapping(_0), input2]);
-var GenericCallArgumentList_0 = (input, result = []) => If(If(Type(input), ([_0, input2]) => If(Const(",", input2), ([_1, input3]) => [[_0, _1], input3])), ([_0, input2]) => GenericCallArgumentList_0(input2, [...result, _0]), () => [result, input]);
-var GenericCallArgumentList = (input) => If(If(GenericCallArgumentList_0(input), ([_0, input2]) => If(If(If(Type(input2), ([_02, input3]) => [[_02], input3]), ([_02, input3]) => [_02, input3], () => If([[], input2], ([_02, input3]) => [_02, input3], () => [])), ([_1, input3]) => [[_0, _1], input3])), ([_0, input2]) => [GenericCallArgumentListMapping(_0), input2]);
+var GenericCallArgumentList_0 = (input, result = []) => If(If(Const(",", input), ([_0, input2]) => If(Type(input2), ([_1, input3]) => [[_0, _1], input3])), ([_0, input2]) => GenericCallArgumentList_0(input2, [...result, _0]), () => [result, input]);
+var GenericCallArgumentList = (input) => If(If(If(Type(input), ([_0, input2]) => If(GenericCallArgumentList_0(input2), ([_1, input3]) => If(If(Const(",", input3), ([_02, input4]) => [[_02], input4], () => [[], input3]), ([_2, input4]) => [[_0, _1, _2], input4]))), ([_0, input2]) => [_0, input2], () => If([[], input], ([_0, input2]) => [_0, input2], () => [])), ([_0, input2]) => [GenericCallArgumentListMapping(_0), input2]);
 var GenericCallArguments = (input) => If(If(Const("<", input), ([_0, input2]) => If(GenericCallArgumentList(input2), ([_1, input3]) => If(Const(">", input3), ([_2, input4]) => [[_0, _1, _2], input4]))), ([_0, input2]) => [GenericCallArgumentsMapping(_0), input2]);
 var GenericCall = (input) => If(If(Ident(input), ([_0, input2]) => If(GenericCallArguments(input2), ([_1, input3]) => [[_0, _1], input3])), ([_0, input2]) => [GenericCallMapping(_0), input2]);
 var OptionalSemiColon = (input) => If(If(If(Const(";", input), ([_0, input2]) => [[_0], input2]), ([_0, input2]) => [_0, input2], () => If([[], input], ([_0, input2]) => [_0, input2], () => [])), ([_0, input2]) => [OptionalSemiColonMapping(_0), input2]);
@@ -5772,23 +5893,23 @@ var KeywordNever = (input) => If(Const("never", input), ([_0, input2]) => [Keywo
 var KeywordSymbol = (input) => If(Const("symbol", input), ([_0, input2]) => [KeywordSymbolMapping(_0), input2]);
 var KeywordVoid = (input) => If(Const("void", input), ([_0, input2]) => [KeywordVoidMapping(_0), input2]);
 var KeywordThis = (input) => If(Const("this", input), ([_0, input2]) => [KeywordThisMapping(_0), input2]);
-var Keyword = (input) => If(If(KeywordString(input), ([_0, input2]) => [_0, input2], () => If(KeywordNumber(input), ([_0, input2]) => [_0, input2], () => If(KeywordBoolean(input), ([_0, input2]) => [_0, input2], () => If(KeywordUndefined(input), ([_0, input2]) => [_0, input2], () => If(KeywordNull(input), ([_0, input2]) => [_0, input2], () => If(KeywordInteger(input), ([_0, input2]) => [_0, input2], () => If(KeywordBigInt(input), ([_0, input2]) => [_0, input2], () => If(KeywordUnknown(input), ([_0, input2]) => [_0, input2], () => If(KeywordAny(input), ([_0, input2]) => [_0, input2], () => If(KeywordObject(input), ([_0, input2]) => [_0, input2], () => If(KeywordNever(input), ([_0, input2]) => [_0, input2], () => If(KeywordSymbol(input), ([_0, input2]) => [_0, input2], () => If(KeywordVoid(input), ([_0, input2]) => [_0, input2], () => If(KeywordThis(input), ([_0, input2]) => [_0, input2], () => [])))))))))))))), ([_0, input2]) => [KeywordMapping(_0), input2]);
 var TemplateInterpolate = (input) => If(If(Const("${", input), ([_0, input2]) => If(Type(input2), ([_1, input3]) => If(Const("}", input3), ([_2, input4]) => [[_0, _1, _2], input4]))), ([_0, input2]) => [TemplateInterpolateMapping(_0), input2]);
 var TemplateSpan = (input) => If(Until(["${", "`"], input), ([_0, input2]) => [TemplateSpanMapping(_0), input2]);
 var TemplateBody = (input) => If(If(If(TemplateSpan(input), ([_0, input2]) => If(TemplateInterpolate(input2), ([_1, input3]) => If(TemplateBody(input3), ([_2, input4]) => [[_0, _1, _2], input4]))), ([_0, input2]) => [_0, input2], () => If(If(TemplateSpan(input), ([_0, input2]) => [[_0], input2]), ([_0, input2]) => [_0, input2], () => If(If(TemplateSpan(input), ([_0, input2]) => [[_0], input2]), ([_0, input2]) => [_0, input2], () => []))), ([_0, input2]) => [TemplateBodyMapping(_0), input2]);
 var TemplateLiteralTypes = (input) => If(If(Const("`", input), ([_0, input2]) => If(TemplateBody(input2), ([_1, input3]) => If(Const("`", input3), ([_2, input4]) => [[_0, _1, _2], input4]))), ([_0, input2]) => [TemplateLiteralTypesMapping(_0), input2]);
 var TemplateLiteral = (input) => If(TemplateLiteralTypes(input), ([_0, input2]) => [TemplateLiteralMapping(_0), input2]);
+var Dependent2 = (input) => If(If(If(Const("if", input), ([_0, input2]) => If(Type(input2), ([_1, input3]) => If(Const("then", input3), ([_2, input4]) => If(Type(input4), ([_3, input5]) => If(Const("else", input5), ([_4, input6]) => If(Type(input6), ([_5, input7]) => [[_0, _1, _2, _3, _4, _5], input7])))))), ([_0, input2]) => [_0, input2], () => If(If(Const("if", input), ([_0, input2]) => If(Type(input2), ([_1, input3]) => If(Const("then", input3), ([_2, input4]) => If(Type(input4), ([_3, input5]) => [[_0, _1, _2, _3], input5])))), ([_0, input2]) => [_0, input2], () => [])), ([_0, input2]) => [DependentMapping(_0), input2]);
 var LiteralBigInt = (input) => If(BigInt3(input), ([_0, input2]) => [LiteralBigIntMapping(_0), input2]);
 var LiteralBoolean = (input) => If(If(Const("true", input), ([_0, input2]) => [_0, input2], () => If(Const("false", input), ([_0, input2]) => [_0, input2], () => [])), ([_0, input2]) => [LiteralBooleanMapping(_0), input2]);
 var LiteralNumber = (input) => If(Number3(input), ([_0, input2]) => [LiteralNumberMapping(_0), input2]);
 var LiteralString = (input) => If(String3(["'", '"'], input), ([_0, input2]) => [LiteralStringMapping(_0), input2]);
-var Literal2 = (input) => If(If(LiteralBigInt(input), ([_0, input2]) => [_0, input2], () => If(LiteralBoolean(input), ([_0, input2]) => [_0, input2], () => If(LiteralNumber(input), ([_0, input2]) => [_0, input2], () => If(LiteralString(input), ([_0, input2]) => [_0, input2], () => [])))), ([_0, input2]) => [LiteralMapping(_0), input2]);
 var KeyOf = (input) => If(If(If(Const("keyof", input), ([_0, input2]) => [[_0], input2]), ([_0, input2]) => [_0, input2], () => If([[], input], ([_0, input2]) => [_0, input2], () => [])), ([_0, input2]) => [KeyOfMapping(_0), input2]);
 var IndexArray_0 = (input, result = []) => If(If(If(Const("[", input), ([_0, input2]) => If(Type(input2), ([_1, input3]) => If(Const("]", input3), ([_2, input4]) => [[_0, _1, _2], input4]))), ([_0, input2]) => [_0, input2], () => If(If(Const("[", input), ([_0, input2]) => If(Const("]", input2), ([_1, input3]) => [[_0, _1], input3])), ([_0, input2]) => [_0, input2], () => [])), ([_0, input2]) => IndexArray_0(input2, [...result, _0]), () => [result, input]);
 var IndexArray = (input) => If(IndexArray_0(input), ([_0, input2]) => [IndexArrayMapping(_0), input2]);
-var Extends = (input) => If(If(If(Const("extends", input), ([_0, input2]) => If(Type(input2), ([_1, input3]) => If(Const("?", input3), ([_2, input4]) => If(Type(input4), ([_3, input5]) => If(Const(":", input5), ([_4, input6]) => If(Type(input6), ([_5, input7]) => [[_0, _1, _2, _3, _4, _5], input7])))))), ([_0, input2]) => [_0, input2], () => If([[], input], ([_0, input2]) => [_0, input2], () => [])), ([_0, input2]) => [ExtendsMapping(_0), input2]);
-var Base2 = (input) => If(If(If(Const("(", input), ([_0, input2]) => If(Type(input2), ([_1, input3]) => If(Const(")", input3), ([_2, input4]) => [[_0, _1, _2], input4]))), ([_0, input2]) => [_0, input2], () => If(Keyword(input), ([_0, input2]) => [_0, input2], () => If(_Object_2(input), ([_0, input2]) => [_0, input2], () => If(Tuple2(input), ([_0, input2]) => [_0, input2], () => If(TemplateLiteral(input), ([_0, input2]) => [_0, input2], () => If(Literal2(input), ([_0, input2]) => [_0, input2], () => If(Constructor2(input), ([_0, input2]) => [_0, input2], () => If(_Function_2(input), ([_0, input2]) => [_0, input2], () => If(Mapped(input), ([_0, input2]) => [_0, input2], () => If(Options(input), ([_0, input2]) => [_0, input2], () => If(GenericCall(input), ([_0, input2]) => [_0, input2], () => If(Reference(input), ([_0, input2]) => [_0, input2], () => [])))))))))))), ([_0, input2]) => [BaseMapping(_0), input2]);
-var Factor = (input) => If(If(KeyOf(input), ([_0, input2]) => If(Base2(input2), ([_1, input3]) => If(IndexArray(input3), ([_2, input4]) => If(Extends(input4), ([_3, input5]) => [[_0, _1, _2, _3], input5])))), ([_0, input2]) => [FactorMapping(_0), input2]);
+var Extends2 = (input) => If(If(If(Const("extends", input), ([_0, input2]) => If(Type(input2), ([_1, input3]) => If(Const("?", input3), ([_2, input4]) => If(Type(input4), ([_3, input5]) => If(Const(":", input5), ([_4, input6]) => If(Type(input6), ([_5, input7]) => [[_0, _1, _2, _3, _4, _5], input7])))))), ([_0, input2]) => [_0, input2], () => If([[], input], ([_0, input2]) => [_0, input2], () => [])), ([_0, input2]) => [ExtendsMapping(_0), input2]);
+var Base = (input) => If(If(If(Const("(", input), ([_0, input2]) => If(Type(input2), ([_1, input3]) => If(Const(")", input3), ([_2, input4]) => [[_0, _1, _2], input4]))), ([_0, input2]) => [_0, input2], () => If(KeywordString(input), ([_0, input2]) => [_0, input2], () => If(KeywordNumber(input), ([_0, input2]) => [_0, input2], () => If(KeywordBoolean(input), ([_0, input2]) => [_0, input2], () => If(KeywordUndefined(input), ([_0, input2]) => [_0, input2], () => If(KeywordNull(input), ([_0, input2]) => [_0, input2], () => If(KeywordInteger(input), ([_0, input2]) => [_0, input2], () => If(KeywordBigInt(input), ([_0, input2]) => [_0, input2], () => If(KeywordUnknown(input), ([_0, input2]) => [_0, input2], () => If(KeywordAny(input), ([_0, input2]) => [_0, input2], () => If(KeywordObject(input), ([_0, input2]) => [_0, input2], () => If(KeywordNever(input), ([_0, input2]) => [_0, input2], () => If(KeywordSymbol(input), ([_0, input2]) => [_0, input2], () => If(KeywordVoid(input), ([_0, input2]) => [_0, input2], () => If(KeywordThis(input), ([_0, input2]) => [_0, input2], () => If(LiteralBigInt(input), ([_0, input2]) => [_0, input2], () => If(LiteralBoolean(input), ([_0, input2]) => [_0, input2], () => If(LiteralNumber(input), ([_0, input2]) => [_0, input2], () => If(LiteralString(input), ([_0, input2]) => [_0, input2], () => If(TemplateLiteral(input), ([_0, input2]) => [_0, input2], () => If(Dependent2(input), ([_0, input2]) => [_0, input2], () => If(_Object_2(input), ([_0, input2]) => [_0, input2], () => If(_Tuple_(input), ([_0, input2]) => [_0, input2], () => If(_Constructor_(input), ([_0, input2]) => [_0, input2], () => If(_Function_2(input), ([_0, input2]) => [_0, input2], () => If(_Mapped_(input), ([_0, input2]) => [_0, input2], () => If(GenericCall(input), ([_0, input2]) => [_0, input2], () => If(Reference(input), ([_0, input2]) => [_0, input2], () => [])))))))))))))))))))))))))))), ([_0, input2]) => [BaseMapping(_0), input2]);
+var With = (input) => If(If(If(Const("with", input), ([_0, input2]) => If(WithObject(input2), ([_1, input3]) => [[_0, _1], input3])), ([_0, input2]) => [_0, input2], () => If([[], input], ([_0, input2]) => [_0, input2], () => [])), ([_0, input2]) => [WithMapping(_0), input2]);
+var Factor = (input) => If(If(KeyOf(input), ([_0, input2]) => If(Base(input2), ([_1, input3]) => If(IndexArray(input3), ([_2, input4]) => If(Extends2(input4), ([_3, input5]) => If(With(input5), ([_4, input6]) => [[_0, _1, _2, _3, _4], input6]))))), ([_0, input2]) => [FactorMapping(_0), input2]);
 var ExprTermTail = (input) => If(If(If(Const("&", input), ([_0, input2]) => If(Factor(input2), ([_1, input3]) => If(ExprTermTail(input3), ([_2, input4]) => [[_0, _1, _2], input4]))), ([_0, input2]) => [_0, input2], () => If([[], input], ([_0, input2]) => [_0, input2], () => [])), ([_0, input2]) => [ExprTermTailMapping(_0), input2]);
 var ExprTerm = (input) => If(If(Factor(input), ([_0, input2]) => If(ExprTermTail(input2), ([_1, input3]) => [[_0, _1], input3])), ([_0, input2]) => [ExprTermMapping(_0), input2]);
 var ExprTail = (input) => If(If(If(Const("|", input), ([_0, input2]) => If(ExprTerm(input2), ([_1, input3]) => If(ExprTail(input3), ([_2, input4]) => [[_0, _1, _2], input4]))), ([_0, input2]) => [_0, input2], () => If([[], input], ([_0, input2]) => [_0, input2], () => [])), ([_0, input2]) => [ExprTailMapping(_0), input2]);
@@ -5810,61 +5931,59 @@ var PropertyDelimiter = (input) => If(If(If(Const(",", input), ([_0, input2]) =>
 `, input2), ([_1, input3]) => [[_0, _1], input3])), ([_0, input2]) => [_0, input2], () => If(If(Const(";", input), ([_0, input2]) => If(Const(`
 `, input2), ([_1, input3]) => [[_0, _1], input3])), ([_0, input2]) => [_0, input2], () => If(If(Const(",", input), ([_0, input2]) => [[_0], input2]), ([_0, input2]) => [_0, input2], () => If(If(Const(";", input), ([_0, input2]) => [[_0], input2]), ([_0, input2]) => [_0, input2], () => If(If(Const(`
 `, input), ([_0, input2]) => [[_0], input2]), ([_0, input2]) => [_0, input2], () => []))))), ([_0, input2]) => [PropertyDelimiterMapping(_0), input2]);
-var PropertyList_0 = (input, result = []) => If(If(Property(input), ([_0, input2]) => If(PropertyDelimiter(input2), ([_1, input3]) => [[_0, _1], input3])), ([_0, input2]) => PropertyList_0(input2, [...result, _0]), () => [result, input]);
-var PropertyList = (input) => If(If(PropertyList_0(input), ([_0, input2]) => If(If(If(Property(input2), ([_02, input3]) => [[_02], input3]), ([_02, input3]) => [_02, input3], () => If([[], input2], ([_02, input3]) => [_02, input3], () => [])), ([_1, input3]) => [[_0, _1], input3])), ([_0, input2]) => [PropertyListMapping(_0), input2]);
+var PropertyList_0 = (input, result = []) => If(If(PropertyDelimiter(input), ([_0, input2]) => If(Property(input2), ([_1, input3]) => [[_0, _1], input3])), ([_0, input2]) => PropertyList_0(input2, [...result, _0]), () => [result, input]);
+var PropertyList = (input) => If(If(If(Property(input), ([_0, input2]) => If(PropertyList_0(input2), ([_1, input3]) => If(If(PropertyDelimiter(input3), ([_02, input4]) => [[_02], input4], () => [[], input3]), ([_2, input4]) => [[_0, _1, _2], input4]))), ([_0, input2]) => [_0, input2], () => If([[], input], ([_0, input2]) => [_0, input2], () => [])), ([_0, input2]) => [PropertyListMapping(_0), input2]);
 var Properties = (input) => If(If(Const("{", input), ([_0, input2]) => If(PropertyList(input2), ([_1, input3]) => If(Const("}", input3), ([_2, input4]) => [[_0, _1, _2], input4]))), ([_0, input2]) => [PropertiesMapping(_0), input2]);
 var _Object_2 = (input) => If(Properties(input), ([_0, input2]) => [_Object_Mapping(_0), input2]);
 var ElementNamed = (input) => If(If(If(Ident(input), ([_0, input2]) => If(Const("?", input2), ([_1, input3]) => If(Const(":", input3), ([_2, input4]) => If(Const("readonly", input4), ([_3, input5]) => If(Type(input5), ([_4, input6]) => [[_0, _1, _2, _3, _4], input6]))))), ([_0, input2]) => [_0, input2], () => If(If(Ident(input), ([_0, input2]) => If(Const(":", input2), ([_1, input3]) => If(Const("readonly", input3), ([_2, input4]) => If(Type(input4), ([_3, input5]) => [[_0, _1, _2, _3], input5])))), ([_0, input2]) => [_0, input2], () => If(If(Ident(input), ([_0, input2]) => If(Const("?", input2), ([_1, input3]) => If(Const(":", input3), ([_2, input4]) => If(Type(input4), ([_3, input5]) => [[_0, _1, _2, _3], input5])))), ([_0, input2]) => [_0, input2], () => If(If(Ident(input), ([_0, input2]) => If(Const(":", input2), ([_1, input3]) => If(Type(input3), ([_2, input4]) => [[_0, _1, _2], input4]))), ([_0, input2]) => [_0, input2], () => [])))), ([_0, input2]) => [ElementNamedMapping(_0), input2]);
-var ElementReadonlyOptional = (input) => If(If(Const("readonly", input), ([_0, input2]) => If(Type(input2), ([_1, input3]) => If(Const("?", input3), ([_2, input4]) => [[_0, _1, _2], input4]))), ([_0, input2]) => [ElementReadonlyOptionalMapping(_0), input2]);
-var ElementReadonly = (input) => If(If(Const("readonly", input), ([_0, input2]) => If(Type(input2), ([_1, input3]) => [[_0, _1], input3])), ([_0, input2]) => [ElementReadonlyMapping(_0), input2]);
-var ElementOptional = (input) => If(If(Type(input), ([_0, input2]) => If(Const("?", input2), ([_1, input3]) => [[_0, _1], input3])), ([_0, input2]) => [ElementOptionalMapping(_0), input2]);
-var ElementBase = (input) => If(If(ElementNamed(input), ([_0, input2]) => [_0, input2], () => If(ElementReadonlyOptional(input), ([_0, input2]) => [_0, input2], () => If(ElementReadonly(input), ([_0, input2]) => [_0, input2], () => If(ElementOptional(input), ([_0, input2]) => [_0, input2], () => If(Type(input), ([_0, input2]) => [_0, input2], () => []))))), ([_0, input2]) => [ElementBaseMapping(_0), input2]);
+var ElementBase = (input) => If(If(ElementNamed(input), ([_0, input2]) => [_0, input2], () => If(If(Readonly2(input), ([_0, input2]) => If(Type(input2), ([_1, input3]) => If(Optional3(input3), ([_2, input4]) => [[_0, _1, _2], input4]))), ([_0, input2]) => [_0, input2], () => [])), ([_0, input2]) => [ElementBaseMapping(_0), input2]);
 var Element = (input) => If(If(If(Const("...", input), ([_0, input2]) => If(ElementBase(input2), ([_1, input3]) => [[_0, _1], input3])), ([_0, input2]) => [_0, input2], () => If(If(ElementBase(input), ([_0, input2]) => [[_0], input2]), ([_0, input2]) => [_0, input2], () => [])), ([_0, input2]) => [ElementMapping(_0), input2]);
-var ElementList_0 = (input, result = []) => If(If(Element(input), ([_0, input2]) => If(Const(",", input2), ([_1, input3]) => [[_0, _1], input3])), ([_0, input2]) => ElementList_0(input2, [...result, _0]), () => [result, input]);
-var ElementList = (input) => If(If(ElementList_0(input), ([_0, input2]) => If(If(If(Element(input2), ([_02, input3]) => [[_02], input3]), ([_02, input3]) => [_02, input3], () => If([[], input2], ([_02, input3]) => [_02, input3], () => [])), ([_1, input3]) => [[_0, _1], input3])), ([_0, input2]) => [ElementListMapping(_0), input2]);
-var Tuple2 = (input) => If(If(Const("[", input), ([_0, input2]) => If(ElementList(input2), ([_1, input3]) => If(Const("]", input3), ([_2, input4]) => [[_0, _1, _2], input4]))), ([_0, input2]) => [TupleMapping(_0), input2]);
+var ElementList_0 = (input, result = []) => If(If(Const(",", input), ([_0, input2]) => If(Element(input2), ([_1, input3]) => [[_0, _1], input3])), ([_0, input2]) => ElementList_0(input2, [...result, _0]), () => [result, input]);
+var ElementList = (input) => If(If(If(Element(input), ([_0, input2]) => If(ElementList_0(input2), ([_1, input3]) => If(If(Const(",", input3), ([_02, input4]) => [[_02], input4], () => [[], input3]), ([_2, input4]) => [[_0, _1, _2], input4]))), ([_0, input2]) => [_0, input2], () => If([[], input], ([_0, input2]) => [_0, input2], () => [])), ([_0, input2]) => [ElementListMapping(_0), input2]);
+var _Tuple_ = (input) => If(If(Const("[", input), ([_0, input2]) => If(ElementList(input2), ([_1, input3]) => If(Const("]", input3), ([_2, input4]) => [[_0, _1, _2], input4]))), ([_0, input2]) => [_Tuple_Mapping(_0), input2]);
 var ParameterReadonlyOptional = (input) => If(If(Ident(input), ([_0, input2]) => If(Const("?", input2), ([_1, input3]) => If(Const(":", input3), ([_2, input4]) => If(Const("readonly", input4), ([_3, input5]) => If(Type(input5), ([_4, input6]) => [[_0, _1, _2, _3, _4], input6]))))), ([_0, input2]) => [ParameterReadonlyOptionalMapping(_0), input2]);
 var ParameterReadonly = (input) => If(If(Ident(input), ([_0, input2]) => If(Const(":", input2), ([_1, input3]) => If(Const("readonly", input3), ([_2, input4]) => If(Type(input4), ([_3, input5]) => [[_0, _1, _2, _3], input5])))), ([_0, input2]) => [ParameterReadonlyMapping(_0), input2]);
 var ParameterOptional = (input) => If(If(Ident(input), ([_0, input2]) => If(Const("?", input2), ([_1, input3]) => If(Const(":", input3), ([_2, input4]) => If(Type(input4), ([_3, input5]) => [[_0, _1, _2, _3], input5])))), ([_0, input2]) => [ParameterOptionalMapping(_0), input2]);
 var ParameterType = (input) => If(If(Ident(input), ([_0, input2]) => If(Const(":", input2), ([_1, input3]) => If(Type(input3), ([_2, input4]) => [[_0, _1, _2], input4]))), ([_0, input2]) => [ParameterTypeMapping(_0), input2]);
 var ParameterBase = (input) => If(If(ParameterReadonlyOptional(input), ([_0, input2]) => [_0, input2], () => If(ParameterReadonly(input), ([_0, input2]) => [_0, input2], () => If(ParameterOptional(input), ([_0, input2]) => [_0, input2], () => If(ParameterType(input), ([_0, input2]) => [_0, input2], () => [])))), ([_0, input2]) => [ParameterBaseMapping(_0), input2]);
 var Parameter2 = (input) => If(If(If(Const("...", input), ([_0, input2]) => If(ParameterBase(input2), ([_1, input3]) => [[_0, _1], input3])), ([_0, input2]) => [_0, input2], () => If(If(ParameterBase(input), ([_0, input2]) => [[_0], input2]), ([_0, input2]) => [_0, input2], () => [])), ([_0, input2]) => [ParameterMapping(_0), input2]);
-var ParameterList_0 = (input, result = []) => If(If(Parameter2(input), ([_0, input2]) => If(Const(",", input2), ([_1, input3]) => [[_0, _1], input3])), ([_0, input2]) => ParameterList_0(input2, [...result, _0]), () => [result, input]);
-var ParameterList = (input) => If(If(ParameterList_0(input), ([_0, input2]) => If(If(If(Parameter2(input2), ([_02, input3]) => [[_02], input3]), ([_02, input3]) => [_02, input3], () => If([[], input2], ([_02, input3]) => [_02, input3], () => [])), ([_1, input3]) => [[_0, _1], input3])), ([_0, input2]) => [ParameterListMapping(_0), input2]);
+var ParameterList_0 = (input, result = []) => If(If(Const(",", input), ([_0, input2]) => If(Parameter2(input2), ([_1, input3]) => [[_0, _1], input3])), ([_0, input2]) => ParameterList_0(input2, [...result, _0]), () => [result, input]);
+var ParameterList = (input) => If(If(If(Parameter2(input), ([_0, input2]) => If(ParameterList_0(input2), ([_1, input3]) => If(If(Const(",", input3), ([_02, input4]) => [[_02], input4], () => [[], input3]), ([_2, input4]) => [[_0, _1, _2], input4]))), ([_0, input2]) => [_0, input2], () => If([[], input], ([_0, input2]) => [_0, input2], () => [])), ([_0, input2]) => [ParameterListMapping(_0), input2]);
 var _Function_2 = (input) => If(If(Const("(", input), ([_0, input2]) => If(ParameterList(input2), ([_1, input3]) => If(Const(")", input3), ([_2, input4]) => If(Const("=>", input4), ([_3, input5]) => If(Type(input5), ([_4, input6]) => [[_0, _1, _2, _3, _4], input6]))))), ([_0, input2]) => [_Function_Mapping(_0), input2]);
-var Constructor2 = (input) => If(If(Const("new", input), ([_0, input2]) => If(Const("(", input2), ([_1, input3]) => If(ParameterList(input3), ([_2, input4]) => If(Const(")", input4), ([_3, input5]) => If(Const("=>", input5), ([_4, input6]) => If(Type(input6), ([_5, input7]) => [[_0, _1, _2, _3, _4, _5], input7])))))), ([_0, input2]) => [ConstructorMapping(_0), input2]);
+var _Constructor_ = (input) => If(If(Const("new", input), ([_0, input2]) => If(Const("(", input2), ([_1, input3]) => If(ParameterList(input3), ([_2, input4]) => If(Const(")", input4), ([_3, input5]) => If(Const("=>", input5), ([_4, input6]) => If(Type(input6), ([_5, input7]) => [[_0, _1, _2, _3, _4, _5], input7])))))), ([_0, input2]) => [_Constructor_Mapping(_0), input2]);
 var MappedReadonly = (input) => If(If(If(Const("+", input), ([_0, input2]) => If(Const("readonly", input2), ([_1, input3]) => [[_0, _1], input3])), ([_0, input2]) => [_0, input2], () => If(If(Const("-", input), ([_0, input2]) => If(Const("readonly", input2), ([_1, input3]) => [[_0, _1], input3])), ([_0, input2]) => [_0, input2], () => If(If(Const("readonly", input), ([_0, input2]) => [[_0], input2]), ([_0, input2]) => [_0, input2], () => If([[], input], ([_0, input2]) => [_0, input2], () => [])))), ([_0, input2]) => [MappedReadonlyMapping(_0), input2]);
 var MappedOptional = (input) => If(If(If(Const("+", input), ([_0, input2]) => If(Const("?", input2), ([_1, input3]) => [[_0, _1], input3])), ([_0, input2]) => [_0, input2], () => If(If(Const("-", input), ([_0, input2]) => If(Const("?", input2), ([_1, input3]) => [[_0, _1], input3])), ([_0, input2]) => [_0, input2], () => If(If(Const("?", input), ([_0, input2]) => [[_0], input2]), ([_0, input2]) => [_0, input2], () => If([[], input], ([_0, input2]) => [_0, input2], () => [])))), ([_0, input2]) => [MappedOptionalMapping(_0), input2]);
 var MappedAs = (input) => If(If(If(Const("as", input), ([_0, input2]) => If(Type(input2), ([_1, input3]) => [[_0, _1], input3])), ([_0, input2]) => [_0, input2], () => If([[], input], ([_0, input2]) => [_0, input2], () => [])), ([_0, input2]) => [MappedAsMapping(_0), input2]);
-var Mapped = (input) => If(If(Const("{", input), ([_0, input2]) => If(MappedReadonly(input2), ([_1, input3]) => If(Const("[", input3), ([_2, input4]) => If(Ident(input4), ([_3, input5]) => If(Const("in", input5), ([_4, input6]) => If(Type(input6), ([_5, input7]) => If(MappedAs(input7), ([_6, input8]) => If(Const("]", input8), ([_7, input9]) => If(MappedOptional(input9), ([_8, input10]) => If(Const(":", input10), ([_9, input11]) => If(Type(input11), ([_10, input12]) => If(OptionalSemiColon(input12), ([_11, input13]) => If(Const("}", input13), ([_12, input14]) => [[_0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12], input14]))))))))))))), ([_0, input2]) => [MappedMapping(_0), input2]);
+var _Mapped_ = (input) => If(If(Const("{", input), ([_0, input2]) => If(MappedReadonly(input2), ([_1, input3]) => If(Const("[", input3), ([_2, input4]) => If(Ident(input4), ([_3, input5]) => If(Const("in", input5), ([_4, input6]) => If(Type(input6), ([_5, input7]) => If(MappedAs(input7), ([_6, input8]) => If(Const("]", input8), ([_7, input9]) => If(MappedOptional(input9), ([_8, input10]) => If(Const(":", input10), ([_9, input11]) => If(Type(input11), ([_10, input12]) => If(OptionalSemiColon(input12), ([_11, input13]) => If(Const("}", input13), ([_12, input14]) => [[_0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12], input14]))))))))))))), ([_0, input2]) => [_Mapped_Mapping(_0), input2]);
 var Reference = (input) => If(Ident(input), ([_0, input2]) => [ReferenceMapping(_0), input2]);
-var Options = (input) => If(If(Const("Options", input), ([_0, input2]) => If(Const("<", input2), ([_1, input3]) => If(Type(input3), ([_2, input4]) => If(Const(",", input4), ([_3, input5]) => If(JsonObject(input5), ([_4, input6]) => If(Const(">", input6), ([_5, input7]) => [[_0, _1, _2, _3, _4, _5], input7])))))), ([_0, input2]) => [OptionsMapping(_0), input2]);
-var JsonNumber = (input) => If(Number3(input), ([_0, input2]) => [JsonNumberMapping(_0), input2]);
-var JsonBoolean = (input) => If(If(Const("true", input), ([_0, input2]) => [_0, input2], () => If(Const("false", input), ([_0, input2]) => [_0, input2], () => [])), ([_0, input2]) => [JsonBooleanMapping(_0), input2]);
-var JsonString = (input) => If(String3(['"', "'"], input), ([_0, input2]) => [JsonStringMapping(_0), input2]);
-var JsonNull = (input) => If(Const("null", input), ([_0, input2]) => [JsonNullMapping(_0), input2]);
-var JsonProperty = (input) => If(If(PropertyKey(input), ([_0, input2]) => If(Const(":", input2), ([_1, input3]) => If(Json(input3), ([_2, input4]) => [[_0, _1, _2], input4]))), ([_0, input2]) => [JsonPropertyMapping(_0), input2]);
-var JsonPropertyList_0 = (input, result = []) => If(If(JsonProperty(input), ([_0, input2]) => If(PropertyDelimiter(input2), ([_1, input3]) => [[_0, _1], input3])), ([_0, input2]) => JsonPropertyList_0(input2, [...result, _0]), () => [result, input]);
-var JsonPropertyList = (input) => If(If(JsonPropertyList_0(input), ([_0, input2]) => If(If(If(JsonProperty(input2), ([_02, input3]) => [[_02], input3]), ([_02, input3]) => [_02, input3], () => If([[], input2], ([_02, input3]) => [_02, input3], () => [])), ([_1, input3]) => [[_0, _1], input3])), ([_0, input2]) => [JsonPropertyListMapping(_0), input2]);
-var JsonObject = (input) => If(If(Const("{", input), ([_0, input2]) => If(JsonPropertyList(input2), ([_1, input3]) => If(Const("}", input3), ([_2, input4]) => [[_0, _1, _2], input4]))), ([_0, input2]) => [JsonObjectMapping(_0), input2]);
-var JsonElementList_0 = (input, result = []) => If(If(Json(input), ([_0, input2]) => If(Const(",", input2), ([_1, input3]) => [[_0, _1], input3])), ([_0, input2]) => JsonElementList_0(input2, [...result, _0]), () => [result, input]);
-var JsonElementList = (input) => If(If(JsonElementList_0(input), ([_0, input2]) => If(If(If(Json(input2), ([_02, input3]) => [[_02], input3]), ([_02, input3]) => [_02, input3], () => If([[], input2], ([_02, input3]) => [_02, input3], () => [])), ([_1, input3]) => [[_0, _1], input3])), ([_0, input2]) => [JsonElementListMapping(_0), input2]);
-var JsonArray = (input) => If(If(Const("[", input), ([_0, input2]) => If(JsonElementList(input2), ([_1, input3]) => If(Const("]", input3), ([_2, input4]) => [[_0, _1, _2], input4]))), ([_0, input2]) => [JsonArrayMapping(_0), input2]);
-var Json = (input) => If(If(JsonNumber(input), ([_0, input2]) => [_0, input2], () => If(JsonBoolean(input), ([_0, input2]) => [_0, input2], () => If(JsonString(input), ([_0, input2]) => [_0, input2], () => If(JsonNull(input), ([_0, input2]) => [_0, input2], () => If(JsonObject(input), ([_0, input2]) => [_0, input2], () => If(JsonArray(input), ([_0, input2]) => [_0, input2], () => [])))))), ([_0, input2]) => [JsonMapping(_0), input2]);
+var WithBigInt = (input) => If(BigInt3(input), ([_0, input2]) => [WithBigIntMapping(_0), input2]);
+var WithNumber = (input) => If(Number3(input), ([_0, input2]) => [WithNumberMapping(_0), input2]);
+var WithBoolean = (input) => If(If(Const("true", input), ([_0, input2]) => [_0, input2], () => If(Const("false", input), ([_0, input2]) => [_0, input2], () => [])), ([_0, input2]) => [WithBooleanMapping(_0), input2]);
+var WithString = (input) => If(String3(['"', "'"], input), ([_0, input2]) => [WithStringMapping(_0), input2]);
+var WithNull = (input) => If(Const("null", input), ([_0, input2]) => [WithNullMapping(_0), input2]);
+var WithUndefined = (input) => If(Const("undefined", input), ([_0, input2]) => [WithUndefinedMapping(_0), input2]);
+var WithProperty = (input) => If(If(PropertyKey(input), ([_0, input2]) => If(Const(":", input2), ([_1, input3]) => If(WithValue(input3), ([_2, input4]) => [[_0, _1, _2], input4]))), ([_0, input2]) => [WithPropertyMapping(_0), input2]);
+var WithPropertyList_0 = (input, result = []) => If(If(PropertyDelimiter(input), ([_0, input2]) => If(WithProperty(input2), ([_1, input3]) => [[_0, _1], input3])), ([_0, input2]) => WithPropertyList_0(input2, [...result, _0]), () => [result, input]);
+var WithPropertyList = (input) => If(If(If(WithProperty(input), ([_0, input2]) => If(WithPropertyList_0(input2), ([_1, input3]) => If(If(PropertyDelimiter(input3), ([_02, input4]) => [[_02], input4], () => [[], input3]), ([_2, input4]) => [[_0, _1, _2], input4]))), ([_0, input2]) => [_0, input2], () => If([[], input], ([_0, input2]) => [_0, input2], () => [])), ([_0, input2]) => [WithPropertyListMapping(_0), input2]);
+var WithObject = (input) => If(If(Const("{", input), ([_0, input2]) => If(WithPropertyList(input2), ([_1, input3]) => If(Const("}", input3), ([_2, input4]) => [[_0, _1, _2], input4]))), ([_0, input2]) => [WithObjectMapping(_0), input2]);
+var WithElementList_0 = (input, result = []) => If(If(Const(",", input), ([_0, input2]) => If(WithValue(input2), ([_1, input3]) => [[_0, _1], input3])), ([_0, input2]) => WithElementList_0(input2, [...result, _0]), () => [result, input]);
+var WithElementList = (input) => If(If(If(WithValue(input), ([_0, input2]) => If(WithElementList_0(input2), ([_1, input3]) => If(If(Const(",", input3), ([_02, input4]) => [[_02], input4], () => [[], input3]), ([_2, input4]) => [[_0, _1, _2], input4]))), ([_0, input2]) => [_0, input2], () => If([[], input], ([_0, input2]) => [_0, input2], () => [])), ([_0, input2]) => [WithElementListMapping(_0), input2]);
+var WithArray = (input) => If(If(Const("[", input), ([_0, input2]) => If(WithElementList(input2), ([_1, input3]) => If(Const("]", input3), ([_2, input4]) => [[_0, _1, _2], input4]))), ([_0, input2]) => [WithArrayMapping(_0), input2]);
+var WithValue = (input) => If(If(WithBigInt(input), ([_0, input2]) => [_0, input2], () => If(WithNumber(input), ([_0, input2]) => [_0, input2], () => If(WithBoolean(input), ([_0, input2]) => [_0, input2], () => If(WithString(input), ([_0, input2]) => [_0, input2], () => If(WithNull(input), ([_0, input2]) => [_0, input2], () => If(WithUndefined(input), ([_0, input2]) => [_0, input2], () => If(WithObject(input), ([_0, input2]) => [_0, input2], () => If(WithArray(input), ([_0, input2]) => [_0, input2], () => [])))))))), ([_0, input2]) => [WithValueMapping(_0), input2]);
 var PatternBigInt = (input) => If(Const("-?(?:0|[1-9][0-9]*)n", input), ([_0, input2]) => [PatternBigIntMapping(_0), input2]);
 var PatternString = (input) => If(Const(".*", input), ([_0, input2]) => [PatternStringMapping(_0), input2]);
-var PatternNumber = (input) => If(Const("-?(?:0|[1-9][0-9]*)(?:.[0-9]+)?", input), ([_0, input2]) => [PatternNumberMapping(_0), input2]);
+var PatternNumber = (input) => If(Const("-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?", input), ([_0, input2]) => [PatternNumberMapping(_0), input2]);
 var PatternInteger = (input) => If(Const("-?(?:0|[1-9][0-9]*)", input), ([_0, input2]) => [PatternIntegerMapping(_0), input2]);
 var PatternNever = (input) => If(Const("(?!)", input), ([_0, input2]) => [PatternNeverMapping(_0), input2]);
-var PatternText = (input) => If(Until_1(["-?(?:0|[1-9][0-9]*)n", ".*", "-?(?:0|[1-9][0-9]*)(?:.[0-9]+)?", "-?(?:0|[1-9][0-9]*)", "(?!)", "(", ")", "$", "|"], input), ([_0, input2]) => [PatternTextMapping(_0), input2]);
+var PatternText = (input) => If(Until_1(["-?(?:0|[1-9][0-9]*)n", ".*", "-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?", "-?(?:0|[1-9][0-9]*)", "(?!)", "(", ")", "$", "|"], input), ([_0, input2]) => [PatternTextMapping(_0), input2]);
 var PatternBase = (input) => If(If(PatternBigInt(input), ([_0, input2]) => [_0, input2], () => If(PatternString(input), ([_0, input2]) => [_0, input2], () => If(PatternNumber(input), ([_0, input2]) => [_0, input2], () => If(PatternInteger(input), ([_0, input2]) => [_0, input2], () => If(PatternNever(input), ([_0, input2]) => [_0, input2], () => If(PatternGroup(input), ([_0, input2]) => [_0, input2], () => If(PatternText(input), ([_0, input2]) => [_0, input2], () => []))))))), ([_0, input2]) => [PatternBaseMapping(_0), input2]);
 var PatternGroup = (input) => If(If(Const("(", input), ([_0, input2]) => If(PatternBody(input2), ([_1, input3]) => If(Const(")", input3), ([_2, input4]) => [[_0, _1, _2], input4]))), ([_0, input2]) => [PatternGroupMapping(_0), input2]);
 var PatternUnion = (input) => If(If(If(PatternTerm(input), ([_0, input2]) => If(Const("|", input2), ([_1, input3]) => If(PatternUnion(input3), ([_2, input4]) => [[_0, _1, _2], input4]))), ([_0, input2]) => [_0, input2], () => If(If(PatternTerm(input), ([_0, input2]) => [[_0], input2]), ([_0, input2]) => [_0, input2], () => If([[], input], ([_0, input2]) => [_0, input2], () => []))), ([_0, input2]) => [PatternUnionMapping(_0), input2]);
 var PatternTerm = (input) => If(If(PatternBase(input), ([_0, input2]) => If(PatternBody(input2), ([_1, input3]) => [[_0, _1], input3])), ([_0, input2]) => [PatternTermMapping(_0), input2]);
 var PatternBody = (input) => If(If(PatternUnion(input), ([_0, input2]) => [_0, input2], () => If(PatternTerm(input), ([_0, input2]) => [_0, input2], () => [])), ([_0, input2]) => [PatternBodyMapping(_0), input2]);
 var Pattern = (input) => If(If(Const("^", input), ([_0, input2]) => If(PatternBody(input2), ([_1, input3]) => If(Const("$", input3), ([_2, input4]) => [[_0, _1, _2], input4]))), ([_0, input2]) => [PatternMapping(_0), input2]);
-var InterfaceDeclarationHeritageList_0 = (input, result = []) => If(If(Type(input), ([_0, input2]) => If(Const(",", input2), ([_1, input3]) => [[_0, _1], input3])), ([_0, input2]) => InterfaceDeclarationHeritageList_0(input2, [...result, _0]), () => [result, input]);
-var InterfaceDeclarationHeritageList = (input) => If(If(InterfaceDeclarationHeritageList_0(input), ([_0, input2]) => If(If(If(Type(input2), ([_02, input3]) => [[_02], input3]), ([_02, input3]) => [_02, input3], () => If([[], input2], ([_02, input3]) => [_02, input3], () => [])), ([_1, input3]) => [[_0, _1], input3])), ([_0, input2]) => [InterfaceDeclarationHeritageListMapping(_0), input2]);
+var InterfaceDeclarationHeritageList_0 = (input, result = []) => If(If(Const(",", input), ([_0, input2]) => If(Type(input2), ([_1, input3]) => [[_0, _1], input3])), ([_0, input2]) => InterfaceDeclarationHeritageList_0(input2, [...result, _0]), () => [result, input]);
+var InterfaceDeclarationHeritageList = (input) => If(If(If(Type(input), ([_0, input2]) => If(InterfaceDeclarationHeritageList_0(input2), ([_1, input3]) => If(If(Const(",", input3), ([_02, input4]) => [[_02], input4], () => [[], input3]), ([_2, input4]) => [[_0, _1, _2], input4]))), ([_0, input2]) => [_0, input2], () => If([[], input], ([_0, input2]) => [_0, input2], () => [])), ([_0, input2]) => [InterfaceDeclarationHeritageListMapping(_0), input2]);
 var InterfaceDeclarationHeritage = (input) => If(If(If(Const("extends", input), ([_0, input2]) => If(InterfaceDeclarationHeritageList(input2), ([_1, input3]) => [[_0, _1], input3])), ([_0, input2]) => [_0, input2], () => If([[], input], ([_0, input2]) => [_0, input2], () => [])), ([_0, input2]) => [InterfaceDeclarationHeritageMapping(_0), input2]);
 var InterfaceDeclarationGeneric = (input) => If(If(Const("interface", input), ([_0, input2]) => If(Ident(input2), ([_1, input3]) => If(GenericParameters(input3), ([_2, input4]) => If(InterfaceDeclarationHeritage(input4), ([_3, input5]) => If(Properties(input5), ([_4, input6]) => [[_0, _1, _2, _3, _4], input6]))))), ([_0, input2]) => [InterfaceDeclarationGenericMapping(_0), input2]);
 var InterfaceDeclaration = (input) => If(If(Const("interface", input), ([_0, input2]) => If(Ident(input2), ([_1, input3]) => If(InterfaceDeclarationHeritage(input3), ([_2, input4]) => If(Properties(input4), ([_3, input5]) => [[_0, _1, _2, _3], input5])))), ([_0, input2]) => [InterfaceDeclarationMapping(_0), input2]);
@@ -5874,8 +5993,8 @@ var ExportKeyword = (input) => If(If(If(Const("export", input), ([_0, input2]) =
 var ModuleDeclarationDelimiter = (input) => If(If(If(Const(";", input), ([_0, input2]) => If(Const(`
 `, input2), ([_1, input3]) => [[_0, _1], input3])), ([_0, input2]) => [_0, input2], () => If(If(Const(";", input), ([_0, input2]) => [[_0], input2]), ([_0, input2]) => [_0, input2], () => If(If(Const(`
 `, input), ([_0, input2]) => [[_0], input2]), ([_0, input2]) => [_0, input2], () => []))), ([_0, input2]) => [ModuleDeclarationDelimiterMapping(_0), input2]);
-var ModuleDeclarationList_0 = (input, result = []) => If(If(ModuleDeclaration(input), ([_0, input2]) => If(ModuleDeclarationDelimiter(input2), ([_1, input3]) => [[_0, _1], input3])), ([_0, input2]) => ModuleDeclarationList_0(input2, [...result, _0]), () => [result, input]);
-var ModuleDeclarationList = (input) => If(If(ModuleDeclarationList_0(input), ([_0, input2]) => If(If(If(ModuleDeclaration(input2), ([_02, input3]) => [[_02], input3]), ([_02, input3]) => [_02, input3], () => If([[], input2], ([_02, input3]) => [_02, input3], () => [])), ([_1, input3]) => [[_0, _1], input3])), ([_0, input2]) => [ModuleDeclarationListMapping(_0), input2]);
+var ModuleDeclarationList_0 = (input, result = []) => If(If(ModuleDeclarationDelimiter(input), ([_0, input2]) => If(ModuleDeclaration(input2), ([_1, input3]) => [[_0, _1], input3])), ([_0, input2]) => ModuleDeclarationList_0(input2, [...result, _0]), () => [result, input]);
+var ModuleDeclarationList = (input) => If(If(If(ModuleDeclaration(input), ([_0, input2]) => If(ModuleDeclarationList_0(input2), ([_1, input3]) => If(If(ModuleDeclarationDelimiter(input3), ([_02, input4]) => [[_02], input4], () => [[], input3]), ([_2, input4]) => [[_0, _1, _2], input4]))), ([_0, input2]) => [_0, input2], () => If([[], input], ([_0, input2]) => [_0, input2], () => [])), ([_0, input2]) => [ModuleDeclarationListMapping(_0), input2]);
 var ModuleDeclaration = (input) => If(If(ExportKeyword(input), ([_0, input2]) => If(If(InterfaceDeclarationGeneric(input2), ([_02, input3]) => [_02, input3], () => If(InterfaceDeclaration(input2), ([_02, input3]) => [_02, input3], () => If(TypeAliasDeclarationGeneric(input2), ([_02, input3]) => [_02, input3], () => If(TypeAliasDeclaration(input2), ([_02, input3]) => [_02, input3], () => [])))), ([_1, input3]) => If(OptionalSemiColon(input3), ([_2, input4]) => [[_0, _1, _2], input4]))), ([_0, input2]) => [ModuleDeclarationMapping(_0), input2]);
 var Module = (input) => If(If(ModuleDeclaration(input), ([_0, input2]) => If(ModuleDeclarationList(input2), ([_1, input3]) => [[_0, _1], input3])), ([_0, input2]) => [ModuleMapping(_0), input2]);
 var Script = (input) => If(If(Module(input), ([_0, input2]) => [_0, input2], () => If(GenericType(input), ([_0, input2]) => [_0, input2], () => If(Type(input), ([_0, input2]) => [_0, input2], () => []))), ([_0, input2]) => [ScriptMapping(_0), input2]);
@@ -5920,18 +6039,18 @@ function EncodeTemplateLiteralDeferred(types, right, pattern) {
   const result = EncodeType(templateLiteral, right, pattern);
   return result;
 }
-function EncodeEnum(types, right, pattern) {
-  const variants = EnumValuesToVariants(types);
-  return EncodeUnion(variants, right, pattern);
+function EncodeEnum(values, right, pattern) {
+  const evaluated = EvaluateEnum(values);
+  return EncodeType(evaluated, right, pattern);
 }
 function EncodeUnion(types, right, pattern, result = []) {
-  return exports_guard.TakeLeft(types, (head, tail) => EncodeUnion(tail, right, pattern, [...result, EncodeType(head, [], "")]), () => EncodeTypes(right, `${pattern}(${JoinString(result)})`));
+  return exports_guard.ShiftLeft(types, (head, tail) => EncodeUnion(tail, right, pattern, [...result, EncodeType(head, [], "")]), () => EncodeTypes(right, `${pattern}(${JoinString(result)})`));
 }
 function EncodeType(type, right, pattern) {
-  return IsEnum(type) ? EncodeEnum(type.enum, right, pattern) : IsInteger2(type) ? EncodeInteger(right, pattern) : IsLiteral(type) ? EncodeLiteral(type.const, right, pattern) : IsBigInt2(type) ? EncodeBigInt(right, pattern) : IsBoolean2(type) ? EncodeBoolean(right, pattern) : IsNumber2(type) ? EncodeNumber(right, pattern) : IsString2(type) ? EncodeString(right, pattern) : IsTemplateLiteral(type) ? EncodeTemplateLiteral(type.pattern, right, pattern) : IsTemplateLiteralDeferred(type) ? EncodeTemplateLiteralDeferred(type.parameters[0], right, pattern) : IsUnion(type) ? EncodeUnion(type.anyOf, right, pattern) : NeverPattern;
+  return IsEnum(type) ? EncodeEnum(type.enum, right, pattern) : IsInteger2(type) ? EncodeInteger(right, pattern) : IsLiteral(type) ? EncodeLiteral(type.const, right, pattern) : IsBigInt2(type) ? EncodeBigInt(right, pattern) : IsBoolean3(type) ? EncodeBoolean(right, pattern) : IsNumber3(type) ? EncodeNumber(right, pattern) : IsString3(type) ? EncodeString(right, pattern) : IsTemplateLiteral(type) ? EncodeTemplateLiteral(type.pattern, right, pattern) : IsTemplateLiteralDeferred(type) ? EncodeTemplateLiteralDeferred(type.parameters[0], right, pattern) : IsUnion(type) ? EncodeUnion(type.anyOf, right, pattern) : NeverPattern;
 }
 function EncodeTypes(types, pattern) {
-  return exports_guard.TakeLeft(types, (left, right) => EncodeType(left, right, pattern), () => pattern);
+  return exports_guard.ShiftLeft(types, (left, right) => EncodeType(left, right, pattern), () => pattern);
 }
 function EncodePattern(types) {
   const encoded = EncodeTypes(types, "");
@@ -6012,6 +6131,7 @@ function IsExtendsTrueLike(value) {
 function Match3(result, true_, false_) {
   return IsExtendsTrueLike(result) ? true_(result.inferred) : false_();
 }
+
 // ../../node_modules/typebox/build/type/extends/extends_right.mjs
 function ExtendsRightInfer(inferred, name, left, right) {
   return Match3(ExtendsLeft(inferred, left, right), (checkInferred) => ExtendsTrue(exports_memory.Assign(exports_memory.Assign(inferred, checkInferred), { [name]: left })), () => ExtendsFalse());
@@ -6019,22 +6139,25 @@ function ExtendsRightInfer(inferred, name, left, right) {
 function ExtendsRightAny(inferred, _left) {
   return ExtendsTrue(inferred);
 }
+function ExtendsRightDependent(inferred, left, if_, then_, else_) {
+  return Match3(ExtendsLeft(inferred, left, if_), (inferred2) => Match3(ExtendsLeft(inferred2, left, then_), (inferred3) => ExtendsTrue(inferred3), () => ExtendsFalse()), () => Match3(ExtendsLeft(inferred, left, else_), (inferred2) => ExtendsTrue(inferred2), () => ExtendsFalse()));
+}
 function ExtendsRightEnum(inferred, left, right) {
-  const union2 = EnumValuesToUnion(right);
-  return ExtendsLeft(inferred, left, union2);
+  const evaluated = EvaluateEnum(right);
+  return ExtendsLeft(inferred, left, evaluated);
 }
 function ExtendsRightIntersect(inferred, left, right) {
-  return exports_guard.TakeLeft(right, (head, tail) => Match3(ExtendsLeft(inferred, left, head), (inferred2) => ExtendsRightIntersect(inferred2, left, tail), () => ExtendsFalse()), () => ExtendsTrue(inferred));
+  return exports_guard.ShiftLeft(right, (head, tail) => Match3(ExtendsLeft(inferred, left, head), (inferred2) => ExtendsRightIntersect(inferred2, left, tail), () => ExtendsFalse()), () => ExtendsTrue(inferred));
 }
 function ExtendsRightTemplateLiteral(inferred, left, right) {
-  const decoded = TemplateLiteralDecode(right);
-  return ExtendsLeft(inferred, left, decoded);
+  const evaluated = EvaluateTemplateLiteral(right);
+  return ExtendsLeft(inferred, left, evaluated);
 }
 function ExtendsRightUnion(inferred, left, right) {
-  return exports_guard.TakeLeft(right, (head, tail) => Match3(ExtendsLeft(inferred, left, head), (inferred2) => ExtendsTrue(inferred2), () => ExtendsRightUnion(inferred, left, tail)), () => ExtendsFalse());
+  return exports_guard.ShiftLeft(right, (head, tail) => Match3(ExtendsLeft(inferred, left, head), (inferred2) => ExtendsTrue(inferred2), () => ExtendsRightUnion(inferred, left, tail)), () => ExtendsFalse());
 }
 function ExtendsRight(inferred, left, right) {
-  return IsAny(right) ? ExtendsRightAny(inferred, left) : IsEnum(right) ? ExtendsRightEnum(inferred, left, right.enum) : IsInfer(right) ? ExtendsRightInfer(inferred, right.name, left, right.extends) : IsIntersect(right) ? ExtendsRightIntersect(inferred, left, right.allOf) : IsTemplateLiteral(right) ? ExtendsRightTemplateLiteral(inferred, left, right.pattern) : IsUnion(right) ? ExtendsRightUnion(inferred, left, right.anyOf) : IsUnknown(right) ? ExtendsTrue(inferred) : ExtendsFalse();
+  return IsAny(right) ? ExtendsRightAny(inferred, left) : IsDependent(right) ? ExtendsRightDependent(inferred, left, right.if, right.then, right.else) : IsEnum(right) ? ExtendsRightEnum(inferred, left, right.enum) : IsInfer(right) ? ExtendsRightInfer(inferred, right.name, left, right.extends) : IsIntersect(right) ? ExtendsRightIntersect(inferred, left, right.allOf) : IsTemplateLiteral(right) ? ExtendsRightTemplateLiteral(inferred, left, right.pattern) : IsUnion(right) ? ExtendsRightUnion(inferred, left, right.anyOf) : IsUnknown(right) ? ExtendsTrue(inferred) : ExtendsFalse();
 }
 
 // ../../node_modules/typebox/build/type/extends/any.mjs
@@ -6052,11 +6175,6 @@ function ExtendsArray(inferred, arrayLeft, left, right) {
   return IsArray2(right) ? ExtendsImmutable(arrayLeft, right) ? ExtendsLeft(inferred, left, right.items) : ExtendsFalse() : ExtendsRight(inferred, arrayLeft, right);
 }
 
-// ../../node_modules/typebox/build/type/extends/async_iterator.mjs
-function ExtendsAsyncIterator(inferred, left, right) {
-  return IsAsyncIterator2(right) ? ExtendsLeft(inferred, left, right.iteratorItems) : ExtendsRight(inferred, AsyncIterator(left), right);
-}
-
 // ../../node_modules/typebox/build/type/extends/bigint.mjs
 function ExtendsBigInt(inferred, left, right) {
   return IsBigInt2(right) ? ExtendsTrue(inferred) : ExtendsRight(inferred, left, right);
@@ -6064,7 +6182,7 @@ function ExtendsBigInt(inferred, left, right) {
 
 // ../../node_modules/typebox/build/type/extends/boolean.mjs
 function ExtendsBoolean(inferred, left, right) {
-  return IsBoolean2(right) ? ExtendsTrue(inferred) : ExtendsRight(inferred, left, right);
+  return IsBoolean3(right) ? ExtendsTrue(inferred) : ExtendsRight(inferred, left, right);
 }
 
 // ../../node_modules/typebox/build/type/extends/parameters.mjs
@@ -6076,10 +6194,10 @@ function ParameterCompare(inferred, left, leftRest, right, rightRest) {
   return !isLeftOptional && isRightOptional ? ExtendsFalse() : Match3(ExtendsLeft(inferred, checkLeft, checkRight), (inferred2) => ExtendsParameters(inferred2, leftRest, rightRest), () => ExtendsFalse());
 }
 function ParameterRight(inferred, left, leftRest, rightRest) {
-  return exports_guard.TakeLeft(rightRest, (head, tail) => ParameterCompare(inferred, left, leftRest, head, tail), () => IsOptional(left) ? ExtendsTrue(inferred) : ExtendsFalse());
+  return exports_guard.ShiftLeft(rightRest, (head, tail) => ParameterCompare(inferred, left, leftRest, head, tail), () => IsOptional(left) ? ExtendsTrue(inferred) : ExtendsFalse());
 }
 function ParametersLeft(inferred, left, rightRest) {
-  return exports_guard.TakeLeft(left, (head, tail) => ParameterRight(inferred, head, tail, rightRest), () => ExtendsTrue(inferred));
+  return exports_guard.ShiftLeft(left, (head, tail) => ParameterRight(inferred, head, tail, rightRest), () => ExtendsTrue(inferred));
 }
 function ExtendsParameters(inferred, left, right) {
   return ParametersLeft(inferred, left, right);
@@ -6095,9 +6213,15 @@ function ExtendsConstructor(inferred, parameters, returnType, right) {
   return IsAny(right) ? ExtendsTrue(inferred) : IsUnknown(right) ? ExtendsTrue(inferred) : IsConstructor2(right) ? Match3(ExtendsParameters(inferred, parameters, right["parameters"]), (inferred2) => ExtendsReturnType(inferred2, returnType, right["instanceType"]), () => ExtendsFalse()) : ExtendsFalse();
 }
 
+// ../../node_modules/typebox/build/type/extends/dependent.mjs
+function ExtendsDependent(inferred, if_, then_, else_, right) {
+  return Match3(ExtendsLeft(inferred, if_, right), () => ExtendsLeft(inferred, then_, right), () => ExtendsLeft(inferred, else_, right));
+}
+
 // ../../node_modules/typebox/build/type/extends/enum.mjs
 function ExtendsEnum(inferred, left, right) {
-  return ExtendsLeft(inferred, EnumToUnion(left), right);
+  const evaluated = EvaluateEnum(left);
+  return ExtendsLeft(inferred, evaluated, right);
 }
 
 // ../../node_modules/typebox/build/type/extends/function.mjs
@@ -6107,18 +6231,13 @@ function ExtendsFunction(inferred, parameters, returnType, right) {
 
 // ../../node_modules/typebox/build/type/extends/integer.mjs
 function ExtendsInteger(inferred, left, right) {
-  return IsInteger2(right) ? ExtendsTrue(inferred) : IsNumber2(right) ? ExtendsTrue(inferred) : ExtendsRight(inferred, left, right);
+  return IsInteger2(right) ? ExtendsTrue(inferred) : IsNumber3(right) ? ExtendsTrue(inferred) : ExtendsRight(inferred, left, right);
 }
 
 // ../../node_modules/typebox/build/type/extends/intersect.mjs
 function ExtendsIntersect(inferred, left, right) {
   const evaluated = EvaluateIntersect(left);
   return ExtendsLeft(inferred, evaluated, right);
-}
-
-// ../../node_modules/typebox/build/type/extends/iterator.mjs
-function ExtendsIterator(inferred, left, right) {
-  return IsIterator2(right) ? ExtendsLeft(inferred, left, right.iteratorItems) : ExtendsRight(inferred, Iterator(left), right);
 }
 
 // ../../node_modules/typebox/build/type/extends/literal.mjs
@@ -6129,13 +6248,13 @@ function ExtendsLiteralBigInt(inferred, left, right) {
   return IsLiteral(right) ? ExtendsLiteralValue(inferred, left, right.const) : IsBigInt2(right) ? ExtendsTrue(inferred) : ExtendsRight(inferred, Literal(left), right);
 }
 function ExtendsLiteralBoolean(inferred, left, right) {
-  return IsLiteral(right) ? ExtendsLiteralValue(inferred, left, right.const) : IsBoolean2(right) ? ExtendsTrue(inferred) : ExtendsRight(inferred, Literal(left), right);
+  return IsLiteral(right) ? ExtendsLiteralValue(inferred, left, right.const) : IsBoolean3(right) ? ExtendsTrue(inferred) : ExtendsRight(inferred, Literal(left), right);
 }
 function ExtendsLiteralNumber(inferred, left, right) {
-  return IsLiteral(right) ? ExtendsLiteralValue(inferred, left, right.const) : IsNumber2(right) ? ExtendsTrue(inferred) : ExtendsRight(inferred, Literal(left), right);
+  return IsLiteral(right) ? ExtendsLiteralValue(inferred, left, right.const) : IsNumber3(right) ? ExtendsTrue(inferred) : ExtendsRight(inferred, Literal(left), right);
 }
 function ExtendsLiteralString(inferred, left, right) {
-  return IsLiteral(right) ? ExtendsLiteralValue(inferred, left, right.const) : IsString2(right) ? ExtendsTrue(inferred) : ExtendsRight(inferred, Literal(left), right);
+  return IsLiteral(right) ? ExtendsLiteralValue(inferred, left, right.const) : IsString3(right) ? ExtendsTrue(inferred) : ExtendsRight(inferred, Literal(left), right);
 }
 function ExtendsLiteral(inferred, left, right) {
   return exports_guard.IsBigInt(left.const) ? ExtendsLiteralBigInt(inferred, left.const, right) : exports_guard.IsBoolean(left.const) ? ExtendsLiteralBoolean(inferred, left.const, right) : exports_guard.IsNumber(left.const) ? ExtendsLiteralNumber(inferred, left.const, right) : exports_guard.IsString(left.const) ? ExtendsLiteralString(inferred, left.const, right) : Unreachable();
@@ -6153,7 +6272,7 @@ function ExtendsNull(inferred, left, right) {
 
 // ../../node_modules/typebox/build/type/extends/number.mjs
 function ExtendsNumber(inferred, left, right) {
-  return IsNumber2(right) ? ExtendsTrue(inferred) : ExtendsRight(inferred, left, right);
+  return IsNumber3(right) ? ExtendsTrue(inferred) : ExtendsRight(inferred, left, right);
 }
 
 // ../../node_modules/typebox/build/type/extends/object.mjs
@@ -6184,18 +6303,40 @@ function ExtendsProperties(inferred, left, right) {
 function ExtendsObjectToObject(inferred, left, right) {
   return ExtendsProperties(inferred, left, right);
 }
+function RecordMergeInferred(left, right) {
+  return exports_guard.Keys(right).reduce((result, key) => {
+    return {
+      ...result,
+      [key]: exports_guard.HasPropertyKey(left, key) ? IsUnion(result[key]) ? Union([...result[key].anyOf, right[key]]) : Union([left[key], right[key]]) : right[key]
+    };
+  }, left);
+}
+function ExtendsRecordComparer(properties2, keys, type, result) {
+  return exports_guard.ShiftLeft(keys, (left, right) => Match3(ExtendsLeft({}, properties2[left], type), (inferred) => ExtendsRecordComparer(properties2, right, type, RecordMergeInferred(result, inferred)), () => ExtendsFalse()), () => ExtendsTrue(result));
+}
+function ExtendsObjectToRecord(inferred, properties2, _pattern, value) {
+  const keys = exports_guard.Keys(properties2);
+  const result = ExtendsRecordComparer(properties2, keys, value, inferred);
+  return result;
+}
 function ExtendsObject(inferred, left, right) {
-  return IsObject2(right) ? ExtendsObjectToObject(inferred, left, right.properties) : ExtendsRight(inferred, _Object_(left), right);
+  return IsRecord(right) ? ExtendsObjectToRecord(inferred, left, RecordPattern(right), RecordValue(right)) : IsObject2(right) ? ExtendsObjectToObject(inferred, left, right.properties) : ExtendsRight(inferred, _Object_(left), right);
 }
 
-// ../../node_modules/typebox/build/type/extends/promise.mjs
-function ExtendsPromise(inferred, left, right) {
-  return IsPromise(right) ? ExtendsLeft(inferred, left, right.item) : ExtendsRight(inferred, _Promise_(left), right);
+// ../../node_modules/typebox/build/type/extends/record.mjs
+function FromObject2(inferred, properties2) {
+  return exports_guard.IsEqual(exports_guard.Keys(properties2).length, 0) ? ExtendsTrue(inferred) : ExtendsFalse();
+}
+function FromRecord(inferred, _leftKey, leftValue, _rightKey, rightValue) {
+  return ExtendsLeft(inferred, leftValue, rightValue);
+}
+function ExtendsRecord(inferred, leftPattern, leftValue, right) {
+  return IsRecord(right) ? FromRecord(inferred, RecordPatternToType(leftPattern), leftValue, RecordPatternToType(RecordPattern(right)), RecordValue(right)) : IsObject2(right) ? FromObject2(inferred, right.properties) : IsAny(right) ? ExtendsTrue(inferred) : IsUnknown(right) ? ExtendsTrue(inferred) : ExtendsFalse();
 }
 
 // ../../node_modules/typebox/build/type/extends/string.mjs
 function ExtendsString(inferred, left, right) {
-  return IsString2(right) ? ExtendsTrue(inferred) : ExtendsRight(inferred, left, right);
+  return IsString3(right) ? ExtendsTrue(inferred) : ExtendsRight(inferred, left, right);
 }
 
 // ../../node_modules/typebox/build/type/extends/symbol.mjs
@@ -6205,8 +6346,8 @@ function ExtendsSymbol(inferred, left, right) {
 
 // ../../node_modules/typebox/build/type/extends/template_literal.mjs
 function ExtendsTemplateLiteral(inferred, left, right) {
-  const decoded = TemplateLiteralDecode(left);
-  return ExtendsLeft(inferred, decoded, right);
+  const evaluated = EvaluateTemplateLiteral(left);
+  return ExtendsLeft(inferred, evaluated, right);
 }
 
 // ../../node_modules/typebox/build/type/extends/inference.mjs
@@ -6223,7 +6364,7 @@ function TryInferable(type) {
   return IsInfer(type) ? Inferrable(type.name, type.extends) : undefined;
 }
 function TryInferResults(rest3, right, result = []) {
-  return exports_guard.TakeLeft(rest3, (head, tail) => Match3(ExtendsLeft({}, head, right), () => TryInferResults(tail, right, [...result, head]), () => {
+  return exports_guard.ShiftLeft(rest3, (head, tail) => Match3(ExtendsLeft({}, head, right), () => TryInferResults(tail, right, [...result, head]), () => {
     return;
   }), () => result);
 }
@@ -6253,25 +6394,25 @@ function ElementsCompare(inferred, reversed, left, leftRest, right, rightRest) {
 }
 function ElementsLeft(inferred, reversed, leftRest, right, rightRest) {
   const inferable = TryRestInferable(right);
-  return IsInferable(inferable) ? InferTupleResult(inferred, inferable["name"], ApplyReverse(leftRest, reversed), inferable["type"]) : exports_guard.TakeLeft(leftRest, (head, tail) => ElementsCompare(inferred, reversed, head, tail, right, rightRest), () => ExtendsFalse());
+  return IsInferable(inferable) ? InferTupleResult(inferred, inferable["name"], ApplyReverse(leftRest, reversed), inferable["type"]) : exports_guard.ShiftLeft(leftRest, (head, tail) => ElementsCompare(inferred, reversed, head, tail, right, rightRest), () => ExtendsFalse());
 }
 function ElementsRight(inferred, reversed, leftRest, rightRest) {
-  return exports_guard.TakeLeft(rightRest, (head, tail) => ElementsLeft(inferred, reversed, leftRest, head, tail), () => exports_guard.IsEqual(leftRest.length, 0) ? ExtendsTrue(inferred) : ExtendsFalse());
+  return exports_guard.ShiftLeft(rightRest, (head, tail) => ElementsLeft(inferred, reversed, leftRest, head, tail), () => exports_guard.IsEqual(leftRest.length, 0) ? ExtendsTrue(inferred) : ExtendsFalse());
 }
 function Elements(inferred, reversed, leftRest, rightRest) {
   return ElementsRight(inferred, reversed, leftRest, rightRest);
 }
 function ExtendsTupleToTuple(inferred, left, right) {
-  const instantiatedRight = InstantiateElements(inferred, { callstack: [] }, right);
+  const instantiatedRight = InstantiateElements(inferred, State([], []), right);
   const reversed = Reversed(instantiatedRight);
   return Elements(inferred, reversed, ApplyReverse(left, reversed), ApplyReverse(instantiatedRight, reversed));
 }
 function ExtendsTupleToArray(inferred, left, right) {
   const inferrable = TryInferable(right);
-  return IsInferable(inferrable) ? InferUnionResult(inferred, inferrable["name"], left, inferrable["type"]) : exports_guard.TakeLeft(left, (head, tail) => Match3(ExtendsLeft(inferred, head, right), (inferred2) => ExtendsTupleToArray(inferred2, tail, right), () => ExtendsFalse()), () => ExtendsTrue(inferred));
+  return IsInferable(inferrable) ? InferUnionResult(inferred, inferrable["name"], left, inferrable["type"]) : exports_guard.ShiftLeft(left, (head, tail) => Match3(ExtendsLeft(inferred, head, right), (inferred2) => ExtendsTupleToArray(inferred2, tail, right), () => ExtendsFalse()), () => ExtendsTrue(inferred));
 }
 function ExtendsTuple(inferred, left, right) {
-  const instantiatedLeft = InstantiateElements(inferred, { callstack: [] }, left);
+  const instantiatedLeft = InstantiateElements(inferred, State([], []), left);
   return IsTuple(right) ? ExtendsTupleToTuple(inferred, instantiatedLeft, right.items) : IsArray2(right) ? ExtendsTupleToArray(inferred, instantiatedLeft, right.items) : ExtendsRight(inferred, Tuple(instantiatedLeft), right);
 }
 
@@ -6282,10 +6423,10 @@ function ExtendsUndefined(inferred, left, right) {
 
 // ../../node_modules/typebox/build/type/extends/union.mjs
 function ExtendsUnionSome(inferred, type, unionTypes) {
-  return exports_guard.TakeLeft(unionTypes, (head, tail) => Match3(ExtendsLeft(inferred, type, head), (inferred2) => ExtendsTrue(inferred2), () => ExtendsUnionSome(inferred, type, tail)), () => ExtendsFalse());
+  return exports_guard.ShiftLeft(unionTypes, (head, tail) => Match3(ExtendsLeft(inferred, type, head), (inferred2) => ExtendsTrue(inferred2), () => ExtendsUnionSome(inferred, type, tail)), () => ExtendsFalse());
 }
 function ExtendsUnionLeft(inferred, left, right) {
-  return exports_guard.TakeLeft(left, (head, tail) => Match3(ExtendsUnionSome(inferred, head, right), (inferred2) => ExtendsUnionLeft(inferred2, tail, right), () => ExtendsFalse()), () => ExtendsTrue(inferred));
+  return exports_guard.ShiftLeft(left, (head, tail) => Match3(ExtendsUnionSome(inferred, head, right), (inferred2) => ExtendsUnionLeft(inferred2, tail, right), () => ExtendsFalse()), () => ExtendsTrue(inferred));
 }
 function ExtendsUnion2(inferred, left, right) {
   const inferrable = TryInferable(right);
@@ -6304,7 +6445,7 @@ function ExtendsVoid(inferred, left, right) {
 
 // ../../node_modules/typebox/build/type/extends/extends_left.mjs
 function ExtendsLeft(inferred, left, right) {
-  return IsAny(left) ? ExtendsAny(inferred, left, right) : IsArray2(left) ? ExtendsArray(inferred, left, left.items, right) : IsAsyncIterator2(left) ? ExtendsAsyncIterator(inferred, left.iteratorItems, right) : IsBigInt2(left) ? ExtendsBigInt(inferred, left, right) : IsBoolean2(left) ? ExtendsBoolean(inferred, left, right) : IsConstructor2(left) ? ExtendsConstructor(inferred, left.parameters, left.instanceType, right) : IsEnum(left) ? ExtendsEnum(inferred, left, right) : IsFunction2(left) ? ExtendsFunction(inferred, left.parameters, left.returnType, right) : IsInteger2(left) ? ExtendsInteger(inferred, left, right) : IsIntersect(left) ? ExtendsIntersect(inferred, left.allOf, right) : IsIterator2(left) ? ExtendsIterator(inferred, left.iteratorItems, right) : IsLiteral(left) ? ExtendsLiteral(inferred, left, right) : IsNever(left) ? ExtendsNever(inferred, left, right) : IsNull2(left) ? ExtendsNull(inferred, left, right) : IsNumber2(left) ? ExtendsNumber(inferred, left, right) : IsObject2(left) ? ExtendsObject(inferred, left.properties, right) : IsPromise(left) ? ExtendsPromise(inferred, left.item, right) : IsString2(left) ? ExtendsString(inferred, left, right) : IsSymbol2(left) ? ExtendsSymbol(inferred, left, right) : IsTemplateLiteral(left) ? ExtendsTemplateLiteral(inferred, left.pattern, right) : IsTuple(left) ? ExtendsTuple(inferred, left.items, right) : IsUndefined2(left) ? ExtendsUndefined(inferred, left, right) : IsUnion(left) ? ExtendsUnion2(inferred, left.anyOf, right) : IsUnknown(left) ? ExtendsUnknown(inferred, left, right) : IsVoid(left) ? ExtendsVoid(inferred, left, right) : ExtendsFalse();
+  return IsAny(left) ? ExtendsAny(inferred, left, right) : IsArray2(left) ? ExtendsArray(inferred, left, left.items, right) : IsBigInt2(left) ? ExtendsBigInt(inferred, left, right) : IsBoolean3(left) ? ExtendsBoolean(inferred, left, right) : IsConstructor2(left) ? ExtendsConstructor(inferred, left.parameters, left.instanceType, right) : IsDependent(left) ? ExtendsDependent(inferred, left.if, left.then, left.else, right) : IsEnum(left) ? ExtendsEnum(inferred, left.enum, right) : IsFunction2(left) ? ExtendsFunction(inferred, left.parameters, left.returnType, right) : IsInteger2(left) ? ExtendsInteger(inferred, left, right) : IsIntersect(left) ? ExtendsIntersect(inferred, left.allOf, right) : IsLiteral(left) ? ExtendsLiteral(inferred, left, right) : IsNever(left) ? ExtendsNever(inferred, left, right) : IsNull2(left) ? ExtendsNull(inferred, left, right) : IsNumber3(left) ? ExtendsNumber(inferred, left, right) : IsObject2(left) ? ExtendsObject(inferred, left.properties, right) : IsRecord(left) ? ExtendsRecord(inferred, RecordPattern(left), RecordValue(left), right) : IsString3(left) ? ExtendsString(inferred, left, right) : IsSymbol2(left) ? ExtendsSymbol(inferred, left, right) : IsTemplateLiteral(left) ? ExtendsTemplateLiteral(inferred, left.pattern, right) : IsTuple(left) ? ExtendsTuple(inferred, left.items, right) : IsUndefined2(left) ? ExtendsUndefined(inferred, left, right) : IsUnion(left) ? ExtendsUnion2(inferred, left.anyOf, right) : IsUnknown(left) ? ExtendsUnknown(inferred, left, right) : IsVoid(left) ? ExtendsVoid(inferred, left, right) : ExtendsFalse();
 }
 
 // ../../node_modules/typebox/build/type/engine/interface/instantiate.mjs
@@ -6342,10 +6483,10 @@ function FromProperties(stack, context, properties2) {
   return FromTypes2(stack, context, types);
 }
 function FromTypes2(stack, context, types) {
-  return exports_guard.TakeLeft(types, (left, right) => FromType3(stack, context, left) ? true : FromTypes2(stack, context, right), () => false);
+  return exports_guard.ShiftLeft(types, (left, right) => FromType3(stack, context, left) ? true : FromTypes2(stack, context, right), () => false);
 }
 function FromType3(stack, context, type) {
-  return IsRef(type) ? FromRef(stack, context, type.$ref) : IsArray2(type) ? FromType3(stack, context, type.items) : IsAsyncIterator2(type) ? FromType3(stack, context, type.iteratorItems) : IsConstructor2(type) ? FromTypes2(stack, context, [...type.parameters, type.instanceType]) : IsFunction2(type) ? FromTypes2(stack, context, [...type.parameters, type.returnType]) : IsInterfaceDeferred(type) ? FromProperties(stack, context, type.parameters[1]) : IsIntersect(type) ? FromTypes2(stack, context, type.allOf) : IsIterator2(type) ? FromType3(stack, context, type.iteratorItems) : IsObject2(type) ? FromProperties(stack, context, type.properties) : IsPromise(type) ? FromType3(stack, context, type.item) : IsUnion(type) ? FromTypes2(stack, context, type.anyOf) : IsTuple(type) ? FromTypes2(stack, context, type.items) : IsRecord(type) ? FromType3(stack, context, RecordValue(type)) : false;
+  return IsRef(type) ? FromRef(stack, context, type.$ref) : IsArray2(type) ? FromType3(stack, context, type.items) : IsConstructor2(type) ? FromTypes2(stack, context, [...type.parameters, type.instanceType]) : IsFunction2(type) ? FromTypes2(stack, context, [...type.parameters, type.returnType]) : IsInterfaceDeferred(type) ? FromProperties(stack, context, type.parameters[1]) : IsIntersect(type) ? FromTypes2(stack, context, type.allOf) : IsObject2(type) ? FromProperties(stack, context, type.properties) : IsUnion(type) ? FromTypes2(stack, context, type.anyOf) : IsTuple(type) ? FromTypes2(stack, context, type.items) : IsRecord(type) ? FromType3(stack, context, RecordValue(type)) : false;
 }
 function CyclicCheck(stack, context, type) {
   const result = FromType3(stack, context, type);
@@ -6355,7 +6496,7 @@ function CyclicCheck(stack, context, type) {
 // ../../node_modules/typebox/build/type/engine/cyclic/candidates.mjs
 function ResolveCandidateKeys(context, keys) {
   return keys.reduce((result, left) => {
-    return left in context ? CyclicCheck([left], context, context[left]) ? [...result, left] : result : Unreachable();
+    return CyclicCheck([left], context, context[left]) ? [...result, left] : result;
   }, []);
 }
 function CyclicCandidates(context) {
@@ -6377,7 +6518,7 @@ function FromTypes3(context, types, result) {
   }, result);
 }
 function FromType4(context, type, result) {
-  return IsRef(type) ? FromRef2(context, type.$ref, result) : IsArray2(type) ? FromType4(context, type.items, result) : IsAsyncIterator2(type) ? FromType4(context, type.iteratorItems, result) : IsConstructor2(type) ? FromTypes3(context, [...type.parameters, type.instanceType], result) : IsFunction2(type) ? FromTypes3(context, [...type.parameters, type.returnType], result) : IsInterfaceDeferred(type) ? FromProperties2(context, type.parameters[1], result) : IsIntersect(type) ? FromTypes3(context, type.allOf, result) : IsIterator2(type) ? FromType4(context, type.iteratorItems, result) : IsObject2(type) ? FromProperties2(context, type.properties, result) : IsPromise(type) ? FromType4(context, type.item, result) : IsUnion(type) ? FromTypes3(context, type.anyOf, result) : IsTuple(type) ? FromTypes3(context, type.items, result) : IsRecord(type) ? FromType4(context, RecordValue(type), result) : result;
+  return IsRef(type) ? FromRef2(context, type.$ref, result) : IsArray2(type) ? FromType4(context, type.items, result) : IsConstructor2(type) ? FromTypes3(context, [...type.parameters, type.instanceType], result) : IsFunction2(type) ? FromTypes3(context, [...type.parameters, type.returnType], result) : IsInterfaceDeferred(type) ? FromProperties2(context, type.parameters[1], result) : IsIntersect(type) ? FromTypes3(context, type.allOf, result) : IsObject2(type) ? FromProperties2(context, type.properties, result) : IsUnion(type) ? FromTypes3(context, type.anyOf, result) : IsTuple(type) ? FromTypes3(context, type.items, result) : IsRecord(type) ? FromType4(context, RecordValue(type), result) : result;
 }
 function CyclicDependencies(context, key, type) {
   const result = FromType4(context, type, [key]);
@@ -6398,7 +6539,7 @@ function FromTypes4(types) {
   }, []);
 }
 function FromType5(type) {
-  return IsRef(type) ? FromRef3(type.$ref) : IsArray2(type) ? _Array_(FromType5(type.items), ArrayOptions(type)) : IsAsyncIterator2(type) ? AsyncIterator(FromType5(type.iteratorItems)) : IsConstructor2(type) ? Constructor(FromTypes4(type.parameters), FromType5(type.instanceType)) : IsFunction2(type) ? _Function_(FromTypes4(type.parameters), FromType5(type.returnType)) : IsIntersect(type) ? Intersect(FromTypes4(type.allOf)) : IsIterator2(type) ? Iterator(FromType5(type.iteratorItems)) : IsObject2(type) ? _Object_(FromProperties3(type.properties)) : IsPromise(type) ? _Promise_(FromType5(type.item)) : IsRecord(type) ? Record(RecordKey(type), FromType5(RecordValue(type))) : IsUnion(type) ? Union(FromTypes4(type.anyOf)) : IsTuple(type) ? Tuple(FromTypes4(type.items)) : type;
+  return IsRef(type) ? FromRef3(type.$ref) : IsArray2(type) ? _Array_(FromType5(type.items), ArrayOptions(type)) : IsConstructor2(type) ? Constructor(FromTypes4(type.parameters), FromType5(type.instanceType)) : IsFunction2(type) ? _Function_(FromTypes4(type.parameters), FromType5(type.returnType)) : IsIntersect(type) ? Intersect(FromTypes4(type.allOf)) : IsObject2(type) ? _Object_(FromProperties3(type.properties)) : IsRecord(type) ? Record(RecordKey(type), FromType5(RecordValue(type))) : IsUnion(type) ? Union(FromTypes4(type.anyOf)) : IsTuple(type) ? Tuple(FromTypes4(type.items)) : type;
 }
 function CyclicAnyFromParameters(defs, ref2) {
   return ref2 in defs ? FromType5(defs[ref2]) : Unknown();
@@ -6408,8 +6549,8 @@ function CyclicExtends(type) {
 }
 // ../../node_modules/typebox/build/type/engine/cyclic/instantiate.mjs
 function CyclicInterface(context, heritage, properties2) {
-  const instantiatedHeritage = InstantiateTypes(context, { callstack: [] }, heritage);
-  const instantiatedProperties = InstantiateProperties({}, { callstack: [] }, properties2);
+  const instantiatedHeritage = InstantiateTypes(context, State([], []), heritage);
+  const instantiatedProperties = InstantiateProperties({}, State([], []), properties2);
   const evaluatedInterface = EvaluateIntersect([...instantiatedHeritage, _Object_(instantiatedProperties)]);
   return evaluatedInterface;
 }
@@ -6439,7 +6580,7 @@ function CyclicTarget(defs, ref2) {
 function Canonical(type) {
   return IsCyclic(type) ? CyclicExtends(type) : IsUnsafe(type) ? Unknown() : type;
 }
-function Extends2(inferred, left, right) {
+function Extends(inferred, left, right) {
   const canonicalLeft = Canonical(left);
   const canonicalRight = Canonical(right);
   return ExtendsLeft(inferred, canonicalLeft, canonicalRight);
@@ -6451,8 +6592,8 @@ var ResultLeftInside = "left-inside";
 var ResultRightInside = "right-inside";
 function Compare(left, right) {
   const extendsCheck = [
-    IsUnknown(left) ? exports_result.ExtendsFalse() : Extends2({}, left, right),
-    IsUnknown(left) ? exports_result.ExtendsTrue({}) : Extends2({}, right, left)
+    IsUnknown(left) ? exports_result.ExtendsFalse() : Extends({}, left, right),
+    IsUnknown(left) ? exports_result.ExtendsTrue({}) : Extends({}, right, left)
   ];
   return exports_result.IsExtendsTrueLike(extendsCheck[0]) && exports_result.IsExtendsTrueLike(extendsCheck[1]) ? ResultEqual : exports_result.IsExtendsTrueLike(extendsCheck[0]) && exports_result.IsExtendsFalse(extendsCheck[1]) ? ResultLeftInside : exports_result.IsExtendsFalse(extendsCheck[0]) && exports_result.IsExtendsTrueLike(extendsCheck[1]) ? ResultRightInside : ResultDisjoint;
 }
@@ -6482,8 +6623,7 @@ function BroadenTypes(types) {
 function Broaden(types) {
   const broadened = BroadenTypes(types);
   const flattened = Flatten(broadened);
-  const result = flattened.length === 0 ? Never() : flattened.length === 1 ? flattened[0] : Union(flattened);
-  return result;
+  return flattened;
 }
 // ../../node_modules/typebox/build/type/engine/evaluate/instantiate.mjs
 function EvaluateAction(type, options) {
@@ -6502,10 +6642,14 @@ function BuildDistributionArray(parameters, names) {
   return parameters.reduce((result, left) => [...result, names.includes(left.name)], []);
 }
 function ZipDistributionArray(arguments_, distributionArray, result = []) {
-  return exports_guard.TakeLeft(arguments_, (argumentLeft, argumentRight) => exports_guard.TakeLeft(distributionArray, (booleanLeft, booleanRight) => ZipDistributionArray(argumentRight, booleanRight, [...result, [booleanLeft, argumentLeft]]), () => result), () => result);
+  return exports_guard.ShiftLeft(arguments_, (argumentLeft, argumentRight) => exports_guard.ShiftLeft(distributionArray, (booleanLeft, booleanRight) => ZipDistributionArray(argumentRight, booleanRight, [...result, [booleanLeft, argumentLeft]]), () => result), () => result);
+}
+function CanonicalArgument(type) {
+  return IsTemplateLiteral(type) ? EvaluateTemplateLiteral(type.pattern) : IsEnum(type) ? EvaluateEnum(type.enum) : type;
 }
 function Expand(type) {
-  return IsUnion(type) ? [...type.anyOf] : [type];
+  const canonicalArgument = CanonicalArgument(type);
+  return IsUnion(canonicalArgument) ? [...canonicalArgument.anyOf] : [canonicalArgument];
 }
 function Append(current, type) {
   return current.reduce((result, left) => [...result, [...left, type]], []);
@@ -6549,7 +6693,7 @@ function ResolveTarget(context, target2, arguments_) {
 
 // ../../node_modules/typebox/build/type/engine/call/resolve_arguments.mjs
 function AssertArgumentExtends(name, type, extends_) {
-  if (IsInfer(type) || IsCall(type) || exports_result.IsExtendsTrueLike(Extends2({}, type, extends_)))
+  if (IsInfer(type) || IsCall(type) || exports_result.IsExtendsTrueLike(Extends({}, type, extends_)))
     return;
   const cause = { parameter: name, expect: extends_, actual: type };
   throw new Error(`Argument for parameter ${name} does not satisfy constraint`, { cause });
@@ -6562,16 +6706,33 @@ function BindArgument(context, state, name, extends_, type) {
 function BindArguments(context, state, parameterLeft, parameterRight, arguments_) {
   const instantiatedExtends = InstantiateType(context, state, parameterLeft.extends);
   const instantiatedEquals = InstantiateType(context, state, parameterLeft.equals);
-  return exports_guard.TakeLeft(arguments_, (left, right) => BindParameters(BindArgument(context, state, parameterLeft["name"], instantiatedExtends, left), state, parameterRight, right), () => BindParameters(BindArgument(context, state, parameterLeft["name"], instantiatedExtends, instantiatedEquals), state, parameterRight, []));
+  return exports_guard.ShiftLeft(arguments_, (left, right) => BindParameters(BindArgument(context, state, parameterLeft["name"], instantiatedExtends, left), state, parameterRight, right), () => BindParameters(BindArgument(context, state, parameterLeft["name"], instantiatedExtends, instantiatedEquals), state, parameterRight, []));
 }
 function BindParameters(context, state, parameters, arguments_) {
-  return exports_guard.TakeLeft(parameters, (left, right) => BindArguments(context, state, left, right, arguments_), () => context);
+  return exports_guard.ShiftLeft(parameters, (left, right) => BindArguments(context, state, left, right, arguments_), () => context);
 }
 function ResolveArgumentsContext(context, state, parameters, arguments_) {
   return BindParameters(context, state, parameters, arguments_);
 }
 
 // ../../node_modules/typebox/build/type/engine/call/instantiate.mjs
+var instantiationDepth = 0;
+var instantiationCount = 0;
+function InstantiationAssert() {
+  if (exports_guard.IsLessThan(instantiationCount, exports_settings.Get().maxInstantiationCount))
+    return;
+  throw Error("Type instantiation is excessively deep and possibly infinite");
+}
+function InstantiationIncrement() {
+  InstantiationAssert();
+  instantiationCount++;
+  instantiationDepth++;
+}
+function InstantiationDecrement() {
+  instantiationDepth--;
+  if (exports_guard.IsEqual(instantiationDepth, 0))
+    instantiationCount = 0;
+}
 function Peek(state) {
   const result = exports_guard.IsGreaterThan(state.callstack.length, 0) ? state.callstack[state.callstack.length - 1] : "";
   return result;
@@ -6581,12 +6742,20 @@ function IsTailCall(state, name) {
   return result;
 }
 function CallDispatch(context, state, target2, parameters, expression, arguments_) {
-  const argumentsContext = ResolveArgumentsContext(context, state, parameters, arguments_);
-  const returnType = InstantiateType(argumentsContext, { callstack: [...state.callstack, target2.$ref] }, expression);
-  return InstantiateType(context, state, returnType);
+  InstantiationIncrement();
+  try {
+    const argumentsContext = ResolveArgumentsContext(context, state, parameters, arguments_);
+    const returnType = InstantiateType(argumentsContext, State([...state["callstack"], target2["$ref"]], state["visited"]), expression);
+    return InstantiateType(argumentsContext, State([], []), returnType);
+  } finally {
+    InstantiationDecrement();
+  }
 }
 function CallDistributed(context, state, target2, parameters, expression, distributedArguments) {
-  return distributedArguments.reduce((result, arguments_) => [...result, CallDispatch(context, state, target2, parameters, expression, arguments_)], []);
+  return distributedArguments.reduce((result, arguments_) => {
+    const returnType = CallDispatch(context, state, target2, parameters, expression, arguments_);
+    return [...result, returnType];
+  }, []);
 }
 function CallImmediate(context, state, target2, parameters, expression, arguments_) {
   const distributedArguments = DistributeArguments(parameters, arguments_, expression);
@@ -6605,13 +6774,26 @@ function CallInstantiate(context, state, target2, arguments_) {
 
 // ../../node_modules/typebox/build/type/types/call.mjs
 function CallConstruct(target2, arguments_) {
-  return exports_memory.Create({ ["~kind"]: "Call" }, { target: target2, arguments: arguments_ }, {});
+  return exports_memory.Create({ ["~kind"]: "Call" }, { type: "call", target: target2, arguments: arguments_ }, {});
 }
 function Call(target2, arguments_) {
-  return CallInstantiate({}, { callstack: [] }, target2, arguments_);
+  return CallInstantiate({}, State([], []), target2, arguments_);
 }
 function IsCall(value) {
   return IsKind(value, "Call");
+}
+
+// ../../node_modules/typebox/build/type/engine/immutable/instantiate_remove.mjs
+function RemoveImmutableOperation(type) {
+  return exports_memory.Discard(type, ["~immutable"]);
+}
+function RemoveImmutableAction(type, options) {
+  const result = exports_memory.Update(RemoveImmutableOperation(type), {}, options);
+  return result;
+}
+function RemoveImmutableInstantiate(context, state, type, options) {
+  const instantiatedType = InstantiateType(context, state, type);
+  return RemoveImmutableAction(instantiatedType, options);
 }
 
 // ../../node_modules/typebox/build/type/engine/intrinsics/mapping.mjs
@@ -6626,8 +6808,8 @@ function FromLiteral3(mapping, value) {
 
 // ../../node_modules/typebox/build/type/engine/intrinsics/from_template_literal.mjs
 function FromTemplateLiteral(mapping, pattern) {
-  const decoded = TemplateLiteralDecode(pattern);
-  const result = FromType7(mapping, decoded);
+  const evaluated = EvaluateTemplateLiteral(pattern);
+  const result = FromType7(mapping, evaluated);
   return result;
 }
 
@@ -6717,12 +6899,12 @@ function ConditionalDeferred(left, right, true_, false_, options = {}) {
   return Deferred("Conditional", [left, right, true_, false_], options);
 }
 function Conditional(left, right, true_, false_, options = {}) {
-  return ConditionalAction({}, { callstack: [] }, left, right, true_, false_, options);
+  return ConditionalAction({}, State([], []), left, right, true_, false_, options);
 }
 
 // ../../node_modules/typebox/build/type/engine/conditional/instantiate.mjs
 function ConditionalOperation(context, state, left, right, true_, false_) {
-  const extendsResult = Extends2(context, left, right);
+  const extendsResult = Extends(context, left, right);
   return exports_result.IsExtendsUnion(extendsResult) ? Union([InstantiateType(extendsResult.inferred, state, true_), InstantiateType(context, state, false_)]) : exports_result.IsExtendsTrue(extendsResult) ? InstantiateType(extendsResult.inferred, state, true_) : InstantiateType(context, state, false_);
 }
 function ConditionalAction(context, state, left, right, true_, false_, options) {
@@ -6745,7 +6927,7 @@ function ConstructorParameters(type, options = {}) {
 // ../../node_modules/typebox/build/type/engine/constructor_parameters/instantiate.mjs
 function ConstructorParametersOperation(type) {
   const parameters = IsConstructor2(type) ? type["parameters"] : [];
-  const instantiatedParameters = InstantiateElements({}, { callstack: [] }, parameters);
+  const instantiatedParameters = InstantiateElements({}, State([], []), parameters);
   const result = Tuple(instantiatedParameters);
   return result;
 }
@@ -6764,23 +6946,6 @@ function ExcludeDeferred(left, right, options = {}) {
 }
 function Exclude(left, right, options = {}) {
   return ExcludeAction(left, right, options);
-}
-
-// ../../node_modules/typebox/build/type/engine/exclude/operation.mjs
-function ExcludeUnionLeft(types, right) {
-  return types.reduce((result, head) => {
-    return [...result, ...ExcludeTypeLeft(head, right)];
-  }, []);
-}
-function ExcludeTypeLeft(left, right) {
-  const check2 = Extends2({}, left, right);
-  const result = exports_result.IsExtendsTrueLike(check2) ? [] : [left];
-  return result;
-}
-function ExcludeOperation(left, right) {
-  const remaining = IsEnum(left) ? ExcludeUnionLeft(EnumValuesToVariants(left.enum), right) : IsUnion(left) ? ExcludeUnionLeft(Flatten(left.anyOf), right) : ExcludeTypeLeft(left, right);
-  const result = EvaluateUnion(remaining);
-  return result;
 }
 
 // ../../node_modules/typebox/build/type/engine/exclude/instantiate.mjs
@@ -6803,18 +6968,20 @@ function Extract(left, right, options = {}) {
 }
 
 // ../../node_modules/typebox/build/type/engine/extract/operation.mjs
-function ExtractUnionLeft(types, right) {
-  return types.reduce((result, head) => {
-    return [...result, ...ExtractTypeLeft(head, right)];
-  }, []);
-}
-function ExtractTypeLeft(left, right) {
-  const check2 = Extends2({}, left, right);
+function ExtractType(left, right) {
+  const check2 = Extends({}, left, right);
   const result = exports_result.IsExtendsTrueLike(check2) ? [left] : [];
   return result;
 }
+function ExtractUnion(types, right) {
+  return types.reduce((result, head) => {
+    return [...result, ...ExtractType(head, right)];
+  }, []);
+}
 function ExtractOperation(left, right) {
-  const remaining = IsEnum(left) ? ExtractUnionLeft(EnumValuesToVariants(left.enum), right) : IsUnion(left) ? ExtractUnionLeft(Flatten(left.anyOf), right) : ExtractTypeLeft(left, right);
+  const evaluated = EvaluateType(left);
+  const canonical = IsUnion(evaluated) ? evaluated.anyOf : [evaluated];
+  const remaining = ExtractUnion(canonical, right);
   const result = EvaluateUnion(remaining);
   return result;
 }
@@ -6858,6 +7025,13 @@ function FromCyclic(defs, ref2) {
   return result;
 }
 
+// ../../node_modules/typebox/build/type/engine/object/from_dependent.mjs
+function FromDependent(if_, then_, else_) {
+  const evaluated = EvaluateDependent(if_, then_, else_);
+  const result = FromType8(evaluated);
+  return result;
+}
+
 // ../../node_modules/typebox/build/type/engine/object/from_intersect.mjs
 function CollapseIntersectProperties(left, right) {
   const leftKeys = exports_guard.Keys(left).filter((key) => !exports_guard.HasPropertyKey(right, key));
@@ -6877,7 +7051,7 @@ function FromIntersect(types) {
 }
 
 // ../../node_modules/typebox/build/type/engine/object/from_object.mjs
-function FromObject2(properties2) {
+function FromObject3(properties2) {
   return properties2;
 }
 
@@ -6897,15 +7071,15 @@ function CollapseUnionProperties(left, right) {
   return result;
 }
 function ReduceVariants(types, result) {
-  return exports_guard.TakeLeft(types, (left, right) => ReduceVariants(right, CollapseUnionProperties(result, FromType8(left))), () => result);
+  return exports_guard.ShiftLeft(types, (left, right) => ReduceVariants(right, CollapseUnionProperties(result, FromType8(left))), () => result);
 }
 function FromUnion3(types) {
-  return exports_guard.TakeLeft(types, (left, right) => ReduceVariants(right, FromType8(left)), () => Unreachable());
+  return exports_guard.ShiftLeft(types, (left, right) => ReduceVariants(right, FromType8(left)), () => Unreachable());
 }
 
 // ../../node_modules/typebox/build/type/engine/object/from_type.mjs
 function FromType8(type) {
-  return IsCyclic(type) ? FromCyclic(type.$defs, type.$ref) : IsIntersect(type) ? FromIntersect(type.allOf) : IsUnion(type) ? FromUnion3(type.anyOf) : IsTuple(type) ? FromTuple(type.items) : IsObject2(type) ? FromObject2(type.properties) : {};
+  return IsCyclic(type) ? FromCyclic(type.$defs, type.$ref) : IsDependent(type) ? FromDependent(type.if, type.then, type.else) : IsIntersect(type) ? FromIntersect(type.allOf) : IsUnion(type) ? FromUnion3(type.anyOf) : IsTuple(type) ? FromTuple(type.items) : IsObject2(type) ? FromObject3(type.properties) : {};
 }
 
 // ../../node_modules/typebox/build/type/engine/object/collapse.mjs
@@ -6933,7 +7107,7 @@ function NormalizeIndexer(type) {
 }
 function FromArray2(type, indexer) {
   const normalizedIndexer = NormalizeIndexer(indexer);
-  const check2 = Extends2({}, normalizedIndexer, Number2());
+  const check2 = Extends({}, normalizedIndexer, Number2());
   const result = exports_result.IsExtendsTrueLike(check2) ? type : IsLiteral(indexer) && exports_guard.IsEqual(indexer.const, "length") ? Number2() : Never();
   return result;
 }
@@ -6945,17 +7119,17 @@ function FromCyclic2(defs, ref2) {
   return result;
 }
 
-// ../../node_modules/typebox/build/type/engine/indexable/from_union.mjs
-function FromUnion4(types) {
-  return types.reduce((result, left) => {
-    return [...result, ...FromType9(left)];
-  }, []);
+// ../../node_modules/typebox/build/type/engine/indexable/from_dependent.mjs
+function FromDependent2(if_, then_, else_) {
+  const evaluated = EvaluateDependent(if_, then_, else_);
+  const result = FromType9(evaluated);
+  return result;
 }
 
 // ../../node_modules/typebox/build/type/engine/indexable/from_enum.mjs
 function FromEnum(values) {
-  const variants = EnumValuesToVariants(values);
-  const result = FromUnion4(variants);
+  const evaluated = EvaluateEnum(values);
+  const result = FromType9(evaluated);
   return result;
 }
 
@@ -6974,14 +7148,21 @@ function FromLiteral4(value) {
 
 // ../../node_modules/typebox/build/type/engine/indexable/from_template_literal.mjs
 function FromTemplateLiteral2(pattern) {
-  const decoded = TemplateLiteralDecode(pattern);
-  const result = FromType9(decoded);
+  const evaluated = EvaluateTemplateLiteral(pattern);
+  const result = FromType9(evaluated);
   return result;
+}
+
+// ../../node_modules/typebox/build/type/engine/indexable/from_union.mjs
+function FromUnion4(types) {
+  return types.reduce((result, left) => {
+    return [...result, ...FromType9(left)];
+  }, []);
 }
 
 // ../../node_modules/typebox/build/type/engine/indexable/from_type.mjs
 function FromType9(type) {
-  return IsCyclic(type) ? FromCyclic2(type.$defs, type.$ref) : IsEnum(type) ? FromEnum(type.enum) : IsIntersect(type) ? FromIntersect2(type.allOf) : IsLiteral(type) ? FromLiteral4(type.const) : IsTemplateLiteral(type) ? FromTemplateLiteral2(type.pattern) : IsUnion(type) ? FromUnion4(type.anyOf) : [];
+  return IsCyclic(type) ? FromCyclic2(type.$defs, type.$ref) : IsDependent(type) ? FromDependent2(type.if, type.then, type.else) : IsEnum(type) ? FromEnum(type.enum) : IsIntersect(type) ? FromIntersect2(type.allOf) : IsLiteral(type) ? FromLiteral4(type.const) : IsTemplateLiteral(type) ? FromTemplateLiteral2(type.pattern) : IsUnion(type) ? FromUnion4(type.anyOf) : [];
 }
 
 // ../../node_modules/typebox/build/type/engine/indexable/to_indexable_keys.mjs
@@ -6995,7 +7176,7 @@ function FromTypes5(properties2, types) {
   return types.map((type) => FromType10(properties2, type));
 }
 function FromType10(properties2, type) {
-  return IsArray2(type) ? _Array_(FromType10(properties2, type.items)) : IsAsyncIterator2(type) ? AsyncIterator(FromType10(properties2, type.iteratorItems)) : IsConstructor2(type) ? Constructor(FromTypes5(properties2, type.parameters), FromType10(properties2, type.instanceType)) : IsFunction2(type) ? _Function_(FromTypes5(properties2, type.parameters), FromType10(properties2, type.returnType)) : IsIterator2(type) ? Iterator(FromType10(properties2, type.iteratorItems)) : IsPromise(type) ? _Promise_(FromType10(properties2, type.item)) : IsTuple(type) ? Tuple(FromTypes5(properties2, type.items)) : IsUnion(type) ? Union(FromTypes5(properties2, type.anyOf)) : IsIntersect(type) ? Intersect(FromTypes5(properties2, type.allOf)) : IsThis(type) ? _Object_(properties2) : type;
+  return IsArray2(type) ? _Array_(FromType10(properties2, type.items)) : IsConstructor2(type) ? Constructor(FromTypes5(properties2, type.parameters), FromType10(properties2, type.instanceType)) : IsFunction2(type) ? _Function_(FromTypes5(properties2, type.parameters), FromType10(properties2, type.returnType)) : IsTuple(type) ? Tuple(FromTypes5(properties2, type.items)) : IsUnion(type) ? Union(FromTypes5(properties2, type.anyOf)) : IsIntersect(type) ? Intersect(FromTypes5(properties2, type.allOf)) : IsThis(type) ? _Object_(properties2) : type;
 }
 function ExpandThis(properties2, type) {
   const result = FromType10(properties2, type);
@@ -7031,8 +7212,8 @@ function FromIndexerNumber(properties2) {
   const result = EvaluateUnion(variants);
   return result;
 }
-function FromObject3(properties2, indexer) {
-  const result = IsNumber2(indexer) ? FromIndexerNumber(properties2) : FromIndexer(properties2, indexer);
+function FromObject4(properties2, indexer) {
+  const result = IsNumber3(indexer) ? FromIndexerNumber(properties2) : FromIndexer(properties2, indexer);
   return result;
 }
 
@@ -7050,7 +7231,7 @@ function FormatArrayIndexer(type) {
 // ../../node_modules/typebox/build/type/engine/indexed/from_tuple.mjs
 function IndexElementsWithIndexer(types, indexer) {
   return types.reduceRight((result, right, index) => {
-    const check2 = Extends2({}, Literal(index), indexer);
+    const check2 = Extends({}, Literal(index), indexer);
     return exports_result.IsExtendsTrueLike(check2) ? [right, ...result] : result;
   }, []);
 }
@@ -7063,17 +7244,17 @@ function FromTupleWithoutIndexer(types) {
   return EvaluateUnionFast(types);
 }
 function FromTuple2(types, indexer) {
-  return IsLiteral(indexer) && exports_guard.IsEqual(indexer.const, "length") ? Literal(types.length) : IsNumber2(indexer) || IsInteger2(indexer) ? FromTupleWithoutIndexer(types) : FromTupleWithIndexer(types, indexer);
+  return IsLiteral(indexer) && exports_guard.IsEqual(indexer.const, "length") ? Literal(types.length) : IsNumber3(indexer) || IsInteger2(indexer) ? FromTupleWithoutIndexer(types) : FromTupleWithIndexer(types, indexer);
 }
 
 // ../../node_modules/typebox/build/type/engine/indexed/from_type.mjs
 function FromType11(type, indexer) {
-  return IsArray2(type) ? FromArray2(type.items, indexer) : IsObject2(type) ? FromObject3(type.properties, indexer) : IsTuple(type) ? FromTuple2(type.items, indexer) : Never();
+  return IsArray2(type) ? FromArray2(type.items, indexer) : IsObject2(type) ? FromObject4(type.properties, indexer) : IsTuple(type) ? FromTuple2(type.items, indexer) : Never();
 }
 
 // ../../node_modules/typebox/build/type/engine/indexed/instantiate.mjs
 function NormalizeType(type) {
-  const result = IsCyclic(type) || IsIntersect(type) || IsUnion(type) ? CollapseToObject(type) : type;
+  const result = IsCyclic(type) || IsDependent(type) || IsIntersect(type) || IsUnion(type) ? CollapseToObject(type) : type;
   return result;
 }
 function IndexAction(type, indexer, options) {
@@ -7132,7 +7313,7 @@ function FromPropertyKeys(keys) {
   }, []);
   return result;
 }
-function FromObject4(properties2) {
+function FromObject5(properties2) {
   const propertyKeys = exports_guard.Keys(properties2);
   const variants = FromPropertyKeys(propertyKeys);
   const result = EvaluateUnionFast(variants);
@@ -7140,7 +7321,7 @@ function FromObject4(properties2) {
 }
 
 // ../../node_modules/typebox/build/type/engine/keyof/from_record.mjs
-function FromRecord(type) {
+function FromRecord2(type) {
   return RecordKey(type);
 }
 
@@ -7152,12 +7333,12 @@ function FromTuple3(types) {
 
 // ../../node_modules/typebox/build/type/engine/keyof/from_type.mjs
 function FromType12(type) {
-  return IsAny(type) ? FromAny() : IsArray2(type) ? FromArray3(type.items) : IsObject2(type) ? FromObject4(type.properties) : IsRecord(type) ? FromRecord(type) : IsTuple(type) ? FromTuple3(type.items) : Never();
+  return IsAny(type) ? FromAny() : IsArray2(type) ? FromArray3(type.items) : IsObject2(type) ? FromObject5(type.properties) : IsRecord(type) ? FromRecord2(type) : IsTuple(type) ? FromTuple3(type.items) : Never();
 }
 
 // ../../node_modules/typebox/build/type/engine/keyof/instantiate.mjs
 function NormalizeType2(type) {
-  const result = IsCyclic(type) || IsIntersect(type) || IsUnion(type) ? CollapseToObject(type) : type;
+  const result = IsCyclic(type) || IsDependent(type) || IsIntersect(type) || IsUnion(type) ? CollapseToObject(type) : type;
   return result;
 }
 function KeyOfAction(type, options) {
@@ -7172,14 +7353,14 @@ function KeyOfInstantiate(context, state, type, options) {
 function MappedDeferred(identifier2, type, as, property, options = {}) {
   return Deferred("Mapped", [identifier2, type, as, property], options);
 }
-function Mapped2(identifier2, type, as, property, options = {}) {
-  return MappedAction({}, { callstack: [] }, identifier2, type, as, property, options);
+function Mapped(identifier2, type, as, property, options = {}) {
+  return MappedAction({}, State([], []), identifier2, type, as, property, options);
 }
 
 // ../../node_modules/typebox/build/type/engine/mapped/mapped_variants.mjs
 function FromTemplateLiteral3(pattern) {
-  const decoded = TemplateLiteralDecode(pattern);
-  const result = FromType13(decoded);
+  const evaluated = EvaluateTemplateLiteral(pattern);
+  const result = FromType13(evaluated);
   return result;
 }
 function FromUnion5(types) {
@@ -7187,12 +7368,17 @@ function FromUnion5(types) {
     return [...result, ...FromType13(left)];
   }, []);
 }
+function FromEnum2(values) {
+  const evaluated = EvaluateEnum(values);
+  const result = FromType13(evaluated);
+  return result;
+}
 function FromLiteral5(value) {
   const result = exports_guard.IsNumber(value) ? [Literal(`${value}`)] : [Literal(value)];
   return result;
 }
 function FromType13(type) {
-  const result = IsEnum(type) ? FromUnion5(EnumValuesToVariants(type.enum)) : IsLiteral(type) ? FromLiteral5(type.const) : IsTemplateLiteral(type) ? FromTemplateLiteral3(type.pattern) : IsUnion(type) ? FromUnion5(type.anyOf) : [type];
+  const result = IsEnum(type) ? FromEnum2(type.enum) : IsLiteral(type) ? FromLiteral5(type.const) : IsTemplateLiteral(type) ? FromTemplateLiteral3(type.pattern) : IsUnion(type) ? FromUnion5(type.anyOf) : [type];
   return result;
 }
 function MappedVariants(type) {
@@ -7202,7 +7388,7 @@ function MappedVariants(type) {
 
 // ../../node_modules/typebox/build/type/engine/mapped/mapped_operation.mjs
 function CanonicalAs(instantiatedAs) {
-  const result = IsTemplateLiteral(instantiatedAs) ? TemplateLiteralDecode(instantiatedAs.pattern) : instantiatedAs;
+  const result = IsTemplateLiteral(instantiatedAs) ? EvaluateTemplateLiteral(instantiatedAs.pattern) : instantiatedAs;
   return result;
 }
 function MappedVariant(context, state, identifier2, variant, as, property) {
@@ -7241,28 +7427,29 @@ function MappedInstantiate(context, state, identifier2, type, as, property, opti
 }
 
 // ../../node_modules/typebox/build/type/engine/module/instantiate.mjs
-function InstantiateCyclics(context, cyclicKeys) {
-  const keys = exports_guard.Keys(context).filter((key) => cyclicKeys.includes(key));
-  return keys.reduce((result, key) => {
-    return { ...result, [key]: InstantiateCyclic(context, key, context[key]) };
+function InstantiateCyclics(context, declarations, cyclicKeys) {
+  const declarationContext = exports_memory.Assign(context, declarations);
+  const declarationKeys = exports_guard.Keys(declarations).filter((key) => cyclicKeys.includes(key));
+  return declarationKeys.reduce((result, key) => {
+    return { ...result, [key]: InstantiateCyclic(declarationContext, key, declarations[key]) };
   }, {});
 }
-function InstantiateNonCyclics(context, cyclicKeys) {
-  const keys = exports_guard.Keys(context).filter((key) => !cyclicKeys.includes(key));
-  return keys.reduce((result, key) => {
-    return { ...result, [key]: InstantiateType(context, { callstack: [] }, context[key]) };
+function InstantiateNonCyclics(context, declarations, cyclicKeys) {
+  const declarationContext = exports_memory.Assign(context, declarations);
+  const declarationKeys = exports_guard.Keys(declarations).filter((key) => !cyclicKeys.includes(key));
+  return declarationKeys.reduce((result, key) => {
+    return { ...result, [key]: InstantiateType(declarationContext, State([], []), declarations[key]) };
   }, {});
 }
-function InstantiateModule(context, options) {
-  const cyclicCandidates = CyclicCandidates(context);
-  const instantiatedCyclics = InstantiateCyclics(context, cyclicCandidates);
-  const instantiatedNonCyclics = InstantiateNonCyclics(context, cyclicCandidates);
+function InstantiateModule(context, declarations, options) {
+  const cyclicCandidates = CyclicCandidates(declarations);
+  const instantiatedCyclics = InstantiateCyclics(context, declarations, cyclicCandidates);
+  const instantiatedNonCyclics = InstantiateNonCyclics(context, declarations, cyclicCandidates);
   const instantiatedModule = { ...instantiatedCyclics, ...instantiatedNonCyclics };
   return exports_memory.Update(instantiatedModule, {}, options);
 }
-function ModuleInstantiate(context, _state, properties2, options) {
-  const moduleContext = exports_memory.Assign(context, properties2);
-  const instantiatedModule = InstantiateModule(moduleContext, options);
+function ModuleInstantiate(context, _state, declarations, options) {
+  const instantiatedModule = InstantiateModule(context, declarations, options);
   return instantiatedModule;
 }
 
@@ -7330,24 +7517,6 @@ function OmitInstantiate(context, state, type, indexer, options) {
   return OmitAction(instantiatedType, instantiatedIndexer, options);
 }
 
-// ../../node_modules/typebox/build/type/action/options.mjs
-function OptionsDeferred(type, options) {
-  return Deferred("Options", [type, options], {});
-}
-function Options2(type, options) {
-  return OptionsAction(type, options);
-}
-
-// ../../node_modules/typebox/build/type/engine/options/instantiate.mjs
-function OptionsAction(type, options) {
-  const result = CanInstantiate([type]) ? exports_memory.Update(type, {}, options) : OptionsDeferred(type, options);
-  return result;
-}
-function OptionsInstantiate(context, state, type, options) {
-  const instaniatedType = InstantiateType(context, state, type);
-  return OptionsAction(instaniatedType, options);
-}
-
 // ../../node_modules/typebox/build/type/action/parameters.mjs
 function ParametersDeferred(type, options = {}) {
   return Deferred("Parameters", [type], options);
@@ -7359,7 +7528,7 @@ function Parameters(type, options = {}) {
 // ../../node_modules/typebox/build/type/engine/parameters/instantiate.mjs
 function ParametersOperation(type) {
   const parameters = IsFunction2(type) ? type["parameters"] : [];
-  const instantiatedParameters = InstantiateElements({}, { callstack: [] }, parameters);
+  const instantiatedParameters = InstantiateElements({}, State([], []), parameters);
   const result = Tuple(instantiatedParameters);
   return result;
 }
@@ -7388,10 +7557,18 @@ function FromCyclic3(defs, ref2) {
   return result;
 }
 
+// ../../node_modules/typebox/build/type/engine/partial/from_dependent.mjs
+function FromDependent3(if_, then_, else_) {
+  const evaluated = EvaluateDependent(if_, then_, else_);
+  const result = FromType15(evaluated);
+  return result;
+}
+
 // ../../node_modules/typebox/build/type/engine/partial/from_intersect.mjs
 function FromIntersect3(types) {
-  const result = types.map((type) => FromType15(type));
-  return EvaluateIntersect(result);
+  const evaluated = EvaluateIntersect(types);
+  const result = FromType15(evaluated);
+  return result;
 }
 
 // ../../node_modules/typebox/build/type/engine/partial/from_union.mjs
@@ -7401,9 +7578,9 @@ function FromUnion6(types) {
 }
 
 // ../../node_modules/typebox/build/type/engine/partial/from_object.mjs
-function FromObject5(properties2) {
+function FromObject6(properties2) {
   const mapped = exports_guard.Keys(properties2).reduce((result2, left) => {
-    return { ...result2, [left]: Optional(properties2[left]) };
+    return { ...result2, [left]: AddOptional(properties2[left]) };
   }, {});
   const result = _Object_(mapped);
   return result;
@@ -7411,7 +7588,7 @@ function FromObject5(properties2) {
 
 // ../../node_modules/typebox/build/type/engine/partial/from_type.mjs
 function FromType15(type) {
-  return IsCyclic(type) ? FromCyclic3(type.$defs, type.$ref) : IsIntersect(type) ? FromIntersect3(type.allOf) : IsUnion(type) ? FromUnion6(type.anyOf) : IsObject2(type) ? FromObject5(type.properties) : _Object_({});
+  return IsCyclic(type) ? FromCyclic3(type.$defs, type.$ref) : IsDependent(type) ? FromDependent3(type.if, type.then, type.else) : IsIntersect(type) ? FromIntersect3(type.allOf) : IsUnion(type) ? FromUnion6(type.anyOf) : IsObject2(type) ? FromObject6(type.properties) : _Object_({});
 }
 
 // ../../node_modules/typebox/build/type/engine/partial/instantiate.mjs
@@ -7470,7 +7647,7 @@ var ReadonlyType = ReadonlyObject;
 
 // ../../node_modules/typebox/build/type/engine/readonly_object/from_array.mjs
 function FromArray4(type) {
-  const result = Immutable(_Array_(type));
+  const result = AddImmutable(_Array_(type));
   return result;
 }
 
@@ -7482,16 +7659,24 @@ function FromCyclic4(defs, ref2) {
   return result;
 }
 
+// ../../node_modules/typebox/build/type/engine/readonly_object/from_dependent.mjs
+function FromDependent4(if_, then_, else_) {
+  const evaluated = EvaluateDependent(if_, then_, else_);
+  const result = FromType17(evaluated);
+  return result;
+}
+
 // ../../node_modules/typebox/build/type/engine/readonly_object/from_intersect.mjs
 function FromIntersect4(types) {
-  const result = types.map((type) => FromType17(type));
-  return EvaluateIntersect(result);
+  const evaluated = EvaluateIntersect(types);
+  const result = FromType17(evaluated);
+  return result;
 }
 
 // ../../node_modules/typebox/build/type/engine/readonly_object/from_object.mjs
-function FromObject6(properties2) {
+function FromObject7(properties2) {
   const mapped = exports_guard.Keys(properties2).reduce((result2, left) => {
-    return { ...result2, [left]: Readonly(properties2[left]) };
+    return { ...result2, [left]: AddReadonly(properties2[left]) };
   }, {});
   const result = _Object_(mapped);
   return result;
@@ -7499,7 +7684,7 @@ function FromObject6(properties2) {
 
 // ../../node_modules/typebox/build/type/engine/readonly_object/from_tuple.mjs
 function FromTuple4(types) {
-  const result = Immutable(Tuple(types));
+  const result = AddImmutable(Tuple(types));
   return result;
 }
 
@@ -7511,7 +7696,7 @@ function FromUnion7(types) {
 
 // ../../node_modules/typebox/build/type/engine/readonly_object/from_type.mjs
 function FromType17(type) {
-  return IsArray2(type) ? FromArray4(type.items) : IsCyclic(type) ? FromCyclic4(type.$defs, type.$ref) : IsIntersect(type) ? FromIntersect4(type.allOf) : IsObject2(type) ? FromObject6(type.properties) : IsTuple(type) ? FromTuple4(type.items) : IsUnion(type) ? FromUnion7(type.anyOf) : type;
+  return IsArray2(type) ? FromArray4(type.items) : IsCyclic(type) ? FromCyclic4(type.$defs, type.$ref) : IsDependent(type) ? FromDependent4(type.if, type.then, type.else) : IsIntersect(type) ? FromIntersect4(type.allOf) : IsObject2(type) ? FromObject7(type.properties) : IsTuple(type) ? FromTuple4(type.items) : IsUnion(type) ? FromUnion7(type.anyOf) : type;
 }
 
 // ../../node_modules/typebox/build/type/engine/readonly_object/instantiate.mjs
@@ -7526,7 +7711,7 @@ function ReadonlyObjectInstantiate(context, state, type, options) {
 
 // ../../node_modules/typebox/build/type/engine/ref/instantiate.mjs
 function RefInstantiate(context, state, type, ref2) {
-  return ref2 in context ? CyclicCheck([ref2], context, context[ref2]) ? type : InstantiateType(context, state, context[ref2]) : type;
+  return state.visited.includes(ref2) ? type : (ref2 in context) ? InstantiateType(context, State(state["callstack"], [...state["visited"], ref2]), context[ref2]) : type;
 }
 
 // ../../node_modules/typebox/build/type/engine/required/from_cyclic.mjs
@@ -7537,10 +7722,18 @@ function FromCyclic5(defs, ref2) {
   return result;
 }
 
+// ../../node_modules/typebox/build/type/engine/required/from_dependent.mjs
+function FromDependent5(if_, then_, else_) {
+  const evaluated = EvaluateDependent(if_, then_, else_);
+  const result = FromType18(evaluated);
+  return result;
+}
+
 // ../../node_modules/typebox/build/type/engine/required/from_intersect.mjs
 function FromIntersect5(types) {
-  const result = types.map((type) => FromType18(type));
-  return EvaluateIntersect(result);
+  const evaluated = EvaluateIntersect(types);
+  const result = FromType18(evaluated);
+  return result;
 }
 
 // ../../node_modules/typebox/build/type/engine/required/from_union.mjs
@@ -7550,9 +7743,9 @@ function FromUnion8(types) {
 }
 
 // ../../node_modules/typebox/build/type/engine/required/from_object.mjs
-function FromObject7(properties2) {
+function FromObject8(properties2) {
   const mapped = exports_guard.Keys(properties2).reduce((result2, left) => {
-    return { ...result2, [left]: OptionalRemove(properties2[left]) };
+    return { ...result2, [left]: RemoveOptional(properties2[left]) };
   }, {});
   const result = _Object_(mapped);
   return result;
@@ -7560,7 +7753,7 @@ function FromObject7(properties2) {
 
 // ../../node_modules/typebox/build/type/engine/required/from_type.mjs
 function FromType18(type) {
-  return IsCyclic(type) ? FromCyclic5(type.$defs, type.$ref) : IsIntersect(type) ? FromIntersect5(type.allOf) : IsUnion(type) ? FromUnion8(type.anyOf) : IsObject2(type) ? FromObject7(type.properties) : _Object_({});
+  return IsCyclic(type) ? FromCyclic5(type.$defs, type.$ref) : IsDependent(type) ? FromDependent5(type.if, type.then, type.else) : IsIntersect(type) ? FromIntersect5(type.allOf) : IsUnion(type) ? FromUnion8(type.anyOf) : IsObject2(type) ? FromObject8(type.properties) : _Object_({});
 }
 
 // ../../node_modules/typebox/build/type/action/required.mjs
@@ -7602,6 +7795,24 @@ function ReturnTypeInstantiate(context, state, type, options = {}) {
   return ReturnTypeAction(instantiatedType, options);
 }
 
+// ../../node_modules/typebox/build/type/action/with.mjs
+function WithDeferred(type, options) {
+  return Deferred("With", [type, options], {});
+}
+function With2(type, options) {
+  return WithAction(type, options);
+}
+
+// ../../node_modules/typebox/build/type/engine/with/instantiate.mjs
+function WithAction(type, options) {
+  const result = CanInstantiate([type]) ? exports_memory.Update(type, {}, options) : WithDeferred(type, options);
+  return result;
+}
+function WithInstantiate(context, state, type, options) {
+  const instaniatedType = InstantiateType(context, state, type);
+  return WithAction(instaniatedType, options);
+}
+
 // ../../node_modules/typebox/build/type/engine/rest/spread.mjs
 function SpreadElement(type) {
   const result = IsRest(type) ? IsTuple(type.items) ? RestSpread(type.items.items) : IsInfer(type.items) ? [type] : IsRef(type.items) ? [type] : [Never()] : [type];
@@ -7614,17 +7825,11 @@ function RestSpread(types) {
   return result;
 }
 // ../../node_modules/typebox/build/type/engine/instantiate.mjs
+function State(callstack, visited) {
+  return { callstack, visited };
+}
 function CanInstantiate(types) {
-  return exports_guard.TakeLeft(types, (left, right) => IsRef(left) ? false : CanInstantiate(right), () => true);
-}
-function ModifierActions(type, readonly, optional) {
-  return IsReadonlyRemoveAction(type) ? ModifierActions(type.type, "remove", optional) : IsOptionalRemoveAction(type) ? ModifierActions(type.type, readonly, "remove") : IsReadonlyAddAction(type) ? ModifierActions(type.type, "add", optional) : IsOptionalAddAction(type) ? ModifierActions(type.type, readonly, "add") : [type, readonly, optional];
-}
-function ApplyReadonly2(action, type) {
-  return exports_guard.IsEqual(action, "remove") ? ReadonlyRemove(type) : exports_guard.IsEqual(action, "add") ? ReadonlyAdd(type) : type;
-}
-function ApplyOptional2(action, type) {
-  return exports_guard.IsEqual(action, "remove") ? OptionalRemove(type) : exports_guard.IsEqual(action, "add") ? OptionalAdd(type) : type;
+  return exports_guard.ShiftLeft(types, (left, right) => IsRef(left) ? false : CanInstantiate(right), () => true);
 }
 function InstantiateProperties(context, state, properties2) {
   return exports_guard.Keys(properties2).reduce((result, key) => {
@@ -7639,41 +7844,47 @@ function InstantiateElements(context, state, types) {
 function InstantiateTypes(context, state, types) {
   return types.map((type) => InstantiateType(context, state, type));
 }
-function InstantiateDeferred(context, state, action, parameters, options) {
-  return exports_guard.IsEqual(action, "Awaited") ? AwaitedInstantiate(context, state, parameters[0], options) : exports_guard.IsEqual(action, "Capitalize") ? CapitalizeInstantiate(context, state, parameters[0], options) : exports_guard.IsEqual(action, "Conditional") ? ConditionalInstantiate(context, state, parameters[0], parameters[1], parameters[2], parameters[3], options) : exports_guard.IsEqual(action, "ConstructorParameters") ? ConstructorParametersInstantiate(context, state, parameters[0], options) : exports_guard.IsEqual(action, "Evaluate") ? EvaluateInstantiate(context, state, parameters[0], options) : exports_guard.IsEqual(action, "Exclude") ? ExcludeInstantiate(context, state, parameters[0], parameters[1], options) : exports_guard.IsEqual(action, "Extract") ? ExtractInstantiate(context, state, parameters[0], parameters[1], options) : exports_guard.IsEqual(action, "Index") ? IndexInstantiate(context, state, parameters[0], parameters[1], options) : exports_guard.IsEqual(action, "InstanceType") ? InstanceTypeInstantiate(context, state, parameters[0], options) : exports_guard.IsEqual(action, "Interface") ? InterfaceInstantiate(context, state, parameters[0], parameters[1], options) : exports_guard.IsEqual(action, "KeyOf") ? KeyOfInstantiate(context, state, parameters[0], options) : exports_guard.IsEqual(action, "Lowercase") ? LowercaseInstantiate(context, state, parameters[0], options) : exports_guard.IsEqual(action, "Mapped") ? MappedInstantiate(context, state, parameters[0], parameters[1], parameters[2], parameters[3], options) : exports_guard.IsEqual(action, "Module") ? ModuleInstantiate(context, state, parameters[0], options) : exports_guard.IsEqual(action, "NonNullable") ? NonNullableInstantiate(context, state, parameters[0], options) : exports_guard.IsEqual(action, "Pick") ? PickInstantiate(context, state, parameters[0], parameters[1], options) : exports_guard.IsEqual(action, "Options") ? OptionsInstantiate(context, state, parameters[0], parameters[1]) : exports_guard.IsEqual(action, "Parameters") ? ParametersInstantiate(context, state, parameters[0], options) : exports_guard.IsEqual(action, "Partial") ? PartialInstantiate(context, state, parameters[0], options) : exports_guard.IsEqual(action, "Omit") ? OmitInstantiate(context, state, parameters[0], parameters[1], options) : exports_guard.IsEqual(action, "ReadonlyObject") ? ReadonlyObjectInstantiate(context, state, parameters[0], options) : exports_guard.IsEqual(action, "Record") ? RecordInstantiate(context, state, parameters[0], parameters[1], options) : exports_guard.IsEqual(action, "Required") ? RequiredInstantiate(context, state, parameters[0], options) : exports_guard.IsEqual(action, "ReturnType") ? ReturnTypeInstantiate(context, state, parameters[0], options) : exports_guard.IsEqual(action, "TemplateLiteral") ? TemplateLiteralInstantiate(context, state, parameters[0], options) : exports_guard.IsEqual(action, "Uncapitalize") ? UncapitalizeInstantiate(context, state, parameters[0], options) : exports_guard.IsEqual(action, "Uppercase") ? UppercaseInstantiate(context, state, parameters[0], options) : Deferred(action, parameters, options);
+function WithModifiers(type, instantiatedType) {
+  const withOptional = IsOptional(type) ? AddOptionalAction(instantiatedType, {}) : instantiatedType;
+  const withReadonly = IsReadonly(type) ? AddReadonlyAction(withOptional, {}) : withOptional;
+  const withImmutable = IsImmutable(type) ? AddImmutableAction(withReadonly, {}) : withReadonly;
+  return withImmutable;
 }
-function InstantiateType(context, state, input) {
-  const immutable = IsImmutable(input);
-  const modifiers = ModifierActions(input, IsReadonly(input) ? "add" : "none", IsOptional(input) ? "add" : "none");
-  const type = IsBase(modifiers[0]) ? modifiers[0].Clone() : modifiers[0];
-  const instantiated = IsRef(type) ? RefInstantiate(context, state, type, type.$ref) : IsArray2(type) ? _Array_(InstantiateType(context, state, type.items), ArrayOptions(type)) : IsAsyncIterator2(type) ? AsyncIterator(InstantiateType(context, state, type.iteratorItems), AsyncIteratorOptions(type)) : IsCall(type) ? CallInstantiate(context, state, type.target, type.arguments) : IsConstructor2(type) ? Constructor(InstantiateTypes(context, state, type.parameters), InstantiateType(context, state, type.instanceType), ConstructorOptions(type)) : IsDeferred(type) ? InstantiateDeferred(context, state, type.action, type.parameters, type.options) : IsFunction2(type) ? _Function_(InstantiateTypes(context, state, type.parameters), InstantiateType(context, state, type.returnType), FunctionOptions(type)) : IsIntersect(type) ? Intersect(InstantiateTypes(context, state, type.allOf), IntersectOptions(type)) : IsIterator2(type) ? Iterator(InstantiateType(context, state, type.iteratorItems), IteratorOptions(type)) : IsObject2(type) ? _Object_(InstantiateProperties(context, state, type.properties), ObjectOptions(type)) : IsPromise(type) ? _Promise_(InstantiateType(context, state, type.item), PromiseOptions(type)) : IsRecord(type) ? RecordFromPattern(RecordPattern(type), InstantiateType(context, state, RecordValue(type))) : IsRest(type) ? Rest(InstantiateType(context, state, type.items)) : IsTuple(type) ? Tuple(InstantiateElements(context, state, type.items), TupleOptions(type)) : IsUnion(type) ? Union(InstantiateTypes(context, state, type.anyOf), UnionOptions(type)) : type;
-  const withImmutable = immutable ? Immutable(instantiated) : instantiated;
-  const withModifiers = ApplyReadonly2(modifiers[1], ApplyOptional2(modifiers[2], withImmutable));
+function InstantiateDeferred(context, state, action, parameters, options) {
+  return exports_guard.IsEqual(action, "AddImmutable") ? AddImmutableInstantiate(context, state, parameters[0], options) : exports_guard.IsEqual(action, "RemoveImmutable") ? RemoveImmutableInstantiate(context, state, parameters[0], options) : exports_guard.IsEqual(action, "AddReadonly") ? AddReadonlyInstantiate(context, state, parameters[0], options) : exports_guard.IsEqual(action, "RemoveReadonly") ? RemoveReadonlyInstantiate(context, state, parameters[0], options) : exports_guard.IsEqual(action, "AddOptional") ? AddOptionalInstantiate(context, state, parameters[0], options) : exports_guard.IsEqual(action, "RemoveOptional") ? RemoveOptionalInstantiate(context, state, parameters[0], options) : exports_guard.IsEqual(action, "Capitalize") ? CapitalizeInstantiate(context, state, parameters[0], options) : exports_guard.IsEqual(action, "Conditional") ? ConditionalInstantiate(context, state, parameters[0], parameters[1], parameters[2], parameters[3], options) : exports_guard.IsEqual(action, "ConstructorParameters") ? ConstructorParametersInstantiate(context, state, parameters[0], options) : exports_guard.IsEqual(action, "Evaluate") ? EvaluateInstantiate(context, state, parameters[0], options) : exports_guard.IsEqual(action, "Exclude") ? ExcludeInstantiate(context, state, parameters[0], parameters[1], options) : exports_guard.IsEqual(action, "Extract") ? ExtractInstantiate(context, state, parameters[0], parameters[1], options) : exports_guard.IsEqual(action, "Index") ? IndexInstantiate(context, state, parameters[0], parameters[1], options) : exports_guard.IsEqual(action, "InstanceType") ? InstanceTypeInstantiate(context, state, parameters[0], options) : exports_guard.IsEqual(action, "Interface") ? InterfaceInstantiate(context, state, parameters[0], parameters[1], options) : exports_guard.IsEqual(action, "KeyOf") ? KeyOfInstantiate(context, state, parameters[0], options) : exports_guard.IsEqual(action, "Lowercase") ? LowercaseInstantiate(context, state, parameters[0], options) : exports_guard.IsEqual(action, "Mapped") ? MappedInstantiate(context, state, parameters[0], parameters[1], parameters[2], parameters[3], options) : exports_guard.IsEqual(action, "Module") ? ModuleInstantiate(context, state, parameters[0], options) : exports_guard.IsEqual(action, "NonNullable") ? NonNullableInstantiate(context, state, parameters[0], options) : exports_guard.IsEqual(action, "Pick") ? PickInstantiate(context, state, parameters[0], parameters[1], options) : exports_guard.IsEqual(action, "Parameters") ? ParametersInstantiate(context, state, parameters[0], options) : exports_guard.IsEqual(action, "Partial") ? PartialInstantiate(context, state, parameters[0], options) : exports_guard.IsEqual(action, "Omit") ? OmitInstantiate(context, state, parameters[0], parameters[1], options) : exports_guard.IsEqual(action, "ReadonlyObject") ? ReadonlyObjectInstantiate(context, state, parameters[0], options) : exports_guard.IsEqual(action, "Record") ? RecordInstantiate(context, state, parameters[0], parameters[1], options) : exports_guard.IsEqual(action, "Required") ? RequiredInstantiate(context, state, parameters[0], options) : exports_guard.IsEqual(action, "ReturnType") ? ReturnTypeInstantiate(context, state, parameters[0], options) : exports_guard.IsEqual(action, "TemplateLiteral") ? TemplateLiteralInstantiate(context, state, parameters[0], options) : exports_guard.IsEqual(action, "Uncapitalize") ? UncapitalizeInstantiate(context, state, parameters[0], options) : exports_guard.IsEqual(action, "Uppercase") ? UppercaseInstantiate(context, state, parameters[0], options) : exports_guard.IsEqual(action, "With") ? WithInstantiate(context, state, parameters[0], parameters[1]) : Deferred(action, parameters, options);
+}
+function InstantiateImmediate(context, state, type) {
+  const instantiatedType = IsRef(type) ? RefInstantiate(context, state, type, type.$ref) : IsArray2(type) ? _Array_(InstantiateType(context, state, type.items), ArrayOptions(type)) : IsCall(type) ? CallInstantiate(context, state, type.target, type.arguments) : IsConstructor2(type) ? Constructor(InstantiateTypes(context, state, type.parameters), InstantiateType(context, state, type.instanceType), ConstructorOptions(type)) : IsFunction2(type) ? _Function_(InstantiateTypes(context, state, type.parameters), InstantiateType(context, state, type.returnType), FunctionOptions(type)) : IsDependent(type) ? Dependent(InstantiateType(context, state, type.if), InstantiateType(context, state, type.then), InstantiateType(context, state, type.else), DependentOptions(type)) : IsIntersect(type) ? Intersect(InstantiateTypes(context, state, type.allOf), IntersectOptions(type)) : IsObject2(type) ? _Object_(InstantiateProperties(context, state, type.properties), ObjectOptions(type)) : IsRecord(type) ? RecordFromPattern(RecordPattern(type), InstantiateType(context, state, RecordValue(type))) : IsRest(type) ? Rest(InstantiateType(context, state, type.items)) : IsTuple(type) ? Tuple(InstantiateElements(context, state, type.items), TupleOptions(type)) : IsUnion(type) ? Union(InstantiateTypes(context, state, type.anyOf), UnionOptions(type)) : type;
+  const withModifiers = WithModifiers(type, instantiatedType);
   return withModifiers;
 }
-function Instantiate(context, type) {
-  return InstantiateType(context, { callstack: [] }, type);
-}
-
-// ../../node_modules/typebox/build/type/engine/awaited/instantiate.mjs
-function AwaitedOperation(type) {
-  return IsPromise(type) ? AwaitedOperation(type.item) : type;
-}
-function AwaitedAction(type, options) {
-  const result = CanInstantiate([type]) ? exports_memory.Update(AwaitedOperation(type), {}, options) : AwaitedDeferred(type, options);
+function InstantiateType(context, state, type) {
+  const result = IsDeferred(type) ? InstantiateDeferred(context, state, type.action, type.parameters, type.options) : InstantiateImmediate(context, state, type);
   return result;
 }
-function AwaitedInstantiate(context, state, type, options) {
-  const instantiatedType = InstantiateType(context, state, type);
-  return AwaitedAction(instantiatedType, options);
+function Instantiate(context, type) {
+  return InstantiateType(context, State([], []), type);
 }
 
-// ../../node_modules/typebox/build/type/action/awaited.mjs
-function AwaitedDeferred(type, options = {}) {
-  return Deferred("Awaited", [type], options);
+// ../../node_modules/typebox/build/type/engine/immutable/instantiate_add.mjs
+function AddImmutableOperation(type) {
+  return exports_memory.Update(type, { "~immutable": true }, {});
 }
-function Awaited(type, options = {}) {
-  return AwaitedAction(type, options);
+function AddImmutableAction(type, options) {
+  const result = exports_memory.Update(AddImmutableOperation(type), {}, options);
+  return result;
+}
+function AddImmutableInstantiate(context, state, type, options) {
+  const instantiatedType = InstantiateType(context, state, type);
+  return AddImmutableAction(instantiatedType, options);
+}
+
+// ../../node_modules/typebox/build/type/action/_add_immutable.mjs
+function AddImmutableDeferred(type, options = {}) {
+  return Deferred("AddImmutable", [type], options);
+}
+function AddImmutable(type, options = {}) {
+  return AddImmutableAction(type, options);
 }
 // ../../node_modules/typebox/build/type/action/evaluate.mjs
 function EvaluateDeferred(type, options = {}) {
@@ -7683,26 +7894,27 @@ function Evaluate(type, options = {}) {
   return EvaluateAction(type, options);
 }
 // ../../node_modules/typebox/build/type/action/module.mjs
-function ModuleDeferred(context, options = {}) {
-  return Deferred("Module", [context], options);
+function ModuleDeferred(declarations, options = {}) {
+  return Deferred("Module", [declarations], options);
 }
-function Module2(context, options = {}) {
-  return Instantiate({}, ModuleDeferred(context, options));
+function Module2(declarations, options = {}) {
+  return ModuleInstantiate({}, State([], []), declarations, options);
 }
 // ../../node_modules/typebox/build/type/script/script.mjs
 function Script2(...args) {
-  const [context, input, options3] = exports_arguments.Match(args, {
-    2: (script, options4) => exports_guard.IsString(script) ? [{}, script, options4] : [script, options4, {}],
-    3: (context2, script, options4) => [context2, script, options4],
+  const [context, input, options] = exports_arguments.Match(args, {
+    2: (script, options2) => exports_guard.IsString(script) ? [{}, script, options2] : [script, options2, {}],
+    3: (context2, script, options2) => [context2, script, options2],
     1: (script) => [{}, script, {}]
   });
   const result = Script(input);
-  const parsed = exports_guard.IsArray(result) && exports_guard.IsEqual(result.length, 2) ? InstantiateType(context, { callstack: [] }, result[0]) : Never();
-  return exports_memory.Update(parsed, {}, options3);
+  const parsed = exports_guard.IsArray(result) && exports_guard.IsEqual(result.length, 2) ? InstantiateType(context, State([], []), result[0]) : Never();
+  return exports_memory.Update(parsed, {}, options);
 }
 // ../../node_modules/typebox/build/typebox.mjs
 var exports_typebox = {};
 __export(exports_typebox, {
+  With: () => With2,
   Void: () => Void,
   Uppercase: () => Uppercase,
   Unsafe: () => Unsafe,
@@ -7728,12 +7940,10 @@ __export(exports_typebox, {
   ReadonlyType: () => ReadonlyType,
   ReadonlyObject: () => ReadonlyObject,
   Readonly: () => Readonly,
-  Promise: () => _Promise_,
   Pick: () => Pick,
   Partial: () => Partial,
   Parameters: () => Parameters,
   Parameter: () => Parameter,
-  Options: () => Options2,
   Optional: () => Optional,
   Omit: () => Omit,
   Object: () => _Object_,
@@ -7742,11 +7952,10 @@ __export(exports_typebox, {
   NonNullable: () => NonNullable,
   Never: () => Never,
   Module: () => Module2,
-  Mapped: () => Mapped2,
+  Mapped: () => Mapped,
   Lowercase: () => Lowercase,
   Literal: () => Literal,
   KeyOf: () => KeyOf2,
-  Iterator: () => Iterator,
   IsVoid: () => IsVoid,
   IsUnsafe: () => IsUnsafe,
   IsUnknown: () => IsUnknown,
@@ -7756,23 +7965,21 @@ __export(exports_typebox, {
   IsThis: () => IsThis,
   IsTemplateLiteral: () => IsTemplateLiteral,
   IsSymbol: () => IsSymbol2,
-  IsString: () => IsString2,
+  IsString: () => IsString3,
   IsSchema: () => IsSchema,
   IsRest: () => IsRest,
   IsRefine: () => IsRefine,
   IsRef: () => IsRef,
   IsRecord: () => IsRecord,
   IsReadonly: () => IsReadonly,
-  IsPromise: () => IsPromise,
   IsParameter: () => IsParameter,
   IsOptional: () => IsOptional,
   IsObject: () => IsObject2,
-  IsNumber: () => IsNumber2,
+  IsNumber: () => IsNumber3,
   IsNull: () => IsNull2,
   IsNever: () => IsNever,
   IsLiteral: () => IsLiteral,
   IsKind: () => IsKind,
-  IsIterator: () => IsIterator2,
   IsIntersect: () => IsIntersect,
   IsInteger: () => IsInteger2,
   IsInfer: () => IsInfer,
@@ -7780,15 +7987,15 @@ __export(exports_typebox, {
   IsIdentifier: () => IsIdentifier,
   IsGeneric: () => IsGeneric,
   IsFunction: () => IsFunction2,
+  IsEnumValue: () => IsEnumValue,
   IsEnum: () => IsEnum,
+  IsDependent: () => IsDependent,
   IsCyclic: () => IsCyclic,
   IsConstructor: () => IsConstructor2,
   IsCodec: () => IsCodec,
   IsCall: () => IsCall,
-  IsBoolean: () => IsBoolean2,
+  IsBoolean: () => IsBoolean3,
   IsBigInt: () => IsBigInt2,
-  IsBase: () => IsBase,
-  IsAsyncIterator: () => IsAsyncIterator2,
   IsArray: () => IsArray2,
   IsAny: () => IsAny,
   Intersect: () => Intersect,
@@ -7804,12 +8011,13 @@ __export(exports_typebox, {
   Function: () => _Function_,
   Extract: () => Extract,
   ExtendsResult: () => exports_result,
-  Extends: () => Extends2,
+  Extends: () => Extends,
   Exclude: () => Exclude,
   Evaluate: () => Evaluate,
   Enum: () => Enum,
   EncodeBuilder: () => EncodeBuilder,
   Encode: () => Encode,
+  Dependent: () => Dependent,
   DecodeBuilder: () => DecodeBuilder,
   Decode: () => Decode,
   Cyclic: () => Cyclic,
@@ -7821,9 +8029,6 @@ __export(exports_typebox, {
   Call: () => Call,
   Boolean: () => Boolean2,
   BigInt: () => BigInt2,
-  Base: () => Base,
-  Awaited: () => Awaited,
-  AsyncIterator: () => AsyncIterator,
   Array: () => _Array_,
   Any: () => Any
 });
@@ -7988,9 +8193,9 @@ var HttpClient = class HttpClient2 {
     502,
     504
   ];
-  constructor(baseURL, options3) {
+  constructor(baseURL, options) {
     this.baseURL = baseURL;
-    this.options = options3;
+    this.options = options;
   }
   getClientName() {
     throw new Error("getClientName not implemented");
@@ -8072,10 +8277,10 @@ var ParseError = class extends Error {
 var DEFAULT_FETCH_TIMEOUT = 60000;
 var FetchHttpClient = class extends HttpClient {
   _fetchFn;
-  constructor(baseURL, options3, fetchFn) {
-    super(baseURL, options3);
+  constructor(baseURL, options, fetchFn) {
+    super(baseURL, options);
     this.baseURL = baseURL;
-    this.options = options3;
+    this.options = options;
     if (!fetchFn) {
       if (!globalThis.fetch)
         throw new Error("Fetch function not defined in the global scope and no replacement was provided.");
@@ -8086,70 +8291,70 @@ var FetchHttpClient = class extends HttpClient {
   getClientName() {
     return "fetch";
   }
-  async get(path, options3) {
-    const resourceURL = HttpClient.getResourceURL(this.baseURL, path, options3.params);
+  async get(path, options) {
+    const resourceURL = HttpClient.getResourceURL(this.baseURL, path, options.params);
     if (HttpClient.isPathRetryable(path))
-      return await this.fetchRequestWithRetry(resourceURL, "GET", null, options3.headers);
+      return await this.fetchRequestWithRetry(resourceURL, "GET", null, options.headers);
     else
-      return await this.fetchRequest(resourceURL, "GET", null, options3.headers);
+      return await this.fetchRequest(resourceURL, "GET", null, options.headers);
   }
-  async post(path, entity, options3) {
-    const resourceURL = HttpClient.getResourceURL(this.baseURL, path, options3.params);
+  async post(path, entity, options) {
+    const resourceURL = HttpClient.getResourceURL(this.baseURL, path, options.params);
     if (HttpClient.isPathRetryable(path))
       return await this.fetchRequestWithRetry(resourceURL, "POST", HttpClient.getBody(entity), {
         ...HttpClient.getContentTypeHeader(entity),
-        ...options3.headers
+        ...options.headers
       });
     else
       return await this.fetchRequest(resourceURL, "POST", HttpClient.getBody(entity), {
         ...HttpClient.getContentTypeHeader(entity),
-        ...options3.headers
+        ...options.headers
       });
   }
-  async put(path, entity, options3) {
-    const resourceURL = HttpClient.getResourceURL(this.baseURL, path, options3.params);
+  async put(path, entity, options) {
+    const resourceURL = HttpClient.getResourceURL(this.baseURL, path, options.params);
     if (HttpClient.isPathRetryable(path))
       return await this.fetchRequestWithRetry(resourceURL, "PUT", HttpClient.getBody(entity), {
         ...HttpClient.getContentTypeHeader(entity),
-        ...options3.headers
+        ...options.headers
       });
     else
       return await this.fetchRequest(resourceURL, "PUT", HttpClient.getBody(entity), {
         ...HttpClient.getContentTypeHeader(entity),
-        ...options3.headers
+        ...options.headers
       });
   }
-  async patch(path, entity, options3) {
-    const resourceURL = HttpClient.getResourceURL(this.baseURL, path, options3.params);
+  async patch(path, entity, options) {
+    const resourceURL = HttpClient.getResourceURL(this.baseURL, path, options.params);
     if (HttpClient.isPathRetryable(path))
       return await this.fetchRequestWithRetry(resourceURL, "PATCH", HttpClient.getBody(entity), {
         ...HttpClient.getContentTypeHeader(entity),
-        ...options3.headers
+        ...options.headers
       });
     else
       return await this.fetchRequest(resourceURL, "PATCH", HttpClient.getBody(entity), {
         ...HttpClient.getContentTypeHeader(entity),
-        ...options3.headers
+        ...options.headers
       });
   }
-  async delete(path, options3) {
-    const resourceURL = HttpClient.getResourceURL(this.baseURL, path, options3.params);
+  async delete(path, options) {
+    const resourceURL = HttpClient.getResourceURL(this.baseURL, path, options.params);
     if (HttpClient.isPathRetryable(path))
-      return await this.fetchRequestWithRetry(resourceURL, "DELETE", null, options3.headers);
+      return await this.fetchRequestWithRetry(resourceURL, "DELETE", null, options.headers);
     else
-      return await this.fetchRequest(resourceURL, "DELETE", null, options3.headers);
+      return await this.fetchRequest(resourceURL, "DELETE", null, options.headers);
   }
-  async deleteWithBody(path, entity, options3) {
-    const resourceURL = HttpClient.getResourceURL(this.baseURL, path, options3.params);
+  async deleteWithBody(path, entity, options) {
+    const resourceURL = HttpClient.getResourceURL(this.baseURL, path, options.params);
     if (HttpClient.isPathRetryable(path))
       return await this.fetchRequestWithRetry(resourceURL, "DELETE", HttpClient.getBody(entity), {
         ...HttpClient.getContentTypeHeader(entity),
-        ...options3.headers
+        ...options.headers
       });
     else
       return await this.fetchRequest(resourceURL, "DELETE", HttpClient.getBody(entity), {
         ...HttpClient.getContentTypeHeader(entity),
-        ...options3.headers
+        ...options.headers
       });
   }
   async fetchRequest(url, method, body, headers) {
@@ -8443,72 +8648,72 @@ var deserializeOrganization = (organization) => ({
   externalId: organization.external_id ?? null,
   metadata: organization.metadata ?? {}
 });
-var serializeAuthenticateWithCodeOptions = (options3) => ({
+var serializeAuthenticateWithCodeOptions = (options) => ({
   grant_type: "authorization_code",
-  client_id: options3.clientId,
-  client_secret: options3.clientSecret,
-  code: options3.code,
-  code_verifier: options3.codeVerifier,
-  invitation_token: options3.invitationToken,
-  ip_address: options3.ipAddress,
-  user_agent: options3.userAgent
+  client_id: options.clientId,
+  client_secret: options.clientSecret,
+  code: options.code,
+  code_verifier: options.codeVerifier,
+  invitation_token: options.invitationToken,
+  ip_address: options.ipAddress,
+  user_agent: options.userAgent
 });
-var serializeAuthenticateWithCodeAndVerifierOptions = (options3) => ({
+var serializeAuthenticateWithCodeAndVerifierOptions = (options) => ({
   grant_type: "authorization_code",
-  client_id: options3.clientId,
-  code: options3.code,
-  code_verifier: options3.codeVerifier,
-  invitation_token: options3.invitationToken,
-  ip_address: options3.ipAddress,
-  user_agent: options3.userAgent
+  client_id: options.clientId,
+  code: options.code,
+  code_verifier: options.codeVerifier,
+  invitation_token: options.invitationToken,
+  ip_address: options.ipAddress,
+  user_agent: options.userAgent
 });
-var serializeAuthenticateWithMagicAuthOptions = (options3) => ({
+var serializeAuthenticateWithMagicAuthOptions = (options) => ({
   grant_type: "urn:workos:oauth:grant-type:magic-auth:code",
-  client_id: options3.clientId,
-  client_secret: options3.clientSecret,
-  code: options3.code,
-  email: options3.email,
-  invitation_token: options3.invitationToken,
-  link_authorization_code: options3.linkAuthorizationCode,
-  ip_address: options3.ipAddress,
-  user_agent: options3.userAgent
+  client_id: options.clientId,
+  client_secret: options.clientSecret,
+  code: options.code,
+  email: options.email,
+  invitation_token: options.invitationToken,
+  link_authorization_code: options.linkAuthorizationCode,
+  ip_address: options.ipAddress,
+  user_agent: options.userAgent
 });
-var serializeAuthenticateWithPasswordOptions = (options3) => ({
+var serializeAuthenticateWithPasswordOptions = (options) => ({
   grant_type: "password",
-  client_id: options3.clientId,
-  client_secret: options3.clientSecret,
-  email: options3.email,
-  password: options3.password,
-  invitation_token: options3.invitationToken,
-  ip_address: options3.ipAddress,
-  user_agent: options3.userAgent
+  client_id: options.clientId,
+  client_secret: options.clientSecret,
+  email: options.email,
+  password: options.password,
+  invitation_token: options.invitationToken,
+  ip_address: options.ipAddress,
+  user_agent: options.userAgent
 });
-var serializeAuthenticateWithRefreshTokenOptions = (options3) => ({
+var serializeAuthenticateWithRefreshTokenOptions = (options) => ({
   grant_type: "refresh_token",
-  client_id: options3.clientId,
-  client_secret: options3.clientSecret,
-  refresh_token: options3.refreshToken,
-  organization_id: options3.organizationId,
-  ip_address: options3.ipAddress,
-  user_agent: options3.userAgent
+  client_id: options.clientId,
+  client_secret: options.clientSecret,
+  refresh_token: options.refreshToken,
+  organization_id: options.organizationId,
+  ip_address: options.ipAddress,
+  user_agent: options.userAgent
 });
-var serializeAuthenticateWithRefreshTokenPublicClientOptions = (options3) => ({
+var serializeAuthenticateWithRefreshTokenPublicClientOptions = (options) => ({
   grant_type: "refresh_token",
-  client_id: options3.clientId,
-  refresh_token: options3.refreshToken,
-  organization_id: options3.organizationId,
-  ip_address: options3.ipAddress,
-  user_agent: options3.userAgent
+  client_id: options.clientId,
+  refresh_token: options.refreshToken,
+  organization_id: options.organizationId,
+  ip_address: options.ipAddress,
+  user_agent: options.userAgent
 });
-var serializeAuthenticateWithTotpOptions = (options3) => ({
+var serializeAuthenticateWithTotpOptions = (options) => ({
   grant_type: "urn:workos:oauth:grant-type:mfa-totp",
-  client_id: options3.clientId,
-  client_secret: options3.clientSecret,
-  code: options3.code,
-  authentication_challenge_id: options3.authenticationChallengeId,
-  pending_authentication_token: options3.pendingAuthenticationToken,
-  ip_address: options3.ipAddress,
-  user_agent: options3.userAgent
+  client_id: options.clientId,
+  client_secret: options.clientSecret,
+  code: options.code,
+  authentication_challenge_id: options.authenticationChallengeId,
+  pending_authentication_token: options.pendingAuthenticationToken,
+  ip_address: options.ipAddress,
+  user_agent: options.userAgent
 });
 var deserializeAuthenticationEventSso = (sso) => ({
   connectionId: sso.connection_id,
@@ -8559,11 +8764,11 @@ var deserializeAuthenticationResponse = (authenticationResponse) => {
     ...rest3
   };
 };
-var serializeCreateMagicAuthOptions = (options3) => ({
-  email: options3.email,
-  invitation_token: options3.invitationToken
+var serializeCreateMagicAuthOptions = (options) => ({
+  email: options.email,
+  invitation_token: options.invitationToken
 });
-var serializeCreatePasswordResetOptions = (options3) => ({ email: options3.email });
+var serializeCreatePasswordResetOptions = (options) => ({ email: options.email });
 var deserializeEmailVerification = (emailVerification) => ({
   object: emailVerification.object,
   id: emailVerification.id,
@@ -8583,11 +8788,11 @@ var deserializeEmailVerificationEvent = (emailVerification) => ({
   createdAt: emailVerification.created_at,
   updatedAt: emailVerification.updated_at
 });
-var serializeEnrollAuthFactorOptions = (options3) => ({
-  type: options3.type,
-  totp_issuer: options3.totpIssuer,
-  totp_user: options3.totpUser,
-  totp_secret: options3.totpSecret
+var serializeEnrollAuthFactorOptions = (options) => ({
+  type: options.type,
+  totp_issuer: options.totpIssuer,
+  totp_user: options.totpUser,
+  totp_secret: options.totpSecret
 });
 var deserializeTotp = (totp) => {
   return {
@@ -8652,7 +8857,7 @@ var deserializeInvitationEvent = (invitation) => ({
   createdAt: invitation.created_at,
   updatedAt: invitation.updated_at
 });
-var serializeListSessionsOptions = (options3) => ({ ...options3 });
+var serializeListSessionsOptions = (options) => ({ ...options });
 var deserializeMagicAuth = (magicAuth) => ({
   object: magicAuth.object,
   id: magicAuth.id,
@@ -8690,9 +8895,9 @@ var deserializePasswordResetEvent = (passwordReset) => ({
   expiresAt: passwordReset.expires_at,
   createdAt: passwordReset.created_at
 });
-var serializeResetPasswordOptions = (options3) => ({
-  token: options3.token,
-  new_password: options3.newPassword
+var serializeResetPasswordOptions = (options) => ({
+  token: options.token,
+  new_password: options.newPassword
 });
 var deserializeSession = (session) => ({
   object: "session",
@@ -8709,28 +8914,28 @@ var deserializeSession = (session) => ({
   createdAt: session.created_at,
   updatedAt: session.updated_at
 });
-var serializeCreateUserOptions = (options3) => ({
-  email: options3.email,
-  password: options3.password,
-  password_hash: options3.passwordHash,
-  password_hash_type: options3.passwordHashType,
-  first_name: options3.firstName,
-  last_name: options3.lastName,
-  email_verified: options3.emailVerified,
-  external_id: options3.externalId,
-  metadata: options3.metadata
+var serializeCreateUserOptions = (options) => ({
+  email: options.email,
+  password: options.password,
+  password_hash: options.passwordHash,
+  password_hash_type: options.passwordHashType,
+  first_name: options.firstName,
+  last_name: options.lastName,
+  email_verified: options.emailVerified,
+  external_id: options.externalId,
+  metadata: options.metadata
 });
-var serializeUpdateUserOptions = (options3) => ({
-  email: options3.email,
-  email_verified: options3.emailVerified,
-  first_name: options3.firstName,
-  last_name: options3.lastName,
-  password: options3.password,
-  password_hash: options3.passwordHash,
-  password_hash_type: options3.passwordHashType,
-  external_id: options3.externalId,
-  locale: options3.locale,
-  metadata: options3.metadata
+var serializeUpdateUserOptions = (options) => ({
+  email: options.email,
+  email_verified: options.emailVerified,
+  first_name: options.firstName,
+  last_name: options.lastName,
+  password: options.password,
+  password_hash: options.passwordHash,
+  password_hash_type: options.passwordHashType,
+  external_id: options.externalId,
+  locale: options.locale,
+  metadata: options.metadata
 });
 var deserializeOrganizationMembership = (organizationMembership) => ({
   object: organizationMembership.object,
@@ -8829,13 +9034,13 @@ var Actions = class {
     };
   }
   async constructAction({ payload, sigHeader, secret, tolerance = 30000 }) {
-    const options3 = {
+    const options = {
       payload,
       sigHeader,
       secret,
       tolerance
     };
-    await this.verifyHeader(options3);
+    await this.verifyHeader(options);
     return deserializeAction(payload);
   }
 };
@@ -8940,26 +9145,26 @@ var deserializeDeletedEventDirectory = (directory) => ({
   createdAt: directory.created_at,
   updatedAt: directory.updated_at
 });
-var serializeListDirectoriesOptions = (options3) => ({
-  organization_id: options3.organizationId,
-  search: options3.search,
-  limit: options3.limit,
-  before: options3.before,
-  after: options3.after,
-  order: options3.order
+var serializeListDirectoriesOptions = (options) => ({
+  organization_id: options.organizationId,
+  search: options.search,
+  limit: options.limit,
+  before: options.before,
+  after: options.after,
+  order: options.order
 });
-var serializeCreateOrganizationOptions = (options3) => ({
-  name: options3.name,
-  domain_data: options3.domainData,
-  external_id: options3.externalId,
-  metadata: options3.metadata
+var serializeCreateOrganizationOptions = (options) => ({
+  name: options.name,
+  domain_data: options.domainData,
+  external_id: options.externalId,
+  metadata: options.metadata
 });
-var serializeUpdateOrganizationOptions = (options3) => ({
-  name: options3.name,
-  domain_data: options3.domainData,
-  stripe_customer_id: options3.stripeCustomerId,
-  external_id: options3.externalId,
-  metadata: options3.metadata
+var serializeUpdateOrganizationOptions = (options) => ({
+  name: options.name,
+  domain_data: options.domainData,
+  stripe_customer_id: options.stripeCustomerId,
+  external_id: options.externalId,
+  metadata: options.metadata
 });
 var deserializeConnection = (connection) => ({
   object: connection.object,
@@ -8972,14 +9177,14 @@ var deserializeConnection = (connection) => ({
   createdAt: connection.created_at,
   updatedAt: connection.updated_at
 });
-var serializeListConnectionsOptions = (options3) => ({
-  connection_type: options3.connectionType,
-  domain: options3.domain,
-  organization_id: options3.organizationId,
-  limit: options3.limit,
-  before: options3.before,
-  after: options3.after,
-  order: options3.order
+var serializeListConnectionsOptions = (options) => ({
+  connection_type: options.connectionType,
+  domain: options.domain,
+  organization_id: options.organizationId,
+  limit: options.limit,
+  before: options.before,
+  after: options.after,
+  order: options.order
 });
 var deserializeProfile = (profile) => ({
   id: profile.id,
@@ -9411,11 +9616,11 @@ var deserializeList = (list, deserializer) => ({
   data: list.data.map(deserializer),
   listMetadata: list.list_metadata
 });
-var serializePaginationOptions = (options3) => ({
-  ...options3.limit !== undefined && { limit: options3.limit },
-  ...options3.after && { after: options3.after },
-  ...options3.before && { before: options3.before },
-  ...options3.order && { order: options3.order }
+var serializePaginationOptions = (options) => ({
+  ...options.limit !== undefined && { limit: options.limit },
+  ...options.after && { after: options.after },
+  ...options.before && { before: options.before },
+  ...options.order && { order: options.order }
 });
 var Webhooks = class {
   signatureProvider;
@@ -9432,13 +9637,13 @@ var Webhooks = class {
     return this.signatureProvider.getTimestampAndSignatureHash.bind(this.signatureProvider);
   }
   async constructEvent({ payload, sigHeader, secret, tolerance = 180000 }) {
-    const options3 = {
+    const options = {
       payload,
       sigHeader,
       secret,
       tolerance
     };
-    await this.verifyHeader(options3);
+    await this.verifyHeader(options);
     return deserializeEvent(payload);
   }
 };
@@ -9486,10 +9691,10 @@ var ApiKeys = class {
 var AutoPaginatable = class {
   object = "list";
   options;
-  constructor(list, apiCall, options3) {
+  constructor(list, apiCall, options) {
     this.list = list;
     this.apiCall = apiCall;
-    this.options = options3 ?? {};
+    this.options = options ?? {};
   }
   get data() {
     return this.list.data;
@@ -9518,15 +9723,15 @@ var AutoPaginatable = class {
     return results;
   }
 };
-var setDefaultOptions = (options3) => {
+var setDefaultOptions = (options) => {
   return {
-    ...options3,
-    order: options3?.order || "desc"
+    ...options,
+    order: options?.order || "desc"
   };
 };
-var fetchAndDeserialize = async (workos, endpoint, deserializeFn, options3, requestOptions) => {
+var fetchAndDeserialize = async (workos, endpoint, deserializeFn, options, requestOptions) => {
   const { data } = await workos.get(endpoint, {
-    query: setDefaultOptions(options3),
+    query: setDefaultOptions(options),
     ...requestOptions
   });
   return deserializeList(data, deserializeFn);
@@ -9535,8 +9740,8 @@ var DirectorySync = class {
   constructor(workos) {
     this.workos = workos;
   }
-  async listDirectories(options3) {
-    return new AutoPaginatable(await fetchAndDeserialize(this.workos, "/directories", deserializeDirectory, options3 ? serializeListDirectoriesOptions(options3) : undefined), (params) => fetchAndDeserialize(this.workos, "/directories", deserializeDirectory, params), options3 ? serializeListDirectoriesOptions(options3) : undefined);
+  async listDirectories(options) {
+    return new AutoPaginatable(await fetchAndDeserialize(this.workos, "/directories", deserializeDirectory, options ? serializeListDirectoriesOptions(options) : undefined), (params) => fetchAndDeserialize(this.workos, "/directories", deserializeDirectory, params), options ? serializeListDirectoriesOptions(options) : undefined);
   }
   async getDirectory(id) {
     const { data } = await this.workos.get(`/directories/${id}`);
@@ -9545,11 +9750,11 @@ var DirectorySync = class {
   async deleteDirectory(id) {
     await this.workos.delete(`/directories/${id}`);
   }
-  async listGroups(options3) {
-    return new AutoPaginatable(await fetchAndDeserialize(this.workos, "/directory_groups", deserializeDirectoryGroup, options3), (params) => fetchAndDeserialize(this.workos, "/directory_groups", deserializeDirectoryGroup, params), options3);
+  async listGroups(options) {
+    return new AutoPaginatable(await fetchAndDeserialize(this.workos, "/directory_groups", deserializeDirectoryGroup, options), (params) => fetchAndDeserialize(this.workos, "/directory_groups", deserializeDirectoryGroup, params), options);
   }
-  async listUsers(options3) {
-    return new AutoPaginatable(await fetchAndDeserialize(this.workos, "/directory_users", deserializeDirectoryUserWithGroups, options3), (params) => fetchAndDeserialize(this.workos, "/directory_users", deserializeDirectoryUserWithGroups, params), options3);
+  async listUsers(options) {
+    return new AutoPaginatable(await fetchAndDeserialize(this.workos, "/directory_users", deserializeDirectoryUserWithGroups, options), (params) => fetchAndDeserialize(this.workos, "/directory_users", deserializeDirectoryUserWithGroups, params), options);
   }
   async getUser(user) {
     const { data } = await this.workos.get(`/directory_users/${user}`);
@@ -9560,21 +9765,21 @@ var DirectorySync = class {
     return deserializeDirectoryGroup(data);
   }
 };
-var serializeListEventOptions = (options3) => ({
-  events: options3.events,
-  organization_id: options3.organizationId,
-  range_start: options3.rangeStart,
-  range_end: options3.rangeEnd,
-  limit: options3.limit,
-  after: options3.after,
-  order: options3.order
+var serializeListEventOptions = (options) => ({
+  events: options.events,
+  organization_id: options.organizationId,
+  range_start: options.rangeStart,
+  range_end: options.rangeEnd,
+  limit: options.limit,
+  after: options.after,
+  order: options.order
 });
 var Events = class {
   constructor(workos) {
     this.workos = workos;
   }
-  async listEvents(options3) {
-    const { data } = await this.workos.get(`/events`, { query: options3 ? serializeListEventOptions(options3) : undefined });
+  async listEvents(options) {
+    const { data } = await this.workos.get(`/events`, { query: options ? serializeListEventOptions(options) : undefined });
     return deserializeList(data, deserializeEvent);
   }
 };
@@ -9590,10 +9795,10 @@ var deserializeRole = (role) => ({
   createdAt: role.created_at,
   updatedAt: role.updated_at
 });
-function serializeCreateOrganizationApiKeyOptions(options3) {
+function serializeCreateOrganizationApiKeyOptions(options) {
   return {
-    name: options3.name,
-    permissions: options3.permissions
+    name: options.name,
+    permissions: options.permissions
   };
 }
 function deserializeCreatedApiKey(apiKey) {
@@ -9614,8 +9819,8 @@ var Organizations = class {
   constructor(workos) {
     this.workos = workos;
   }
-  async listOrganizations(options3) {
-    return new AutoPaginatable(await fetchAndDeserialize(this.workos, "/organizations", deserializeOrganization, options3), (params) => fetchAndDeserialize(this.workos, "/organizations", deserializeOrganization, params), options3);
+  async listOrganizations(options) {
+    return new AutoPaginatable(await fetchAndDeserialize(this.workos, "/organizations", deserializeOrganization, options), (params) => fetchAndDeserialize(this.workos, "/organizations", deserializeOrganization, params), options);
   }
   async createOrganization(payload, requestOptions = {}) {
     const { data } = await this.workos.post("/organizations", serializeCreateOrganizationOptions(payload), requestOptions);
@@ -9632,36 +9837,36 @@ var Organizations = class {
     const { data } = await this.workos.get(`/organizations/external_id/${externalId}`);
     return deserializeOrganization(data);
   }
-  async updateOrganization(options3) {
-    const { organization: organizationId, ...payload } = options3;
+  async updateOrganization(options) {
+    const { organization: organizationId, ...payload } = options;
     const { data } = await this.workos.put(`/organizations/${organizationId}`, serializeUpdateOrganizationOptions(payload));
     return deserializeOrganization(data);
   }
-  async listOrganizationRoles(options3) {
-    const { organizationId } = options3;
+  async listOrganizationRoles(options) {
+    const { organizationId } = options;
     const { data: response } = await this.workos.get(`/organizations/${organizationId}/roles`);
     return {
       object: "list",
       data: response.data.map((role) => deserializeRole(role))
     };
   }
-  async listOrganizationFeatureFlags(options3) {
-    const { organizationId, ...paginationOptions } = options3;
+  async listOrganizationFeatureFlags(options) {
+    const { organizationId, ...paginationOptions } = options;
     return new AutoPaginatable(await fetchAndDeserialize(this.workos, `/organizations/${organizationId}/feature-flags`, deserializeFeatureFlag, paginationOptions), (params) => fetchAndDeserialize(this.workos, `/organizations/${organizationId}/feature-flags`, deserializeFeatureFlag, params), paginationOptions);
   }
-  async listOrganizationApiKeys(options3) {
-    const { organizationId, ...paginationOptions } = options3;
+  async listOrganizationApiKeys(options) {
+    const { organizationId, ...paginationOptions } = options;
     return new AutoPaginatable(await fetchAndDeserialize(this.workos, `/organizations/${organizationId}/api_keys`, deserializeApiKey, paginationOptions), (params) => fetchAndDeserialize(this.workos, `/organizations/${organizationId}/api_keys`, deserializeApiKey, params), paginationOptions);
   }
-  async createOrganizationApiKey(options3, requestOptions = {}) {
-    const { organizationId } = options3;
-    const { data } = await this.workos.post(`/organizations/${organizationId}/api_keys`, serializeCreateOrganizationApiKeyOptions(options3), requestOptions);
+  async createOrganizationApiKey(options, requestOptions = {}) {
+    const { organizationId } = options;
+    const { data } = await this.workos.post(`/organizations/${organizationId}/api_keys`, serializeCreateOrganizationApiKeyOptions(options), requestOptions);
     return deserializeCreatedApiKey(data);
   }
 };
-var serializeCreateOrganizationDomainOptions = (options3) => ({
-  domain: options3.domain,
-  organization_id: options3.organizationId
+var serializeCreateOrganizationDomainOptions = (options) => ({
+  domain: options.domain,
+  organization_id: options.organizationId
 });
 var OrganizationDomains = class {
   constructor(workos) {
@@ -9694,9 +9899,9 @@ var Passwordless = class {
   constructor(workos) {
     this.workos = workos;
   }
-  async createSession({ redirectURI, expiresIn, ...options3 }) {
+  async createSession({ redirectURI, expiresIn, ...options }) {
     const { data } = await this.workos.post("/passwordless/sessions", {
-      ...options3,
+      ...options,
       redirect_uri: redirectURI,
       expires_in: expiresIn
     });
@@ -9716,10 +9921,10 @@ function deserializeAccessToken(serialized) {
     missingScopes: serialized.missing_scopes
   };
 }
-function serializeGetAccessTokenOptions(options3) {
+function serializeGetAccessTokenOptions(options) {
   return {
-    user_id: options3.userId,
-    organization_id: options3.organizationId
+    user_id: options.userId,
+    organization_id: options.organizationId
   };
 }
 function deserializeGetAccessTokenResponse(response) {
@@ -9737,8 +9942,8 @@ var Pipes = class {
   constructor(workos) {
     this.workos = workos;
   }
-  async getAccessToken({ provider, ...options3 }) {
-    const { data } = await this.workos.post(`data-integrations/${provider}/token`, serializeGetAccessTokenOptions(options3));
+  async getAccessToken({ provider, ...options }) {
+    const { data } = await this.workos.post(`data-integrations/${provider}/token`, serializeGetAccessTokenOptions(options));
     return deserializeGetAccessTokenResponse(data);
   }
 };
@@ -9756,11 +9961,11 @@ var Portal = class {
     return data;
   }
 };
-function toQueryString(options3) {
+function toQueryString(options) {
   const params = [];
-  const sortedKeys = Object.keys(options3).sort((a, b) => a.localeCompare(b));
+  const sortedKeys = Object.keys(options).sort((a, b) => a.localeCompare(b));
   for (const key of sortedKeys) {
-    const value = options3[key];
+    const value = options[key];
     if (value === undefined)
       continue;
     if (Array.isArray(value))
@@ -9787,14 +9992,14 @@ var SSO = class {
   constructor(workos) {
     this.workos = workos;
   }
-  async listConnections(options3) {
-    return new AutoPaginatable(await fetchAndDeserialize(this.workos, "/connections", deserializeConnection, options3 ? serializeListConnectionsOptions(options3) : undefined), (params) => fetchAndDeserialize(this.workos, "/connections", deserializeConnection, params), options3 ? serializeListConnectionsOptions(options3) : undefined);
+  async listConnections(options) {
+    return new AutoPaginatable(await fetchAndDeserialize(this.workos, "/connections", deserializeConnection, options ? serializeListConnectionsOptions(options) : undefined), (params) => fetchAndDeserialize(this.workos, "/connections", deserializeConnection, params), options ? serializeListConnectionsOptions(options) : undefined);
   }
   async deleteConnection(id) {
     await this.workos.delete(`/connections/${id}`);
   }
-  getAuthorizationUrl(options3) {
-    const { codeChallenge, codeChallengeMethod, connection, clientId, domainHint, loginHint, organization, provider, providerQueryParams, providerScopes, redirectUri, state } = options3;
+  getAuthorizationUrl(options) {
+    const { codeChallenge, codeChallengeMethod, connection, clientId, domainHint, loginHint, organization, provider, providerQueryParams, providerScopes, redirectUri, state } = options;
     if (!provider && !connection && !organization)
       throw new TypeError(`Incomplete arguments. Need to specify either a 'connection', 'organization', or 'provider'.`);
     const query = toQueryString({
@@ -9814,8 +10019,8 @@ var SSO = class {
     });
     return `${this.workos.baseURL}/sso/authorize?${query}`;
   }
-  async getAuthorizationUrlWithPKCE(options3) {
-    const { connection, clientId, domainHint, loginHint, organization, provider, providerQueryParams, providerScopes, redirectUri } = options3;
+  async getAuthorizationUrlWithPKCE(options) {
+    const { connection, clientId, domainHint, loginHint, organization, provider, providerQueryParams, providerScopes, redirectUri } = options;
     if (!provider && !connection && !organization)
       throw new TypeError(`Incomplete arguments. Need to specify either a 'connection', 'organization', or 'provider'.`);
     const pkce = await this.workos.pkce.generate();
@@ -9912,17 +10117,17 @@ var Mfa = class {
     const { data } = await this.workos.get(`/auth/factors/${id}`);
     return deserializeFactor(data);
   }
-  async enrollFactor(options3) {
+  async enrollFactor(options) {
     const { data } = await this.workos.post("/auth/factors/enroll", {
-      type: options3.type,
+      type: options.type,
       ...(() => {
-        switch (options3.type) {
+        switch (options.type) {
           case "sms":
-            return { phone_number: options3.phoneNumber };
+            return { phone_number: options.phoneNumber };
           case "totp":
             return {
-              totp_issuer: options3.issuer,
-              totp_user: options3.user
+              totp_issuer: options.issuer,
+              totp_user: options.user
             };
           default:
             return {};
@@ -9931,12 +10136,12 @@ var Mfa = class {
     });
     return deserializeFactorWithSecrets(data);
   }
-  async challengeFactor(options3) {
-    const { data } = await this.workos.post(`/auth/factors/${options3.authenticationFactorId}/challenge`, { sms_template: "smsTemplate" in options3 ? options3.smsTemplate : undefined });
+  async challengeFactor(options) {
+    const { data } = await this.workos.post(`/auth/factors/${options.authenticationFactorId}/challenge`, { sms_template: "smsTemplate" in options ? options.smsTemplate : undefined });
     return deserializeChallenge(data);
   }
-  async verifyChallenge(options3) {
-    const { data } = await this.workos.post(`/auth/challenges/${options3.authenticationChallengeId}/verify`, { code: options3.code });
+  async verifyChallenge(options) {
+    const { data } = await this.workos.post(`/auth/challenges/${options.authenticationChallengeId}/verify`, { code: options.code });
     return deserializeVerifyResponse(data);
   }
 };
@@ -9948,14 +10153,14 @@ var deserializeAuditLogExport = (auditLogExport) => ({
   createdAt: auditLogExport.created_at,
   updatedAt: auditLogExport.updated_at
 });
-var serializeAuditLogExportOptions = (options3) => ({
-  actions: options3.actions,
-  actor_names: options3.actorNames,
-  actor_ids: options3.actorIds,
-  organization_id: options3.organizationId,
-  range_end: options3.rangeEnd.toISOString(),
-  range_start: options3.rangeStart.toISOString(),
-  targets: options3.targets
+var serializeAuditLogExportOptions = (options) => ({
+  actions: options.actions,
+  actor_names: options.actorNames,
+  actor_ids: options.actorIds,
+  organization_id: options.organizationId,
+  range_end: options.rangeEnd.toISOString(),
+  range_start: options.rangeStart.toISOString(),
+  targets: options.targets
 });
 var serializeCreateAuditLogEventOptions = (event) => ({
   action: event.action,
@@ -10024,26 +10229,26 @@ var AuditLogs = class {
   constructor(workos) {
     this.workos = workos;
   }
-  async createEvent(organization, event, options3 = {}) {
+  async createEvent(organization, event, options = {}) {
     const optionsWithIdempotency = {
-      ...options3,
-      idempotencyKey: options3.idempotencyKey || `workos-node-${globalThis.crypto.randomUUID()}`
+      ...options,
+      idempotencyKey: options.idempotencyKey || `workos-node-${globalThis.crypto.randomUUID()}`
     };
     await this.workos.post("/audit_logs/events", {
       event: serializeCreateAuditLogEventOptions(event),
       organization_id: organization
     }, optionsWithIdempotency);
   }
-  async createExport(options3) {
-    const { data } = await this.workos.post("/audit_logs/exports", serializeAuditLogExportOptions(options3));
+  async createExport(options) {
+    const { data } = await this.workos.post("/audit_logs/exports", serializeAuditLogExportOptions(options));
     return deserializeAuditLogExport(data);
   }
   async getExport(auditLogExportId) {
     const { data } = await this.workos.get(`/audit_logs/exports/${auditLogExportId}`);
     return deserializeAuditLogExport(data);
   }
-  async createSchema(schema2, options3 = {}) {
-    const { data } = await this.workos.post(`/audit_logs/actions/${schema2.action}/schemas`, serializeCreateAuditLogSchemaOptions(schema2), options3);
+  async createSchema(schema2, options = {}) {
+    const { data } = await this.workos.post(`/audit_logs/actions/${schema2.action}/schemas`, serializeCreateAuditLogSchemaOptions(schema2), options);
     return deserializeAuditLogSchema(data);
   }
 };
@@ -10197,14 +10402,14 @@ var macPrefix = "Fe26.2";
 function randomBits(bits) {
   return crypto.getRandomValues(new Uint8Array(bits / 8));
 }
-async function generateKey(password, options3) {
+async function generateKey(password, options) {
   if (!password || !password.length)
     throw Error("Empty password");
-  if (!options3 || typeof options3 != "object")
+  if (!options || typeof options != "object")
     throw Error("Bad options");
-  let algorithm = algorithms[options3.algorithm];
+  let algorithm = algorithms[options.algorithm];
   if (!algorithm)
-    throw Error("Unknown algorithm: " + options3.algorithm);
+    throw Error("Unknown algorithm: " + options.algorithm);
   let isHmac = algorithm.name === "SHA-256", id = isHmac ? {
     name: "HMAC",
     hash: algorithm.name,
@@ -10212,20 +10417,20 @@ async function generateKey(password, options3) {
   } : {
     name: algorithm.name,
     length: algorithm.keyBits
-  }, usages = isHmac ? ["sign", "verify"] : ["encrypt", "decrypt"], iv = options3.iv || (algorithm.ivBits ? randomBits(algorithm.ivBits) : undefined);
+  }, usages = isHmac ? ["sign", "verify"] : ["encrypt", "decrypt"], iv = options.iv || (algorithm.ivBits ? randomBits(algorithm.ivBits) : undefined);
   if (typeof password == "string") {
-    if (password.length < options3.minPasswordlength)
-      throw Error("Password string too short (min " + options3.minPasswordlength + " characters required)");
-    let salt = options3.salt;
+    if (password.length < options.minPasswordlength)
+      throw Error("Password string too short (min " + options.minPasswordlength + " characters required)");
+    let salt = options.salt;
     if (!salt) {
-      if (!options3.saltBits)
+      if (!options.saltBits)
         throw Error("Missing salt and saltBits options");
-      salt = u8ToHex(randomBits(options3.saltBits));
+      salt = u8ToHex(randomBits(options.saltBits));
     }
     let baseKey = await crypto.subtle.importKey("raw", enc.encode(password), "PBKDF2", false, ["deriveKey"]), algorithm$1 = {
       name: "PBKDF2",
       salt: enc.encode(salt),
-      iterations: options3.iterations,
+      iterations: options.iterations,
       hash: "SHA-1"
     };
     return {
@@ -10256,19 +10461,19 @@ function getEncryptParams(algorithm, key, data) {
     typeof data == "string" ? enc.encode(data) : data.slice()
   ];
 }
-async function encrypt2(password, options3, data) {
-  let key = await generateKey(password, options3), encrypted = await crypto.subtle.encrypt(...getEncryptParams(options3.algorithm, key, data));
+async function encrypt2(password, options, data) {
+  let key = await generateKey(password, options), encrypted = await crypto.subtle.encrypt(...getEncryptParams(options.algorithm, key, data));
   return {
     encrypted: new Uint8Array(encrypted),
     key
   };
 }
-async function decrypt2(password, options3, data) {
-  let key = await generateKey(password, options3), decrypted = await crypto.subtle.decrypt(...getEncryptParams(options3.algorithm, key, data));
+async function decrypt2(password, options, data) {
+  let key = await generateKey(password, options), decrypted = await crypto.subtle.decrypt(...getEncryptParams(options.algorithm, key, data));
   return dec.decode(decrypted);
 }
-async function hmacWithPassword(password, options3, data) {
-  let key = await generateKey(password, options3);
+async function hmacWithPassword(password, options, data) {
+  let key = await generateKey(password, options);
   return {
     digest: u8ToB64(await crypto.subtle.sign("HMAC", key.key, enc.encode(data))),
     salt: key.salt
@@ -10291,15 +10496,15 @@ function normalizePassword(password) {
     throw Error("Empty password");
   return normalized;
 }
-async function seal(object3, password, options3) {
-  let now = Date.now() + (options3.localtimeOffsetMsec || 0), { id = "", encryption, integrity } = normalizePassword(password);
+async function seal(object3, password, options) {
+  let now = Date.now() + (options.localtimeOffsetMsec || 0), { id = "", encryption, integrity } = normalizePassword(password);
   if (id && !/^\w+$/.test(id))
     throw Error("Invalid password id");
-  let { encrypted, key } = await encrypt2(encryption, options3.encryption, (options3.encode || losslessJsonStringify)(object3)), expiration = options3.ttl ? now + options3.ttl : "", macBaseString = macPrefix + "*" + id + "*" + key.salt + "*" + u8ToB64(key.iv) + "*" + u8ToB64(encrypted) + "*" + expiration, mac = await hmacWithPassword(integrity, options3.integrity, macBaseString);
+  let { encrypted, key } = await encrypt2(encryption, options.encryption, (options.encode || losslessJsonStringify)(object3)), expiration = options.ttl ? now + options.ttl : "", macBaseString = macPrefix + "*" + id + "*" + key.salt + "*" + u8ToB64(key.iv) + "*" + u8ToB64(encrypted) + "*" + expiration, mac = await hmacWithPassword(integrity, options.integrity, macBaseString);
   return macBaseString + "*" + mac.salt + "*" + mac.digest;
 }
-async function unseal(sealed, password, options3) {
-  let now = Date.now() + (options3.localtimeOffsetMsec || 0), parts = sealed.split("*");
+async function unseal(sealed, password, options) {
+  let now = Date.now() + (options.localtimeOffsetMsec || 0), parts = sealed.split("*");
   if (parts.length !== 8)
     throw Error("Incorrect number of sealed components");
   let [prefix, passwordId, encryptionSalt, ivB64, encryptedB64, expiration, hmacSalt, hmacDigestB64] = parts;
@@ -10308,7 +10513,7 @@ async function unseal(sealed, password, options3) {
   if (expiration) {
     if (!/^[1-9]\d*$/.test(expiration))
       throw Error("Invalid expiration");
-    if (Number.parseInt(expiration, 10) <= now - options3.timestampSkewSec * 1000)
+    if (Number.parseInt(expiration, 10) <= now - options.timestampSkewSec * 1000)
       throw Error("Expired seal");
   }
   let pass;
@@ -10321,17 +10526,17 @@ async function unseal(sealed, password, options3) {
   }
   pass = normalizePassword(pass);
   let key = await generateKey(pass.integrity, {
-    ...options3.integrity,
+    ...options.integrity,
     salt: hmacSalt
   }), macBaseString = prefix + "*" + passwordId + "*" + encryptionSalt + "*" + ivB64 + "*" + encryptedB64 + "*" + expiration;
   if (!await crypto.subtle.verify("HMAC", key.key, b64ToU8(hmacDigestB64), enc.encode(macBaseString)))
     throw Error("Bad hmac value");
   let decryptedString = await decrypt2(pass.encryption, {
-    ...options3.encryption,
+    ...options.encryption,
     salt: encryptionSalt,
     iv: b64ToU8(ivB64)
   }, b64ToU8(encryptedB64));
-  return (options3.decode || jsonParse)(decryptedString);
+  return (options.decode || jsonParse)(decryptedString);
 }
 var VERSION_DELIMITER = "~";
 var CURRENT_MAJOR_VERSION = 2;
@@ -10424,30 +10629,30 @@ var AuthenticateWithSessionCookieFailureReason = /* @__PURE__ */ function(Authen
   AuthenticateWithSessionCookieFailureReason2["NO_SESSION_COOKIE_PROVIDED"] = "no_session_cookie_provided";
   return AuthenticateWithSessionCookieFailureReason2;
 }({});
-var serializeRevokeSessionOptions = (options3) => ({ session_id: options3.sessionId });
-var serializeAuthenticateWithEmailVerificationOptions = (options3) => ({
+var serializeRevokeSessionOptions = (options) => ({ session_id: options.sessionId });
+var serializeAuthenticateWithEmailVerificationOptions = (options) => ({
   grant_type: "urn:workos:oauth:grant-type:email-verification:code",
-  client_id: options3.clientId,
-  client_secret: options3.clientSecret,
-  pending_authentication_token: options3.pendingAuthenticationToken,
-  code: options3.code,
-  ip_address: options3.ipAddress,
-  user_agent: options3.userAgent
+  client_id: options.clientId,
+  client_secret: options.clientSecret,
+  pending_authentication_token: options.pendingAuthenticationToken,
+  code: options.code,
+  ip_address: options.ipAddress,
+  user_agent: options.userAgent
 });
-var serializeAuthenticateWithOrganizationSelectionOptions = (options3) => ({
+var serializeAuthenticateWithOrganizationSelectionOptions = (options) => ({
   grant_type: "urn:workos:oauth:grant-type:organization-selection",
-  client_id: options3.clientId,
-  client_secret: options3.clientSecret,
-  pending_authentication_token: options3.pendingAuthenticationToken,
-  organization_id: options3.organizationId,
-  ip_address: options3.ipAddress,
-  user_agent: options3.userAgent
+  client_id: options.clientId,
+  client_secret: options.clientSecret,
+  pending_authentication_token: options.pendingAuthenticationToken,
+  organization_id: options.organizationId,
+  ip_address: options.ipAddress,
+  user_agent: options.userAgent
 });
-var serializeCreateOrganizationMembershipOptions = (options3) => ({
-  organization_id: options3.organizationId,
-  user_id: options3.userId,
-  role_slug: options3.roleSlug,
-  role_slugs: options3.roleSlugs
+var serializeCreateOrganizationMembershipOptions = (options) => ({
+  organization_id: options.organizationId,
+  user_id: options.userId,
+  role_slug: options.roleSlug,
+  role_slugs: options.roleSlugs
 });
 var deserializeIdentities = (identities) => {
   return identities.map((identity) => {
@@ -10458,32 +10663,32 @@ var deserializeIdentities = (identities) => {
     };
   });
 };
-var serializeListInvitationsOptions = (options3) => ({
-  email: options3.email,
-  organization_id: options3.organizationId,
-  limit: options3.limit,
-  before: options3.before,
-  after: options3.after,
-  order: options3.order
+var serializeListInvitationsOptions = (options) => ({
+  email: options.email,
+  organization_id: options.organizationId,
+  limit: options.limit,
+  before: options.before,
+  after: options.after,
+  order: options.order
 });
-var serializeListOrganizationMembershipsOptions = (options3) => ({
-  user_id: options3.userId,
-  organization_id: options3.organizationId,
-  statuses: options3.statuses?.join(","),
-  limit: options3.limit,
-  before: options3.before,
-  after: options3.after,
-  order: options3.order
+var serializeListOrganizationMembershipsOptions = (options) => ({
+  user_id: options.userId,
+  organization_id: options.organizationId,
+  statuses: options.statuses?.join(","),
+  limit: options.limit,
+  before: options.before,
+  after: options.after,
+  order: options.order
 });
-var serializeListUsersOptions = (options3) => ({
-  email: options3.email,
-  organization_id: options3.organizationId,
-  limit: options3.limit,
-  before: options3.before,
-  after: options3.after,
-  order: options3.order
+var serializeListUsersOptions = (options) => ({
+  email: options.email,
+  organization_id: options.organizationId,
+  limit: options.limit,
+  before: options.before,
+  after: options.after,
+  order: options.order
 });
-var serializeResendInvitationOptions = (options3) => ({ locale: options3.locale });
+var serializeResendInvitationOptions = (options) => ({ locale: options.locale });
 var RefreshSessionFailureReason = /* @__PURE__ */ function(RefreshSessionFailureReason2) {
   RefreshSessionFailureReason2["INVALID_SESSION_COOKIE"] = "invalid_session_cookie";
   RefreshSessionFailureReason2["NO_SESSION_COOKIE_PROVIDED"] = "no_session_cookie_provided";
@@ -10492,17 +10697,17 @@ var RefreshSessionFailureReason = /* @__PURE__ */ function(RefreshSessionFailure
   RefreshSessionFailureReason2["SSO_REQUIRED"] = "sso_required";
   return RefreshSessionFailureReason2;
 }({});
-var serializeSendInvitationOptions = (options3) => ({
-  email: options3.email,
-  organization_id: options3.organizationId,
-  expires_in_days: options3.expiresInDays,
-  inviter_user_id: options3.inviterUserId,
-  role_slug: options3.roleSlug,
-  locale: options3.locale
+var serializeSendInvitationOptions = (options) => ({
+  email: options.email,
+  organization_id: options.organizationId,
+  expires_in_days: options.expiresInDays,
+  inviter_user_id: options.inviterUserId,
+  role_slug: options.roleSlug,
+  locale: options.locale
 });
-var serializeUpdateOrganizationMembershipOptions = (options3) => ({
-  role_slug: options3.roleSlug,
-  role_slugs: options3.roleSlugs
+var serializeUpdateOrganizationMembershipOptions = (options) => ({
+  role_slug: options.roleSlug,
+  role_slugs: options.roleSlugs
 });
 var _josePromise;
 function getJose() {
@@ -10553,7 +10758,7 @@ var CookieSession = class {
       accessToken: session.accessToken
     };
   }
-  async refresh(options3 = {}) {
+  async refresh(options = {}) {
     const { decodeJwt: decodeJwt2 } = await getJose();
     const session = await unsealData(this.sessionData, { password: this.cookiePassword });
     if (!session.refreshToken || !session.user)
@@ -10563,18 +10768,18 @@ var CookieSession = class {
       };
     const { org_id: organizationIdFromAccessToken } = decodeJwt2(session.accessToken);
     try {
-      const cookiePassword = options3.cookiePassword ?? this.cookiePassword;
+      const cookiePassword = options.cookiePassword ?? this.cookiePassword;
       const authenticationResponse = await this.userManagement.authenticateWithRefreshToken({
         clientId: this.userManagement.clientId,
         refreshToken: session.refreshToken,
-        organizationId: options3.organizationId ?? organizationIdFromAccessToken,
+        organizationId: options.organizationId ?? organizationIdFromAccessToken,
         session: {
           sealSession: true,
           cookiePassword
         }
       });
-      if (options3.cookiePassword)
-        this.cookiePassword = options3.cookiePassword;
+      if (options.cookiePassword)
+        this.cookiePassword = options.cookiePassword;
       this.sessionData = authenticationResponse.sealedSession;
       const { sid: sessionId, org_id: organizationId, role, roles, permissions, entitlements, feature_flags: featureFlags } = decodeJwt2(authenticationResponse.accessToken);
       return {
@@ -10648,8 +10853,8 @@ var UserManagement = class {
     this._jwks ??= createRemoteJWKSet2(new URL(this.getJwksUrl(this.clientId)), { cooldownDuration: 300000 });
     return this._jwks;
   }
-  loadSealedSession(options3) {
-    return new CookieSession(this, options3.sessionData, options3.cookiePassword);
+  loadSealedSession(options) {
+    return new CookieSession(this, options.sessionData, options.cookiePassword);
   }
   async getUser(userId) {
     const { data } = await this.workos.get(`/user_management/users/${userId}`);
@@ -10659,8 +10864,8 @@ var UserManagement = class {
     const { data } = await this.workos.get(`/user_management/users/external_id/${externalId}`);
     return deserializeUser(data);
   }
-  async listUsers(options3) {
-    return new AutoPaginatable(await fetchAndDeserialize(this.workos, "/user_management/users", deserializeUser, options3 ? serializeListUsersOptions(options3) : undefined), (params) => fetchAndDeserialize(this.workos, "/user_management/users", deserializeUser, params), options3 ? serializeListUsersOptions(options3) : undefined);
+  async listUsers(options) {
+    return new AutoPaginatable(await fetchAndDeserialize(this.workos, "/user_management/users", deserializeUser, options ? serializeListUsersOptions(options) : undefined), (params) => fetchAndDeserialize(this.workos, "/user_management/users", deserializeUser, params), options ? serializeListUsersOptions(options) : undefined);
   }
   async createUser(payload) {
     const { data } = await this.workos.post("/user_management/users", serializeCreateUserOptions(payload));
@@ -10877,8 +11082,8 @@ var UserManagement = class {
     const { data } = await this.workos.get(`/user_management/magic_auth/${magicAuthId}`);
     return deserializeMagicAuth(data);
   }
-  async createMagicAuth(options3) {
-    const { data } = await this.workos.post("/user_management/magic_auth", serializeCreateMagicAuthOptions({ ...options3 }));
+  async createMagicAuth(options) {
+    const { data } = await this.workos.post("/user_management/magic_auth", serializeCreateMagicAuthOptions({ ...options }));
     return deserializeMagicAuth(data);
   }
   async verifyEmail({ code, userId }) {
@@ -10889,8 +11094,8 @@ var UserManagement = class {
     const { data } = await this.workos.get(`/user_management/password_reset/${passwordResetId}`);
     return deserializePasswordReset(data);
   }
-  async createPasswordReset(options3) {
-    const { data } = await this.workos.post("/user_management/password_reset", serializeCreatePasswordResetOptions({ ...options3 }));
+  async createPasswordReset(options) {
+    const { data } = await this.workos.post("/user_management/password_reset", serializeCreatePasswordResetOptions({ ...options }));
     return deserializePasswordReset(data);
   }
   async resetPassword(payload) {
@@ -10908,16 +11113,16 @@ var UserManagement = class {
       authenticationChallenge: deserializeChallenge(data.authentication_challenge)
     };
   }
-  async listAuthFactors(options3) {
-    const { userId, ...restOfOptions } = options3;
+  async listAuthFactors(options) {
+    const { userId, ...restOfOptions } = options;
     return new AutoPaginatable(await fetchAndDeserialize(this.workos, `/user_management/users/${userId}/auth_factors`, deserializeFactor$1, restOfOptions), (params) => fetchAndDeserialize(this.workos, `/user_management/users/${userId}/auth_factors`, deserializeFactor$1, params), restOfOptions);
   }
-  async listUserFeatureFlags(options3) {
-    const { userId, ...paginationOptions } = options3;
+  async listUserFeatureFlags(options) {
+    const { userId, ...paginationOptions } = options;
     return new AutoPaginatable(await fetchAndDeserialize(this.workos, `/user_management/users/${userId}/feature-flags`, deserializeFeatureFlag, paginationOptions), (params) => fetchAndDeserialize(this.workos, `/user_management/users/${userId}/feature-flags`, deserializeFeatureFlag, params), paginationOptions);
   }
-  async listSessions(userId, options3) {
-    return new AutoPaginatable(await fetchAndDeserialize(this.workos, `/user_management/users/${userId}/sessions`, deserializeSession, options3 ? serializeListSessionsOptions(options3) : undefined), (params) => fetchAndDeserialize(this.workos, `/user_management/users/${userId}/sessions`, deserializeSession, params), options3 ? serializeListSessionsOptions(options3) : undefined);
+  async listSessions(userId, options) {
+    return new AutoPaginatable(await fetchAndDeserialize(this.workos, `/user_management/users/${userId}/sessions`, deserializeSession, options ? serializeListSessionsOptions(options) : undefined), (params) => fetchAndDeserialize(this.workos, `/user_management/users/${userId}/sessions`, deserializeSession, params), options ? serializeListSessionsOptions(options) : undefined);
   }
   async deleteUser(userId) {
     await this.workos.delete(`/user_management/users/${userId}`);
@@ -10932,16 +11137,16 @@ var UserManagement = class {
     const { data } = await this.workos.get(`/user_management/organization_memberships/${organizationMembershipId}`);
     return deserializeOrganizationMembership(data);
   }
-  async listOrganizationMemberships(options3) {
-    const serializedOptions = serializeListOrganizationMembershipsOptions(options3);
+  async listOrganizationMemberships(options) {
+    const serializedOptions = serializeListOrganizationMembershipsOptions(options);
     return new AutoPaginatable(await fetchAndDeserialize(this.workos, "/user_management/organization_memberships", deserializeOrganizationMembership, serializedOptions), (params) => fetchAndDeserialize(this.workos, "/user_management/organization_memberships", deserializeOrganizationMembership, params), serializedOptions);
   }
-  async createOrganizationMembership(options3) {
-    const { data } = await this.workos.post("/user_management/organization_memberships", serializeCreateOrganizationMembershipOptions(options3));
+  async createOrganizationMembership(options) {
+    const { data } = await this.workos.post("/user_management/organization_memberships", serializeCreateOrganizationMembershipOptions(options));
     return deserializeOrganizationMembership(data);
   }
-  async updateOrganizationMembership(organizationMembershipId, options3) {
-    const { data } = await this.workos.put(`/user_management/organization_memberships/${organizationMembershipId}`, serializeUpdateOrganizationMembershipOptions(options3));
+  async updateOrganizationMembership(organizationMembershipId, options) {
+    const { data } = await this.workos.put(`/user_management/organization_memberships/${organizationMembershipId}`, serializeUpdateOrganizationMembershipOptions(options));
     return deserializeOrganizationMembership(data);
   }
   async deleteOrganizationMembership(organizationMembershipId) {
@@ -10963,8 +11168,8 @@ var UserManagement = class {
     const { data } = await this.workos.get(`/user_management/invitations/by_token/${invitationToken}`);
     return deserializeInvitation(data);
   }
-  async listInvitations(options3) {
-    return new AutoPaginatable(await fetchAndDeserialize(this.workos, "/user_management/invitations", deserializeInvitation, options3 ? serializeListInvitationsOptions(options3) : undefined), (params) => fetchAndDeserialize(this.workos, "/user_management/invitations", deserializeInvitation, params), options3 ? serializeListInvitationsOptions(options3) : undefined);
+  async listInvitations(options) {
+    return new AutoPaginatable(await fetchAndDeserialize(this.workos, "/user_management/invitations", deserializeInvitation, options ? serializeListInvitationsOptions(options) : undefined), (params) => fetchAndDeserialize(this.workos, "/user_management/invitations", deserializeInvitation, params), options ? serializeListInvitationsOptions(options) : undefined);
   }
   async sendInvitation(payload) {
     const { data } = await this.workos.post("/user_management/invitations", serializeSendInvitationOptions({ ...payload }));
@@ -10978,15 +11183,15 @@ var UserManagement = class {
     const { data } = await this.workos.post(`/user_management/invitations/${invitationId}/revoke`, null);
     return deserializeInvitation(data);
   }
-  async resendInvitation(invitationId, options3) {
-    const { data } = await this.workos.post(`/user_management/invitations/${invitationId}/resend`, options3 ? serializeResendInvitationOptions(options3) : {});
+  async resendInvitation(invitationId, options) {
+    const { data } = await this.workos.post(`/user_management/invitations/${invitationId}/resend`, options ? serializeResendInvitationOptions(options) : {});
     return deserializeInvitation(data);
   }
   async revokeSession(payload) {
     await this.workos.post("/user_management/sessions/revoke", serializeRevokeSessionOptions(payload));
   }
-  getAuthorizationUrl(options3) {
-    const { claimNonce, connectionId, codeChallenge, codeChallengeMethod, clientId, domainHint, loginHint, organizationId, provider, providerQueryParams, providerScopes, prompt, redirectUri, state, screenHint } = options3;
+  getAuthorizationUrl(options) {
+    const { claimNonce, connectionId, codeChallenge, codeChallengeMethod, clientId, domainHint, loginHint, organizationId, provider, providerQueryParams, providerScopes, prompt, redirectUri, state, screenHint } = options;
     const resolvedClientId = this.resolveClientId(clientId);
     if (!provider && !connectionId && !organizationId)
       throw new TypeError(`Incomplete arguments. Need to specify either a 'connectionId', 'organizationId', or 'provider'.`);
@@ -11012,8 +11217,8 @@ var UserManagement = class {
     });
     return `${this.workos.baseURL}/user_management/authorize?${query}`;
   }
-  async getAuthorizationUrlWithPKCE(options3) {
-    const { clientId, connectionId, domainHint, loginHint, organizationId, provider, providerQueryParams, providerScopes, prompt, redirectUri, screenHint } = options3;
+  async getAuthorizationUrlWithPKCE(options) {
+    const { clientId, connectionId, domainHint, loginHint, organizationId, provider, providerQueryParams, providerScopes, prompt, redirectUri, screenHint } = options;
     const resolvedClientId = this.resolveClientId(clientId);
     if (!provider && !connectionId && !organizationId)
       throw new TypeError(`Incomplete arguments. Need to specify either a 'connectionId', 'organizationId', or 'provider'.`);
@@ -11044,8 +11249,8 @@ var UserManagement = class {
       codeVerifier: pkce.codeVerifier
     };
   }
-  getLogoutUrl(options3) {
-    const { sessionId, returnTo } = options3;
+  getLogoutUrl(options) {
+    const { sessionId, returnTo } = options;
     if (!sessionId)
       throw new TypeError(`Incomplete arguments. Need to specify 'sessionId'.`);
     const url = new URL("/user_management/sessions/logout", this.workos.baseURL);
@@ -11066,15 +11271,15 @@ function isSubject(resource) {
 function isResourceInterface(resource) {
   return !!resource && typeof resource === "object" && "getResouceType" in resource && "getResourceId" in resource;
 }
-var serializeCheckOptions = (options3) => ({
-  op: options3.op,
-  checks: options3.checks.map(serializeCheckWarrantOptions),
-  debug: options3.debug
+var serializeCheckOptions = (options) => ({
+  op: options.op,
+  checks: options.checks.map(serializeCheckWarrantOptions),
+  debug: options.debug
 });
-var serializeCheckBatchOptions = (options3) => ({
+var serializeCheckBatchOptions = (options) => ({
   op: "batch",
-  checks: options3.checks.map(serializeCheckWarrantOptions),
-  debug: options3.debug
+  checks: options.checks.map(serializeCheckWarrantOptions),
+  debug: options.debug
 });
 var serializeCheckWarrantOptions = (warrant) => {
   return {
@@ -11137,51 +11342,51 @@ var ResourceOp = /* @__PURE__ */ function(ResourceOp2) {
   ResourceOp2["Delete"] = "delete";
   return ResourceOp2;
 }({});
-var serializeCreateResourceOptions$1 = (options3) => ({
-  resource_type: isResourceInterface(options3.resource) ? options3.resource.getResourceType() : options3.resource.resourceType,
-  resource_id: isResourceInterface(options3.resource) ? options3.resource.getResourceId() : options3.resource.resourceId ? options3.resource.resourceId : "",
-  meta: options3.meta
+var serializeCreateResourceOptions$1 = (options) => ({
+  resource_type: isResourceInterface(options.resource) ? options.resource.getResourceType() : options.resource.resourceType,
+  resource_id: isResourceInterface(options.resource) ? options.resource.getResourceId() : options.resource.resourceId ? options.resource.resourceId : "",
+  meta: options.meta
 });
-var serializeDeleteResourceOptions = (options3) => ({
-  resource_type: isResourceInterface(options3) ? options3.getResourceType() : options3.resourceType,
-  resource_id: isResourceInterface(options3) ? options3.getResourceId() : options3.resourceId ? options3.resourceId : ""
+var serializeDeleteResourceOptions = (options) => ({
+  resource_type: isResourceInterface(options) ? options.getResourceType() : options.resourceType,
+  resource_id: isResourceInterface(options) ? options.getResourceId() : options.resourceId ? options.resourceId : ""
 });
-var serializeBatchWriteResourcesOptions = (options3) => {
+var serializeBatchWriteResourcesOptions = (options) => {
   let serializedResources = [];
-  if (options3.op === ResourceOp.Create)
-    serializedResources = options3.resources.map((options4) => serializeCreateResourceOptions$1(options4));
-  else if (options3.op === ResourceOp.Delete)
-    serializedResources = options3.resources.map((options4) => serializeDeleteResourceOptions(options4));
+  if (options.op === ResourceOp.Create)
+    serializedResources = options.resources.map((options2) => serializeCreateResourceOptions$1(options2));
+  else if (options.op === ResourceOp.Delete)
+    serializedResources = options.resources.map((options2) => serializeDeleteResourceOptions(options2));
   return {
-    op: options3.op,
+    op: options.op,
     resources: serializedResources
   };
 };
-var serializeListResourceOptions = (options3) => ({
-  resource_type: options3.resourceType,
-  search: options3.search,
-  limit: options3.limit,
-  before: options3.before,
-  after: options3.after,
-  order: options3.order
+var serializeListResourceOptions = (options) => ({
+  resource_type: options.resourceType,
+  search: options.search,
+  limit: options.limit,
+  before: options.before,
+  after: options.after,
+  order: options.order
 });
-var serializeListWarrantsOptions = (options3) => ({
-  resource_type: options3.resourceType,
-  resource_id: options3.resourceId,
-  relation: options3.relation,
-  subject_type: options3.subjectType,
-  subject_id: options3.subjectId,
-  subject_relation: options3.subjectRelation,
-  limit: options3.limit,
-  after: options3.after
+var serializeListWarrantsOptions = (options) => ({
+  resource_type: options.resourceType,
+  resource_id: options.resourceId,
+  relation: options.relation,
+  subject_type: options.subjectType,
+  subject_id: options.subjectId,
+  subject_relation: options.subjectRelation,
+  limit: options.limit,
+  after: options.after
 });
-var serializeQueryOptions = (options3) => ({
-  q: options3.q,
-  context: JSON.stringify(options3.context),
-  limit: options3.limit,
-  before: options3.before,
-  after: options3.after,
-  order: options3.order
+var serializeQueryOptions = (options) => ({
+  q: options.q,
+  context: JSON.stringify(options.context),
+  limit: options.limit,
+  before: options.before,
+  after: options.after,
+  order: options.order
 });
 var deserializeQueryResult = (queryResult) => ({
   resourceType: queryResult.resource_type,
@@ -11242,17 +11447,17 @@ var deserializeFGAList = (response, deserializeFn) => ({
 });
 var FgaPaginatable = class extends AutoPaginatable {
   list;
-  constructor(list, apiCall, options3) {
-    super(list, apiCall, options3);
+  constructor(list, apiCall, options) {
+    super(list, apiCall, options);
     this.list = list;
   }
   get warnings() {
     return this.list.warnings;
   }
 };
-var fetchAndDeserializeFGAList = async (workos, endpoint, deserializeFn, options3, requestOptions) => {
+var fetchAndDeserializeFGAList = async (workos, endpoint, deserializeFn, options, requestOptions) => {
   const { data: response } = await workos.get(endpoint, {
-    query: options3,
+    query: options,
     ...requestOptions
   });
   return deserializeFGAList(response, deserializeFn);
@@ -11261,12 +11466,12 @@ var FGA = class {
   constructor(workos) {
     this.workos = workos;
   }
-  async check(checkOptions, options3 = {}) {
-    const { data } = await this.workos.post(`/fga/v1/check`, serializeCheckOptions(checkOptions), options3);
+  async check(checkOptions, options = {}) {
+    const { data } = await this.workos.post(`/fga/v1/check`, serializeCheckOptions(checkOptions), options);
     return new CheckResult(data);
   }
-  async checkBatch(checkOptions, options3 = {}) {
-    const { data } = await this.workos.post(`/fga/v1/check`, serializeCheckBatchOptions(checkOptions), options3);
+  async checkBatch(checkOptions, options = {}) {
+    const { data } = await this.workos.post(`/fga/v1/check`, serializeCheckBatchOptions(checkOptions), options);
     return data.map((checkResult) => new CheckResult(checkResult));
   }
   async createResource(resource) {
@@ -11279,13 +11484,13 @@ var FGA = class {
     const { data } = await this.workos.get(`/fga/v1/resources/${resourceType}/${resourceId}`);
     return deserializeResource(data);
   }
-  async listResources(options3) {
-    return new AutoPaginatable(await fetchAndDeserialize(this.workos, "/fga/v1/resources", deserializeResource, options3 ? serializeListResourceOptions(options3) : undefined), (params) => fetchAndDeserialize(this.workos, "/fga/v1/resources", deserializeResource, params), options3 ? serializeListResourceOptions(options3) : undefined);
+  async listResources(options) {
+    return new AutoPaginatable(await fetchAndDeserialize(this.workos, "/fga/v1/resources", deserializeResource, options ? serializeListResourceOptions(options) : undefined), (params) => fetchAndDeserialize(this.workos, "/fga/v1/resources", deserializeResource, params), options ? serializeListResourceOptions(options) : undefined);
   }
-  async updateResource(options3) {
-    const resourceType = isResourceInterface(options3.resource) ? options3.resource.getResourceType() : options3.resource.resourceType;
-    const resourceId = isResourceInterface(options3.resource) ? options3.resource.getResourceId() : options3.resource.resourceId;
-    const { data } = await this.workos.put(`/fga/v1/resources/${resourceType}/${resourceId}`, { meta: options3.meta });
+  async updateResource(options) {
+    const resourceType = isResourceInterface(options.resource) ? options.resource.getResourceType() : options.resource.resourceType;
+    const resourceId = isResourceInterface(options.resource) ? options.resource.getResourceId() : options.resource.resourceId;
+    const { data } = await this.workos.put(`/fga/v1/resources/${resourceType}/${resourceId}`, { meta: options.meta });
     return deserializeResource(data);
   }
   async deleteResource(resource) {
@@ -11293,23 +11498,23 @@ var FGA = class {
     const resourceId = isResourceInterface(resource) ? resource.getResourceId() : resource.resourceId;
     await this.workos.delete(`/fga/v1/resources/${resourceType}/${resourceId}`);
   }
-  async batchWriteResources(options3) {
-    const { data } = await this.workos.post("/fga/v1/resources/batch", serializeBatchWriteResourcesOptions(options3));
+  async batchWriteResources(options) {
+    const { data } = await this.workos.post("/fga/v1/resources/batch", serializeBatchWriteResourcesOptions(options));
     return deserializeBatchWriteResourcesResponse(data);
   }
-  async writeWarrant(options3) {
-    const { data } = await this.workos.post("/fga/v1/warrants", serializeWriteWarrantOptions(options3));
+  async writeWarrant(options) {
+    const { data } = await this.workos.post("/fga/v1/warrants", serializeWriteWarrantOptions(options));
     return deserializeWarrantToken(data);
   }
-  async batchWriteWarrants(options3) {
-    const { data: warrantToken } = await this.workos.post("/fga/v1/warrants", options3.map(serializeWriteWarrantOptions));
+  async batchWriteWarrants(options) {
+    const { data: warrantToken } = await this.workos.post("/fga/v1/warrants", options.map(serializeWriteWarrantOptions));
     return deserializeWarrantToken(warrantToken);
   }
-  async listWarrants(options3, requestOptions) {
-    return new AutoPaginatable(await fetchAndDeserialize(this.workos, "/fga/v1/warrants", deserializeWarrant, options3 ? serializeListWarrantsOptions(options3) : undefined, requestOptions), (params) => fetchAndDeserialize(this.workos, "/fga/v1/warrants", deserializeWarrant, params, requestOptions), options3 ? serializeListWarrantsOptions(options3) : undefined);
+  async listWarrants(options, requestOptions) {
+    return new AutoPaginatable(await fetchAndDeserialize(this.workos, "/fga/v1/warrants", deserializeWarrant, options ? serializeListWarrantsOptions(options) : undefined, requestOptions), (params) => fetchAndDeserialize(this.workos, "/fga/v1/warrants", deserializeWarrant, params, requestOptions), options ? serializeListWarrantsOptions(options) : undefined);
   }
-  async query(options3, requestOptions = {}) {
-    return new FgaPaginatable(await fetchAndDeserializeFGAList(this.workos, "/fga/v1/query", deserializeQueryResult, serializeQueryOptions(options3), requestOptions), (params) => fetchAndDeserializeFGAList(this.workos, "/fga/v1/query", deserializeQueryResult, params, requestOptions), serializeQueryOptions(options3));
+  async query(options, requestOptions = {}) {
+    return new FgaPaginatable(await fetchAndDeserializeFGAList(this.workos, "/fga/v1/query", deserializeQueryResult, serializeQueryOptions(options), requestOptions), (params) => fetchAndDeserializeFGAList(this.workos, "/fga/v1/query", deserializeQueryResult, params, requestOptions), serializeQueryOptions(options));
   }
 };
 var InMemoryStore = class {
@@ -11387,12 +11592,12 @@ var FeatureFlagsRuntimeClient = class extends import__.default {
     cacheAge: null,
     flagCount: 0
   };
-  constructor(workos, options3 = {}) {
+  constructor(workos, options = {}) {
     super();
     this.workos = workos;
-    this.pollingIntervalMs = Math.max(MIN_POLLING_INTERVAL_MS, options3.pollingIntervalMs ?? DEFAULT_POLLING_INTERVAL_MS);
-    this.requestTimeoutMs = options3.requestTimeoutMs ?? DEFAULT_REQUEST_TIMEOUT_MS;
-    this.logger = options3.logger;
+    this.pollingIntervalMs = Math.max(MIN_POLLING_INTERVAL_MS, options.pollingIntervalMs ?? DEFAULT_POLLING_INTERVAL_MS);
+    this.requestTimeoutMs = options.requestTimeoutMs ?? DEFAULT_REQUEST_TIMEOUT_MS;
+    this.logger = options.logger;
     this.store = new InMemoryStore;
     this.evaluator = new Evaluator(this.store);
     this.readyPromise = new Promise((resolve, reject) => {
@@ -11400,19 +11605,19 @@ var FeatureFlagsRuntimeClient = class extends import__.default {
       this.readyReject = reject;
     });
     this.readyPromise.catch(() => {});
-    if (options3.bootstrapFlags) {
-      this.store.swap(options3.bootstrapFlags);
+    if (options.bootstrapFlags) {
+      this.store.swap(options.bootstrapFlags);
       this.stats.flagCount = this.store.size;
       this.resolveReady();
     }
     setTimeout(() => this.poll(), 0);
   }
-  async waitUntilReady(options3) {
-    if (!options3?.timeoutMs)
+  async waitUntilReady(options) {
+    if (!options?.timeoutMs)
       return this.readyPromise;
     let timeoutId;
     const timeoutPromise = new Promise((_, reject) => {
-      timeoutId = setTimeout(() => reject(/* @__PURE__ */ new Error("waitUntilReady timed out")), options3.timeoutMs);
+      timeoutId = setTimeout(() => reject(/* @__PURE__ */ new Error("waitUntilReady timed out")), options.timeoutMs);
     });
     timeoutPromise.catch(() => {});
     return Promise.race([this.readyPromise, timeoutPromise]).finally(() => {
@@ -11560,8 +11765,8 @@ var FeatureFlags = class {
   constructor(workos) {
     this.workos = workos;
   }
-  async listFeatureFlags(options3) {
-    return new AutoPaginatable(await fetchAndDeserialize(this.workos, "/feature-flags", deserializeFeatureFlag, options3), (params) => fetchAndDeserialize(this.workos, "/feature-flags", deserializeFeatureFlag, params), options3);
+  async listFeatureFlags(options) {
+    return new AutoPaginatable(await fetchAndDeserialize(this.workos, "/feature-flags", deserializeFeatureFlag, options), (params) => fetchAndDeserialize(this.workos, "/feature-flags", deserializeFeatureFlag, params), options);
   }
   async getFeatureFlag(slug) {
     const { data } = await this.workos.get(`/feature-flags/${slug}`);
@@ -11575,22 +11780,22 @@ var FeatureFlags = class {
     const { data } = await this.workos.put(`/feature-flags/${slug}/disable`, {});
     return deserializeFeatureFlag(data);
   }
-  async addFlagTarget(options3) {
-    const { slug, targetId } = options3;
+  async addFlagTarget(options) {
+    const { slug, targetId } = options;
     await this.workos.post(`/feature-flags/${slug}/targets/${targetId}`, {});
   }
-  async removeFlagTarget(options3) {
-    const { slug, targetId } = options3;
+  async removeFlagTarget(options) {
+    const { slug, targetId } = options;
     await this.workos.delete(`/feature-flags/${slug}/targets/${targetId}`);
   }
-  createRuntimeClient(options3) {
-    return new FeatureFlagsRuntimeClient(this.workos, options3);
+  createRuntimeClient(options) {
+    return new FeatureFlagsRuntimeClient(this.workos, options);
   }
 };
-var serializeGetTokenOptions = (options3) => ({
-  organization_id: options3.organizationId,
-  user_id: options3.userId,
-  scopes: options3.scopes
+var serializeGetTokenOptions = (options) => ({
+  organization_id: options.organizationId,
+  user_id: options.userId,
+  scopes: options.scopes
 });
 var deserializeGetTokenResponse = (data) => ({ token: data.token });
 var Widgets = class {
@@ -11614,35 +11819,35 @@ var deserializeEnvironmentRole = (role) => ({
   createdAt: role.created_at,
   updatedAt: role.updated_at
 });
-var serializeCreateEnvironmentRoleOptions = (options3) => ({
-  slug: options3.slug,
-  name: options3.name,
-  description: options3.description,
-  resource_type_slug: options3.resourceTypeSlug
+var serializeCreateEnvironmentRoleOptions = (options) => ({
+  slug: options.slug,
+  name: options.name,
+  description: options.description,
+  resource_type_slug: options.resourceTypeSlug
 });
-var serializeUpdateEnvironmentRoleOptions = (options3) => ({
-  name: options3.name,
-  description: options3.description
+var serializeUpdateEnvironmentRoleOptions = (options) => ({
+  name: options.name,
+  description: options.description
 });
-var serializeCreateOrganizationRoleOptions = (options3) => ({
-  slug: options3.slug,
-  name: options3.name,
-  description: options3.description,
-  resource_type_slug: options3.resourceTypeSlug
+var serializeCreateOrganizationRoleOptions = (options) => ({
+  slug: options.slug,
+  name: options.name,
+  description: options.description,
+  resource_type_slug: options.resourceTypeSlug
 });
-var serializeUpdateOrganizationRoleOptions = (options3) => ({
-  name: options3.name,
-  description: options3.description
+var serializeUpdateOrganizationRoleOptions = (options) => ({
+  name: options.name,
+  description: options.description
 });
-var serializeCreatePermissionOptions = (options3) => ({
-  slug: options3.slug,
-  name: options3.name,
-  description: options3.description,
-  resource_type_slug: options3.resourceTypeSlug
+var serializeCreatePermissionOptions = (options) => ({
+  slug: options.slug,
+  name: options.name,
+  description: options.description,
+  resource_type_slug: options.resourceTypeSlug
 });
-var serializeUpdatePermissionOptions = (options3) => ({
-  name: options3.name,
-  description: options3.description
+var serializeUpdatePermissionOptions = (options) => ({
+  name: options.name,
+  description: options.description
 });
 var deserializeAuthorizationResource = (resource) => ({
   object: resource.object,
@@ -11656,56 +11861,56 @@ var deserializeAuthorizationResource = (resource) => ({
   createdAt: resource.created_at,
   updatedAt: resource.updated_at
 });
-var serializeCreateResourceOptions = (options3) => ({
-  organization_id: options3.organizationId,
-  resource_type_slug: options3.resourceTypeSlug,
-  external_id: options3.externalId,
-  name: options3.name,
-  ...options3.description !== undefined && { description: options3.description },
-  ..."parentResourceId" in options3 && { parent_resource_id: options3.parentResourceId },
-  ..."parentResourceExternalId" in options3 && {
-    parent_resource_external_id: options3.parentResourceExternalId,
-    parent_resource_type_slug: options3.parentResourceTypeSlug
+var serializeCreateResourceOptions = (options) => ({
+  organization_id: options.organizationId,
+  resource_type_slug: options.resourceTypeSlug,
+  external_id: options.externalId,
+  name: options.name,
+  ...options.description !== undefined && { description: options.description },
+  ..."parentResourceId" in options && { parent_resource_id: options.parentResourceId },
+  ..."parentResourceExternalId" in options && {
+    parent_resource_external_id: options.parentResourceExternalId,
+    parent_resource_type_slug: options.parentResourceTypeSlug
   }
 });
-var serializeUpdateResourceOptions = (options3) => ({
-  ...options3.name !== undefined && { name: options3.name },
-  ...options3.description !== undefined && { description: options3.description }
+var serializeUpdateResourceOptions = (options) => ({
+  ...options.name !== undefined && { name: options.name },
+  ...options.description !== undefined && { description: options.description }
 });
-var serializeUpdateResourceByExternalIdOptions = (options3) => ({
-  ...options3.name !== undefined && { name: options3.name },
-  ...options3.description !== undefined && { description: options3.description }
+var serializeUpdateResourceByExternalIdOptions = (options) => ({
+  ...options.name !== undefined && { name: options.name },
+  ...options.description !== undefined && { description: options.description }
 });
-var serializeListAuthorizationResourcesOptions = (options3) => ({
-  ...options3.organizationId && { organization_id: options3.organizationId },
-  ...options3.resourceTypeSlug && { resource_type_slug: options3.resourceTypeSlug },
-  ...options3.parentResourceId && { parent_resource_id: options3.parentResourceId },
-  ...options3.parentResourceTypeSlug && { parent_resource_type_slug: options3.parentResourceTypeSlug },
-  ...options3.parentExternalId && { parent_external_id: options3.parentExternalId },
-  ...options3.search && { search: options3.search },
-  ...serializePaginationOptions(options3)
+var serializeListAuthorizationResourcesOptions = (options) => ({
+  ...options.organizationId && { organization_id: options.organizationId },
+  ...options.resourceTypeSlug && { resource_type_slug: options.resourceTypeSlug },
+  ...options.parentResourceId && { parent_resource_id: options.parentResourceId },
+  ...options.parentResourceTypeSlug && { parent_resource_type_slug: options.parentResourceTypeSlug },
+  ...options.parentExternalId && { parent_external_id: options.parentExternalId },
+  ...options.search && { search: options.search },
+  ...serializePaginationOptions(options)
 });
-var serializeAuthorizationCheckOptions = (options3) => ({
-  permission_slug: options3.permissionSlug,
-  ..."resourceId" in options3 && { resource_id: options3.resourceId },
-  ..."resourceExternalId" in options3 && {
-    resource_external_id: options3.resourceExternalId,
-    resource_type_slug: options3.resourceTypeSlug
+var serializeAuthorizationCheckOptions = (options) => ({
+  permission_slug: options.permissionSlug,
+  ..."resourceId" in options && { resource_id: options.resourceId },
+  ..."resourceExternalId" in options && {
+    resource_external_id: options.resourceExternalId,
+    resource_type_slug: options.resourceTypeSlug
   }
 });
-var serializeListResourcesForMembershipOptions = (options3) => ({
-  permission_slug: options3.permissionSlug,
-  ...serializePaginationOptions(options3),
-  ..."parentResourceId" in options3 && { parent_resource_id: options3.parentResourceId },
-  ..."parentResourceExternalId" in options3 && {
-    parent_resource_type_slug: options3.parentResourceTypeSlug,
-    parent_resource_external_id: options3.parentResourceExternalId
+var serializeListResourcesForMembershipOptions = (options) => ({
+  permission_slug: options.permissionSlug,
+  ...serializePaginationOptions(options),
+  ..."parentResourceId" in options && { parent_resource_id: options.parentResourceId },
+  ..."parentResourceExternalId" in options && {
+    parent_resource_type_slug: options.parentResourceTypeSlug,
+    parent_resource_external_id: options.parentResourceExternalId
   }
 });
-var serializeListMembershipsForResourceOptions = (options3) => ({
-  permission_slug: options3.permissionSlug,
-  ...options3.assignment && { assignment: options3.assignment },
-  ...serializePaginationOptions(options3)
+var serializeListMembershipsForResourceOptions = (options) => ({
+  permission_slug: options.permissionSlug,
+  ...options.assignment && { assignment: options.assignment },
+  ...serializePaginationOptions(options)
 });
 var deserializeRoleAssignment = (response) => ({
   object: response.object,
@@ -11719,28 +11924,28 @@ var deserializeRoleAssignment = (response) => ({
   createdAt: response.created_at,
   updatedAt: response.updated_at
 });
-var serializeAssignRoleOptions = (options3) => ({
-  role_slug: options3.roleSlug,
-  ..."resourceId" in options3 && { resource_id: options3.resourceId },
-  ..."resourceExternalId" in options3 && {
-    resource_external_id: options3.resourceExternalId,
-    resource_type_slug: options3.resourceTypeSlug
+var serializeAssignRoleOptions = (options) => ({
+  role_slug: options.roleSlug,
+  ..."resourceId" in options && { resource_id: options.resourceId },
+  ..."resourceExternalId" in options && {
+    resource_external_id: options.resourceExternalId,
+    resource_type_slug: options.resourceTypeSlug
   }
 });
-var serializeRemoveRoleOptions = (options3) => ({
-  role_slug: options3.roleSlug,
-  ..."resourceId" in options3 && { resource_id: options3.resourceId },
-  ..."resourceExternalId" in options3 && {
-    resource_external_id: options3.resourceExternalId,
-    resource_type_slug: options3.resourceTypeSlug
+var serializeRemoveRoleOptions = (options) => ({
+  role_slug: options.roleSlug,
+  ..."resourceId" in options && { resource_id: options.resourceId },
+  ..."resourceExternalId" in options && {
+    resource_external_id: options.resourceExternalId,
+    resource_type_slug: options.resourceTypeSlug
   }
 });
 var Authorization = class {
   constructor(workos) {
     this.workos = workos;
   }
-  async createEnvironmentRole(options3) {
-    const { data } = await this.workos.post("/authorization/roles", serializeCreateEnvironmentRoleOptions(options3));
+  async createEnvironmentRole(options) {
+    const { data } = await this.workos.post("/authorization/roles", serializeCreateEnvironmentRoleOptions(options));
     return deserializeEnvironmentRole(data);
   }
   async listEnvironmentRoles() {
@@ -11754,20 +11959,20 @@ var Authorization = class {
     const { data } = await this.workos.get(`/authorization/roles/${slug}`);
     return deserializeEnvironmentRole(data);
   }
-  async updateEnvironmentRole(slug, options3) {
-    const { data } = await this.workos.patch(`/authorization/roles/${slug}`, serializeUpdateEnvironmentRoleOptions(options3));
+  async updateEnvironmentRole(slug, options) {
+    const { data } = await this.workos.patch(`/authorization/roles/${slug}`, serializeUpdateEnvironmentRoleOptions(options));
     return deserializeEnvironmentRole(data);
   }
-  async setEnvironmentRolePermissions(slug, options3) {
-    const { data } = await this.workos.put(`/authorization/roles/${slug}/permissions`, { permissions: options3.permissions });
+  async setEnvironmentRolePermissions(slug, options) {
+    const { data } = await this.workos.put(`/authorization/roles/${slug}/permissions`, { permissions: options.permissions });
     return deserializeEnvironmentRole(data);
   }
-  async addEnvironmentRolePermission(slug, options3) {
-    const { data } = await this.workos.post(`/authorization/roles/${slug}/permissions`, { slug: options3.permissionSlug });
+  async addEnvironmentRolePermission(slug, options) {
+    const { data } = await this.workos.post(`/authorization/roles/${slug}/permissions`, { slug: options.permissionSlug });
     return deserializeEnvironmentRole(data);
   }
-  async createOrganizationRole(organizationId, options3) {
-    const { data } = await this.workos.post(`/authorization/organizations/${organizationId}/roles`, serializeCreateOrganizationRoleOptions(options3));
+  async createOrganizationRole(organizationId, options) {
+    const { data } = await this.workos.post(`/authorization/organizations/${organizationId}/roles`, serializeCreateOrganizationRoleOptions(options));
     return deserializeOrganizationRole(data);
   }
   async listOrganizationRoles(organizationId) {
@@ -11781,30 +11986,30 @@ var Authorization = class {
     const { data } = await this.workos.get(`/authorization/organizations/${organizationId}/roles/${slug}`);
     return deserializeRole$1(data);
   }
-  async updateOrganizationRole(organizationId, slug, options3) {
-    const { data } = await this.workos.patch(`/authorization/organizations/${organizationId}/roles/${slug}`, serializeUpdateOrganizationRoleOptions(options3));
+  async updateOrganizationRole(organizationId, slug, options) {
+    const { data } = await this.workos.patch(`/authorization/organizations/${organizationId}/roles/${slug}`, serializeUpdateOrganizationRoleOptions(options));
     return deserializeOrganizationRole(data);
   }
   async deleteOrganizationRole(organizationId, slug) {
     await this.workos.delete(`/authorization/organizations/${organizationId}/roles/${slug}`);
   }
-  async setOrganizationRolePermissions(organizationId, slug, options3) {
-    const { data } = await this.workos.put(`/authorization/organizations/${organizationId}/roles/${slug}/permissions`, { permissions: options3.permissions });
+  async setOrganizationRolePermissions(organizationId, slug, options) {
+    const { data } = await this.workos.put(`/authorization/organizations/${organizationId}/roles/${slug}/permissions`, { permissions: options.permissions });
     return deserializeOrganizationRole(data);
   }
-  async addOrganizationRolePermission(organizationId, slug, options3) {
-    const { data } = await this.workos.post(`/authorization/organizations/${organizationId}/roles/${slug}/permissions`, { slug: options3.permissionSlug });
+  async addOrganizationRolePermission(organizationId, slug, options) {
+    const { data } = await this.workos.post(`/authorization/organizations/${organizationId}/roles/${slug}/permissions`, { slug: options.permissionSlug });
     return deserializeOrganizationRole(data);
   }
-  async removeOrganizationRolePermission(organizationId, slug, options3) {
-    await this.workos.delete(`/authorization/organizations/${organizationId}/roles/${slug}/permissions/${options3.permissionSlug}`);
+  async removeOrganizationRolePermission(organizationId, slug, options) {
+    await this.workos.delete(`/authorization/organizations/${organizationId}/roles/${slug}/permissions/${options.permissionSlug}`);
   }
-  async createPermission(options3) {
-    const { data } = await this.workos.post("/authorization/permissions", serializeCreatePermissionOptions(options3));
+  async createPermission(options) {
+    const { data } = await this.workos.post("/authorization/permissions", serializeCreatePermissionOptions(options));
     return deserializePermission(data);
   }
-  async listPermissions(options3) {
-    const { data } = await this.workos.get("/authorization/permissions", { query: options3 });
+  async listPermissions(options) {
+    const { data } = await this.workos.get("/authorization/permissions", { query: options });
     return {
       object: "list",
       data: data.data.map(deserializePermission),
@@ -11818,8 +12023,8 @@ var Authorization = class {
     const { data } = await this.workos.get(`/authorization/permissions/${slug}`);
     return deserializePermission(data);
   }
-  async updatePermission(slug, options3) {
-    const { data } = await this.workos.patch(`/authorization/permissions/${slug}`, serializeUpdatePermissionOptions(options3));
+  async updatePermission(slug, options) {
+    const { data } = await this.workos.patch(`/authorization/permissions/${slug}`, serializeUpdatePermissionOptions(options));
     return deserializePermission(data);
   }
   async deletePermission(slug) {
@@ -11829,21 +12034,21 @@ var Authorization = class {
     const { data } = await this.workos.get(`/authorization/resources/${resourceId}`);
     return deserializeAuthorizationResource(data);
   }
-  async createResource(options3) {
-    const { data } = await this.workos.post("/authorization/resources", serializeCreateResourceOptions(options3));
+  async createResource(options) {
+    const { data } = await this.workos.post("/authorization/resources", serializeCreateResourceOptions(options));
     return deserializeAuthorizationResource(data);
   }
-  async updateResource(options3) {
-    const { data } = await this.workos.patch(`/authorization/resources/${options3.resourceId}`, serializeUpdateResourceOptions(options3));
+  async updateResource(options) {
+    const { data } = await this.workos.patch(`/authorization/resources/${options.resourceId}`, serializeUpdateResourceOptions(options));
     return deserializeAuthorizationResource(data);
   }
-  async deleteResource(options3) {
-    const { resourceId, cascadeDelete } = options3;
+  async deleteResource(options) {
+    const { resourceId, cascadeDelete } = options;
     const query = cascadeDelete !== undefined ? { cascade_delete: cascadeDelete.toString() } : undefined;
     await this.workos.delete(`/authorization/resources/${resourceId}`, query);
   }
-  async listResources(options3 = {}) {
-    const { data } = await this.workos.get("/authorization/resources", { query: serializeListAuthorizationResourcesOptions(options3) });
+  async listResources(options = {}) {
+    const { data } = await this.workos.get("/authorization/resources", { query: serializeListAuthorizationResourcesOptions(options) });
     return {
       object: "list",
       data: data.data.map(deserializeAuthorizationResource),
@@ -11853,27 +12058,27 @@ var Authorization = class {
       }
     };
   }
-  async getResourceByExternalId(options3) {
-    const { organizationId, resourceTypeSlug, externalId } = options3;
+  async getResourceByExternalId(options) {
+    const { organizationId, resourceTypeSlug, externalId } = options;
     const { data } = await this.workos.get(`/authorization/organizations/${organizationId}/resources/${resourceTypeSlug}/${externalId}`);
     return deserializeAuthorizationResource(data);
   }
-  async updateResourceByExternalId(options3) {
-    const { organizationId, resourceTypeSlug, externalId } = options3;
-    const { data } = await this.workos.patch(`/authorization/organizations/${organizationId}/resources/${resourceTypeSlug}/${externalId}`, serializeUpdateResourceByExternalIdOptions(options3));
+  async updateResourceByExternalId(options) {
+    const { organizationId, resourceTypeSlug, externalId } = options;
+    const { data } = await this.workos.patch(`/authorization/organizations/${organizationId}/resources/${resourceTypeSlug}/${externalId}`, serializeUpdateResourceByExternalIdOptions(options));
     return deserializeAuthorizationResource(data);
   }
-  async deleteResourceByExternalId(options3) {
-    const { organizationId, resourceTypeSlug, externalId, cascadeDelete } = options3;
+  async deleteResourceByExternalId(options) {
+    const { organizationId, resourceTypeSlug, externalId, cascadeDelete } = options;
     const query = cascadeDelete !== undefined ? { cascade_delete: cascadeDelete.toString() } : undefined;
     await this.workos.delete(`/authorization/organizations/${organizationId}/resources/${resourceTypeSlug}/${externalId}`, query);
   }
-  async check(options3) {
-    const { data } = await this.workos.post(`/authorization/organization_memberships/${options3.organizationMembershipId}/check`, serializeAuthorizationCheckOptions(options3));
+  async check(options) {
+    const { data } = await this.workos.post(`/authorization/organization_memberships/${options.organizationMembershipId}/check`, serializeAuthorizationCheckOptions(options));
     return data;
   }
-  async listRoleAssignments(options3) {
-    const { organizationMembershipId, ...queryOptions } = options3;
+  async listRoleAssignments(options) {
+    const { organizationMembershipId, ...queryOptions } = options;
     const { data } = await this.workos.get(`/authorization/organization_memberships/${organizationMembershipId}/role_assignments`, { query: queryOptions });
     return {
       object: "list",
@@ -11884,19 +12089,19 @@ var Authorization = class {
       }
     };
   }
-  async assignRole(options3) {
-    const { data } = await this.workos.post(`/authorization/organization_memberships/${options3.organizationMembershipId}/role_assignments`, serializeAssignRoleOptions(options3));
+  async assignRole(options) {
+    const { data } = await this.workos.post(`/authorization/organization_memberships/${options.organizationMembershipId}/role_assignments`, serializeAssignRoleOptions(options));
     return deserializeRoleAssignment(data);
   }
-  async removeRole(options3) {
-    await this.workos.deleteWithBody(`/authorization/organization_memberships/${options3.organizationMembershipId}/role_assignments`, serializeRemoveRoleOptions(options3));
+  async removeRole(options) {
+    await this.workos.deleteWithBody(`/authorization/organization_memberships/${options.organizationMembershipId}/role_assignments`, serializeRemoveRoleOptions(options));
   }
-  async removeRoleAssignment(options3) {
-    await this.workos.delete(`/authorization/organization_memberships/${options3.organizationMembershipId}/role_assignments/${options3.roleAssignmentId}`);
+  async removeRoleAssignment(options) {
+    await this.workos.delete(`/authorization/organization_memberships/${options.organizationMembershipId}/role_assignments/${options.roleAssignmentId}`);
   }
-  async listResourcesForMembership(options3) {
-    const { organizationMembershipId } = options3;
-    const { data } = await this.workos.get(`/authorization/organization_memberships/${organizationMembershipId}/resources`, { query: serializeListResourcesForMembershipOptions(options3) });
+  async listResourcesForMembership(options) {
+    const { organizationMembershipId } = options;
+    const { data } = await this.workos.get(`/authorization/organization_memberships/${organizationMembershipId}/resources`, { query: serializeListResourcesForMembershipOptions(options) });
     return {
       object: "list",
       data: data.data.map(deserializeAuthorizationResource),
@@ -11906,9 +12111,9 @@ var Authorization = class {
       }
     };
   }
-  async listMembershipsForResource(options3) {
-    const { resourceId } = options3;
-    const { data } = await this.workos.get(`/authorization/resources/${resourceId}/organization_memberships`, { query: serializeListMembershipsForResourceOptions(options3) });
+  async listMembershipsForResource(options) {
+    const { resourceId } = options;
+    const { data } = await this.workos.get(`/authorization/resources/${resourceId}/organization_memberships`, { query: serializeListMembershipsForResourceOptions(options) });
     return {
       object: "list",
       data: data.data.map(deserializeAuthorizationOrganizationMembership),
@@ -11918,9 +12123,9 @@ var Authorization = class {
       }
     };
   }
-  async listMembershipsForResourceByExternalId(options3) {
-    const { organizationId, resourceTypeSlug, externalId } = options3;
-    const { data } = await this.workos.get(`/authorization/organizations/${organizationId}/resources/${resourceTypeSlug}/${externalId}/organization_memberships`, { query: serializeListMembershipsForResourceOptions(options3) });
+  async listMembershipsForResourceByExternalId(options) {
+    const { organizationId, resourceTypeSlug, externalId } = options;
+    const { data } = await this.workos.get(`/authorization/organizations/${organizationId}/resources/${resourceTypeSlug}/${externalId}/organization_memberships`, { query: serializeListMembershipsForResourceOptions(options) });
     return {
       object: "list",
       data: data.data.map(deserializeAuthorizationOrganizationMembership),
@@ -12057,14 +12262,14 @@ var deserializeObjectVersion = (version) => ({
   currentVersion: version.current_version,
   id: version.id
 });
-var serializeCreateObjectEntity = (options3) => ({
-  name: options3.name,
-  value: options3.value,
-  key_context: options3.context
+var serializeCreateObjectEntity = (options) => ({
+  name: options.name,
+  value: options.value,
+  key_context: options.context
 });
-var serializeUpdateObjectEntity = (options3) => ({
-  value: options3.value,
-  version_check: options3.versionCheck
+var serializeUpdateObjectEntity = (options) => ({
+  value: options.value,
+  version_check: options.versionCheck
 });
 var Vault = class {
   cryptoProvider;
@@ -12084,52 +12289,52 @@ var Vault = class {
       ciphertext: new Uint8Array(inputData.subarray(nextIndex + keyLen))
     };
   }
-  async createObject(options3) {
-    const { data } = await this.workos.post(`/vault/v1/kv`, serializeCreateObjectEntity(options3));
+  async createObject(options) {
+    const { data } = await this.workos.post(`/vault/v1/kv`, serializeCreateObjectEntity(options));
     return deserializeObjectMetadata(data);
   }
-  async listObjects(options3) {
+  async listObjects(options) {
     const url = new URL("/vault/v1/kv", this.workos.baseURL);
-    if (options3?.after)
-      url.searchParams.set("after", options3.after);
-    if (options3?.before)
-      url.searchParams.set("before", options3.before);
-    if (options3?.limit)
-      url.searchParams.set("limit", options3.limit.toString());
-    if (options3?.order)
-      url.searchParams.set("order", options3.order);
+    if (options?.after)
+      url.searchParams.set("after", options.after);
+    if (options?.before)
+      url.searchParams.set("before", options.before);
+    if (options?.limit)
+      url.searchParams.set("limit", options.limit.toString());
+    if (options?.order)
+      url.searchParams.set("order", options.order);
     const { data } = await this.workos.get(url.toString());
     return deserializeListObjects(data);
   }
-  async listObjectVersions(options3) {
-    const { data } = await this.workos.get(`/vault/v1/kv/${encodeURIComponent(options3.id)}/versions`);
+  async listObjectVersions(options) {
+    const { data } = await this.workos.get(`/vault/v1/kv/${encodeURIComponent(options.id)}/versions`);
     return desrializeListObjectVersions(data);
   }
-  async readObject(options3) {
-    const { data } = await this.workos.get(`/vault/v1/kv/${encodeURIComponent(options3.id)}`);
+  async readObject(options) {
+    const { data } = await this.workos.get(`/vault/v1/kv/${encodeURIComponent(options.id)}`);
     return deserializeObject(data);
   }
   async readObjectByName(name) {
     const { data } = await this.workos.get(`/vault/v1/kv/name/${encodeURIComponent(name)}`);
     return deserializeObject(data);
   }
-  async describeObject(options3) {
-    const { data } = await this.workos.get(`/vault/v1/kv/${encodeURIComponent(options3.id)}/metadata`);
+  async describeObject(options) {
+    const { data } = await this.workos.get(`/vault/v1/kv/${encodeURIComponent(options.id)}/metadata`);
     return deserializeObject(data);
   }
-  async updateObject(options3) {
-    const { data } = await this.workos.put(`/vault/v1/kv/${encodeURIComponent(options3.id)}`, serializeUpdateObjectEntity(options3));
+  async updateObject(options) {
+    const { data } = await this.workos.put(`/vault/v1/kv/${encodeURIComponent(options.id)}`, serializeUpdateObjectEntity(options));
     return deserializeObject(data);
   }
-  async deleteObject(options3) {
-    return this.workos.delete(`/vault/v1/kv/${encodeURIComponent(options3.id)}`);
+  async deleteObject(options) {
+    return this.workos.delete(`/vault/v1/kv/${encodeURIComponent(options.id)}`);
   }
-  async createDataKey(options3) {
-    const { data } = await this.workos.post(`/vault/v1/keys/data-key`, options3);
+  async createDataKey(options) {
+    const { data } = await this.workos.post(`/vault/v1/keys/data-key`, options);
     return deserializeCreateDataKeyResponse(data);
   }
-  async decryptDataKey(options3) {
-    const { data } = await this.workos.post(`/vault/v1/keys/decrypt`, options3);
+  async decryptDataKey(options) {
+    const { data } = await this.workos.post(`/vault/v1/keys/decrypt`, options);
     return deserializeDecryptDataKeyResponse(data);
   }
   async encrypt(data, context, associatedData) {
@@ -12273,12 +12478,12 @@ var WorkOS = class {
     const userAgent = this.createUserAgent(this.options);
     this.client = this.createHttpClient(this.options, userAgent);
   }
-  createUserAgent(options3) {
+  createUserAgent(options) {
     let userAgent = `workos-node/${version}`;
     const { name: runtimeName, version: runtimeVersion } = getRuntimeInfo();
     userAgent += ` (${runtimeName}${runtimeVersion ? `/${runtimeVersion}` : ""})`;
-    if (options3.appInfo) {
-      const { name, version: version2 } = options3.appInfo;
+    if (options.appInfo) {
+      const { name, version: version2 } = options.appInfo;
       userAgent += ` ${name}: ${version2}`;
     }
     return userAgent;
@@ -12292,16 +12497,16 @@ var WorkOS = class {
   getCryptoProvider() {
     return new SubtleCryptoProvider;
   }
-  createHttpClient(options3, userAgent) {
+  createHttpClient(options, userAgent) {
     const headers = { "User-Agent": userAgent };
-    const configHeaders = options3.config?.headers;
+    const configHeaders = options.config?.headers;
     if (configHeaders && typeof configHeaders === "object" && !Array.isArray(configHeaders) && !(configHeaders instanceof Headers))
       Object.assign(headers, configHeaders);
     if (this.key)
       headers["Authorization"] = `Bearer ${this.key}`;
     return new FetchHttpClient(this.baseURL, {
-      ...options3.config,
-      timeout: options3.timeout,
+      ...options.config,
+      timeout: options.timeout,
       headers
     });
   }
@@ -12312,18 +12517,18 @@ var WorkOS = class {
     if (!this.hasApiKey)
       throw new ApiKeyRequiredException(methodName);
   }
-  async post(path, entity, options3 = {}) {
-    if (!options3.skipApiKeyCheck)
+  async post(path, entity, options = {}) {
+    if (!options.skipApiKeyCheck)
       this.requireApiKey(path);
     const requestHeaders = {};
-    if (options3.idempotencyKey)
-      requestHeaders[HEADER_IDEMPOTENCY_KEY] = options3.idempotencyKey;
-    if (options3.warrantToken)
-      requestHeaders[HEADER_WARRANT_TOKEN] = options3.warrantToken;
+    if (options.idempotencyKey)
+      requestHeaders[HEADER_IDEMPOTENCY_KEY] = options.idempotencyKey;
+    if (options.warrantToken)
+      requestHeaders[HEADER_WARRANT_TOKEN] = options.warrantToken;
     let res;
     try {
       res = await this.client.post(path, entity, {
-        params: options3.query,
+        params: options.query,
         headers: requestHeaders
       });
     } catch (error) {
@@ -12340,18 +12545,18 @@ var WorkOS = class {
       throw error;
     }
   }
-  async get(path, options3 = {}) {
-    if (!options3.skipApiKeyCheck)
+  async get(path, options = {}) {
+    if (!options.skipApiKeyCheck)
       this.requireApiKey(path);
     const requestHeaders = {};
-    if (options3.accessToken)
-      requestHeaders[HEADER_AUTHORIZATION] = `Bearer ${options3.accessToken}`;
-    if (options3.warrantToken)
-      requestHeaders[HEADER_WARRANT_TOKEN] = options3.warrantToken;
+    if (options.accessToken)
+      requestHeaders[HEADER_AUTHORIZATION] = `Bearer ${options.accessToken}`;
+    if (options.warrantToken)
+      requestHeaders[HEADER_WARRANT_TOKEN] = options.warrantToken;
     let res;
     try {
       res = await this.client.get(path, {
-        params: options3.query,
+        params: options.query,
         headers: requestHeaders
       });
     } catch (error) {
@@ -12368,16 +12573,16 @@ var WorkOS = class {
       throw error;
     }
   }
-  async put(path, entity, options3 = {}) {
-    if (!options3.skipApiKeyCheck)
+  async put(path, entity, options = {}) {
+    if (!options.skipApiKeyCheck)
       this.requireApiKey(path);
     const requestHeaders = {};
-    if (options3.idempotencyKey)
-      requestHeaders[HEADER_IDEMPOTENCY_KEY] = options3.idempotencyKey;
+    if (options.idempotencyKey)
+      requestHeaders[HEADER_IDEMPOTENCY_KEY] = options.idempotencyKey;
     let res;
     try {
       res = await this.client.put(path, entity, {
-        params: options3.query,
+        params: options.query,
         headers: requestHeaders
       });
     } catch (error) {
@@ -12394,16 +12599,16 @@ var WorkOS = class {
       throw error;
     }
   }
-  async patch(path, entity, options3 = {}) {
-    if (!options3.skipApiKeyCheck)
+  async patch(path, entity, options = {}) {
+    if (!options.skipApiKeyCheck)
       this.requireApiKey(path);
     const requestHeaders = {};
-    if (options3.idempotencyKey)
-      requestHeaders[HEADER_IDEMPOTENCY_KEY] = options3.idempotencyKey;
+    if (options.idempotencyKey)
+      requestHeaders[HEADER_IDEMPOTENCY_KEY] = options.idempotencyKey;
     let res;
     try {
       res = await this.client.patch(path, entity, {
-        params: options3.query,
+        params: options.query,
         headers: requestHeaders
       });
     } catch (error) {
@@ -12515,9 +12720,9 @@ var WorkOS = class {
 
 // ../../node_modules/@workos-inc/node/lib/index.mjs
 var WorkOSNode = class extends WorkOS {
-  createHttpClient(options3, userAgent) {
+  createHttpClient(options, userAgent) {
     const headers = {};
-    const configHeaders = options3.config?.headers;
+    const configHeaders = options.config?.headers;
     if (configHeaders)
       if (configHeaders instanceof Headers)
         configHeaders.forEach((v, k) => headers[k] = v);
@@ -12529,11 +12734,11 @@ var WorkOSNode = class extends WorkOS {
     if (this.key)
       headers["Authorization"] = `Bearer ${this.key}`;
     const opts = {
-      ...options3.config,
-      timeout: options3.timeout,
+      ...options.config,
+      timeout: options.timeout,
       headers
     };
-    return new FetchHttpClient(this.baseURL, opts, options3.fetchFn);
+    return new FetchHttpClient(this.baseURL, opts, options.fetchFn);
   }
   createWebhookClient() {
     return new Webhooks(this.getCryptoProvider());
@@ -12584,12 +12789,12 @@ function getWorkosCommandPrefix() {
   } catch {}
   return ["npx", "--yes", "workos@latest"];
 }
-function runWorkos(args, options3 = {}) {
+function runWorkos(args, options = {}) {
   const [bin, ...prefixArgs] = getWorkosCommandPrefix();
   return execFileSync(bin, [...prefixArgs, ...args], {
     encoding: "utf8",
-    stdio: options3.stdio || ["ignore", "pipe", "pipe"],
-    input: options3.input,
+    stdio: options.stdio || ["ignore", "pipe", "pipe"],
+    input: options.input,
     env: { ...process.env, NO_COLOR: "1" }
   });
 }
@@ -13003,10 +13208,19 @@ function emitViaProxy(event, config) {
   }
   const payload = toRestEvent(event);
   delete payload.actor;
+  const fail = (detail, status2) => {
+    process.stderr.write(`workos-audit: proxy emit failed (${detail})
+`);
+    return { ok: false, transport: "proxy", error: detail, ...status2 ? { status: status2 } : {}, action: event.action };
+  };
+  let stdout;
   try {
-    execFileSync3("/usr/bin/curl", [
+    stdout = execFileSync3("/usr/bin/curl", [
       "-sS",
       "--fail-with-body",
+      "-w",
+      `
+%{http_code}`,
       "-X",
       "POST",
       "--cert",
@@ -13019,16 +13233,32 @@ function emitViaProxy(event, config) {
     ], {
       input: JSON.stringify(payload),
       encoding: "utf8",
-      stdio: ["pipe", "ignore", "pipe"],
+      stdio: ["pipe", "pipe", "pipe"],
       env: { ...process.env, CURL_SSL_BACKEND: "secure-transport" }
     });
-    return { ok: true, transport: "proxy", action: event.action };
   } catch (error) {
-    const detail = error.stderr?.toString?.().trim() || error.message || String(error);
-    process.stderr.write(`workos-audit: proxy emit failed (${detail})
-`);
-    return { ok: false, transport: "proxy", error: detail, action: event.action };
+    const { status: status2, body: body2 } = splitCurlOutput(error.stdout);
+    const reason = error.stderr?.toString?.().trim() || error.message || String(error);
+    return fail(body2 ? `${reason} :: ${body2}` : reason, status2);
   }
+  const { status, body } = splitCurlOutput(stdout);
+  if (status === null)
+    return fail("could not read proxy response status");
+  if (status < 200 || status > 299) {
+    return fail(body ? `proxy returned HTTP ${status} :: ${body}` : `proxy returned HTTP ${status}`, status);
+  }
+  return { ok: true, transport: "proxy", status, action: event.action };
+}
+function splitCurlOutput(raw) {
+  const text = String(raw ?? "");
+  const cut = text.lastIndexOf(`
+`);
+  const parsed = Number.parseInt(cut === -1 ? text : text.slice(cut + 1), 10);
+  const body = (cut === -1 ? "" : text.slice(0, cut)).replace(/\s+/g, " ").trim();
+  return {
+    status: Number.isInteger(parsed) ? parsed : null,
+    body: body.length > 200 ? `${body.slice(0, 200)}…` : body
+  };
 }
 async function emitEvent(event, config) {
   if (config.proxyUrl) {
@@ -13082,15 +13312,15 @@ function compactMetadata(metadata) {
 }
 function createToolTimingStore({ baseEnvNames, fallbackDirName, timingKeyExtras = {} }) {
   function getStateDir() {
-    let base2;
+    let base;
     for (const name of baseEnvNames) {
-      base2 = trimToUndefined(process.env[name]);
-      if (base2)
+      base = trimToUndefined(process.env[name]);
+      if (base)
         break;
     }
-    if (!base2)
-      base2 = path3.join(os3.tmpdir(), fallbackDirName);
-    const dir = path3.join(base2, "hook-state", "tool-timings");
+    if (!base)
+      base = path3.join(os3.tmpdir(), fallbackDirName);
+    const dir = path3.join(base, "hook-state", "tool-timings");
     mkdirSync(dir, { recursive: true });
     return dir;
   }
