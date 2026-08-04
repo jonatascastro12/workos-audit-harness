@@ -349,7 +349,7 @@ function DeleteThreadDialog({ thread, disabled }: { thread: ThreadSummary; disab
         <Button
           size="1"
           variant="ghost"
-          color="red"
+          color="gray"
           disabled={disabled}
           className="thread-delete"
           aria-label={`Delete ${thread.title}`}
@@ -424,12 +424,14 @@ function ThreadSidebar({
         <div className="sidebar-list">
           {!onCurrent ? (
             <div className="thread-row thread-row-active">
-              <Text size="1" weight="medium" truncate>
-                New investigation
-              </Text>
-              <Text size="1" color="gray" className="font-mono">
-                unsaved
-              </Text>
+              <div className="thread-link">
+                <Text size="1" weight="medium" truncate>
+                  New investigation
+                </Text>
+                <Text size="1" color="gray" className="font-mono thread-when">
+                  not saved yet
+                </Text>
+              </div>
             </div>
           ) : null}
           {threads.map((thread) => {
@@ -575,8 +577,8 @@ export default function Home() {
       />
       <Flex direction="column" className="console-root">
         <header className="console-header">
-          <Flex align="center" justify="between" px="5" py="3" gap="4">
-            <Flex align="center" gap="3">
+          <Flex align="center" justify="between" px="4" py="3" gap="3">
+            <Flex align="center" gap="3" className="console-header-left">
               <span className="console-glyph" aria-hidden />
               <Heading as="h1" size="3" className="console-title">
                 Audit Chat
@@ -605,8 +607,8 @@ export default function Home() {
                 </Code>
               )}
             </Flex>
-            <Flex align="center" gap="3">
-              <Code size="1" color="gray" variant="ghost">
+            <Flex align="center" gap="3" className="console-header-right">
+              <Code size="1" color="gray" variant="ghost" className="console-model">
                 {modelId}
               </Code>
               <Button asChild size="1" variant="ghost" color="gray">
