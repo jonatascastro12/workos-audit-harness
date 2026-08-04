@@ -5,6 +5,7 @@
 import { existsSync as __preflightExists } from 'node:fs';
 import { execFileSync as __preflightExec } from 'node:child_process';
 import { fileURLToPath as __preflightFileURL } from 'node:url';
+import { createRequire as __preflightRequire } from 'node:module';
 import __preflightPath from 'node:path';
 (function __ensurePluginDeps() {
   try {
@@ -14,8 +15,19 @@ import __preflightPath from 'node:path';
       if (__preflightExists(__preflightPath.join(pluginRoot, 'package.json'))) break;
       pluginRoot = __preflightPath.resolve(pluginRoot, '..');
     }
-    if (!__preflightExists(__preflightPath.join(pluginRoot, 'package.json'))) return;
-    if (__preflightExists(__preflightPath.join(pluginRoot, 'node_modules', '@napi-rs', 'keyring'))) return;
+    const __pkg = __preflightPath.join(pluginRoot, 'package.json');
+    if (!__preflightExists(__pkg)) return;
+    // Ask Node whether the dep RESOLVES, rather than testing one hardcoded path.
+    // The old check was existsSync(pluginRoot/node_modules/@napi-rs/keyring),
+    // which npm workspace hoisting makes permanently false — the package lands in
+    // the ROOT node_modules. Every hook therefore re-ran `npm install` (~620ms
+    // measured) before doing any work, on every single event.
+    try {
+      __preflightRequire(__pkg).resolve('@napi-rs/keyring');
+      return;
+    } catch {
+      // Genuinely absent — fall through and install it once.
+    }
     __preflightExec('npm', ['install', '--no-audit', '--no-fund', '--silent'], {
       cwd: pluginRoot,
       stdio: 'ignore',
