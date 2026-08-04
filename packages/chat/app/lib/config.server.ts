@@ -1,4 +1,8 @@
 import { configure } from "@workos-inc/authkit-react-router";
+// Deep import: configureSessionStorage is not re-exported from the package
+// root, but it is what `authkitLoader` calls internally and the only way to
+// prepare session storage for an action that uses `withAuth` directly.
+import { configureSessionStorage } from "@workos-inc/authkit-react-router/dist/cjs/sessionStorage.js";
 import { createContext } from "react-router";
 
 /**
@@ -81,6 +85,13 @@ export function getTenantConfig(env: AuditChatEnv): TenantConfig {
  * AuthKit's config store is module-global; calling this at the top of every
  * auth-touching loader/action keeps it correct per isolate without relying on
  * process.env existing in the Workers runtime.
+ *
+ * Session storage is configured here too, and that is load-bearing: only
+ * `authkitLoader` configures it on its own. An action that calls `withAuth`
+ * directly (api/chat, the settings save, the thread delete) goes straight to
+ * getSessionStorage(), which throws "SessionStorage was never configured"
+ * unless a loader happened to run first in the same isolate — so those actions
+ * failed with a 500 whenever they landed on a cold one.
  */
 export function configureAuthKit(env: AuditChatEnv): void {
   const tenant = getTenantConfig(env);
@@ -93,6 +104,9 @@ export function configureAuthKit(env: AuditChatEnv): void {
       "AUDIT_CHAT_WORKOS_COOKIE_PASSWORD",
     ),
   });
+  // Must follow configure(): the cookie options are read from the config above.
+  // Idempotent — the session manager only initialises once per isolate.
+  void configureSessionStorage();
 }
 
 export function emailAllowed(email: string | null | undefined, tenant: TenantConfig): boolean {
