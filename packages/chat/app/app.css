@@ -25,7 +25,14 @@ body {
 
 /* ── Audit console ─────────────────────────────────────────────────────── */
 
+.console-shell {
+  height: 100dvh;
+  overflow: hidden;
+}
+
 .console-root {
+  flex: 1;
+  min-width: 0;
   height: 100dvh;
   /* Dotted evidence-board grid with a purple investigation glow up top. */
   background:
@@ -363,12 +370,125 @@ body {
   border-bottom: none;
 }
 
-.console-threads {
-  max-width: 220px;
+/* ── Investigations sidebar ─────────────────────────────────────────────── */
+
+.console-sidebar {
+  flex: 0 0 244px;
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  border-right: 1px solid var(--gray-4);
+  background: color-mix(in srgb, var(--gray-1) 92%, transparent);
+  backdrop-filter: blur(10px);
 }
 
-@media (max-width: 720px) {
-  .console-threads {
-    max-width: 120px;
+.sidebar-inner {
+  min-height: 0;
+  padding: 14px 12px;
+}
+
+.sidebar-label {
+  color: var(--gray-10);
+  letter-spacing: 0.14em;
+  padding-left: 4px;
+}
+
+.sidebar-list {
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--gray-6) transparent;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.sidebar-empty {
+  padding: 4px 6px;
+  line-height: 1.5;
+}
+
+.thread-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  border-radius: var(--radius-2);
+  padding-right: 4px;
+}
+
+.thread-row:hover {
+  background: var(--gray-3);
+}
+
+.thread-row-active {
+  background: color-mix(in srgb, var(--purple-9) 16%, transparent);
+  box-shadow: inset 2px 0 0 var(--purple-9);
+}
+
+.thread-link {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 7px 8px;
+  color: inherit;
+  text-decoration: none;
+}
+
+.thread-when {
+  font-size: 10px;
+  color: var(--gray-10);
+}
+
+/* Only reveal Delete for the row in play, so the list stays quiet — but keep it
+   reachable by keyboard. */
+.thread-delete {
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+
+.thread-row:hover .thread-delete,
+.thread-row:focus-within .thread-delete {
+  opacity: 1;
+}
+
+/* Narrow screens: the sidebar becomes a scrollable strip above the console so
+   switching still works without a hidden drawer. */
+@media (max-width: 860px) {
+  .console-shell {
+    flex-direction: column;
+  }
+
+  .console-sidebar {
+    flex: 0 0 auto;
+    height: auto;
+    border-right: none;
+    border-bottom: 1px solid var(--gray-4);
+  }
+
+  .console-root {
+    height: auto;
+    flex: 1;
+    min-height: 0;
+  }
+
+  .sidebar-inner {
+    padding: 10px 12px;
+  }
+
+  .sidebar-list {
+    flex-direction: row;
+    overflow-x: auto;
+    padding-bottom: 2px;
+  }
+
+  .thread-row {
+    flex: 0 0 auto;
+    max-width: 220px;
+  }
+
+  .thread-delete {
+    opacity: 1;
   }
 }
