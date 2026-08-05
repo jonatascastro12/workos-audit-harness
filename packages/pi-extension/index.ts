@@ -324,11 +324,31 @@ function getConfig(): Config {
   };
 }
 
-function summarizeConfig(config: Config): string {
+/**
+ * The persistent footer indicator. Deliberately says whether recording is
+ * happening and nothing else — no endpoint, no organization, no actor. It sits
+ * on screen for the whole session, often while someone is screen-sharing or
+ * recording, and none of that detail is actionable at a glance. Anyone who
+ * wants it can run `/workos-audit-status`, which prints `describeConfig`.
+ *
+ * The one thing worth a distinct state is "configured but not actually
+ * recording": without a device certificate the proxy transport skips every
+ * event rather than falling back, so showing "on" there would be a lie of
+ * exactly the kind this whole harness exists to prevent.
+ */
+function statusLine(config: Config): string {
+  if (!config.loggingEnabled) return "audit: off";
+  if (config.proxyUrl && !getDeviceCertLabel()) return "audit: not recording";
+  return "audit: on";
+}
+
+/**
+ * The full picture, for `/workos-audit-status` — an explicit request, so detail
+ * is what the caller wants: which transport, and where events actually go.
+ */
+function describeConfig(config: Config): string {
   if (!config.loggingEnabled) return "audit: off (disabled)";
   if (config.proxyUrl) {
-    // Without the device certificate emitViaProxy skips every event instead of
-    // falling back, so "on via proxy" would be a plain lie. Say so.
     if (!getDeviceCertLabel()) {
       return `audit: NOT recording — proxy ${config.proxyUrl} configured but no device certificate found`;
     }
@@ -767,7 +787,7 @@ export default function workosAuditLogsExtension(pi: ExtensionAPI): void {
   function refreshStatus(ctx?: ExtensionContext): void {
     config = getConfig();
     client = createClient(config);
-    if (ctx?.hasUI) ctx.ui.setStatus(EXTENSION_STATUS_KEY, summarizeConfig(config));
+    if (ctx?.hasUI) ctx.ui.setStatus(EXTENSION_STATUS_KEY, statusLine(config));
   }
 
   // Coalesce lifecycle events into batched requests. A turn emits input,
@@ -834,7 +854,7 @@ export default function workosAuditLogsExtension(pi: ExtensionAPI): void {
     description: "Show WorkOS audit log extension configuration status",
     handler: async (_args, ctx) => {
       refreshStatus(ctx);
-      const summary = summarizeConfig(config);
+      const summary = describeConfig(config);
       if (ctx.hasUI) ctx.ui.notify(summary, config.enabled ? "info" : "warning");
       else console.log(summary);
     },
@@ -908,7 +928,7 @@ export default function workosAuditLogsExtension(pi: ExtensionAPI): void {
       if (subcommand === "show" || !subcommand) {
         refreshStatus(ctx);
         const summary = summarizeStoredConfig(config, readStoredConfig());
-        if (ctx.hasUI) ctx.ui.notify(summarizeConfig(config), config.enabled ? "info" : "warning");
+        if (ctx.hasUI) ctx.ui.notify(describeConfig(config), config.enabled ? "info" : "warning");
         console.log(summary);
         return;
       }
