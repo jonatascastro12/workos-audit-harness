@@ -124,13 +124,6 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
 
-      - name: Deploy workflow worker
-        if: github.ref == 'refs/heads/main'
-        run: npm run deploy:worker:internal
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-
       # Secrets run AFTER deploy: a namespaced script must exist before secrets can
       # attach, and `wrangler secret bulk` has no --dispatch-namespace — so the
       # namespaced app's secrets go via the CF API (one PUT per secret). The
@@ -178,13 +171,6 @@ jobs:
             fi
           done < /tmp/secrets.ndjson
           rm -f /tmp/secrets.ndjson
-
-          # wrangler enforces Cloudflare's 100-secrets-per-request limit on
-          # `secret bulk`, and the shared Doppler config has outgrown it —
-          # upload the companion workflow worker in chunks of 90.
-          doppler secrets --json | jq -c 'with_entries(.value = .value.computed) | to_entries | _nwise(90) | from_entries' | while IFS= read -r chunk; do
-            printf '%s' "$chunk" | npx wrangler secret bulk --config wrangler.worker.internal.toml
-          done
 
           [ "$failed" = "0" ] || exit 1
         env:

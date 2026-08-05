@@ -494,8 +494,7 @@ The shape of the work (all of it inside `packages/chat` — it is deliberately
 `npm` there, not from the repo root):
 
 - `npm run db:create` → paste the `database_id` into `wrangler.toml` →
-  `npm run db:migrate:remote`; `npm run bucket:create` for the R2 bucket;
-  `npm run deploy`.
+  `npm run db:migrate:remote`; `npm run deploy`.
 - An AuthKit client in the **same WorkOS environment** the proxy writes into,
   with your redirect URI registered, plus an API key that can read the Audit Logs
   Export API. Set `AUDIT_CHAT_PUBLIC_HOSTNAME` to the hostname you actually serve

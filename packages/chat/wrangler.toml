@@ -64,12 +64,6 @@ migrations_dir = "migrations"
 # # From packages/proxy's `npm run db:create` (or `npx wrangler d1 list`).
 # database_id = "00000000-0000-0000-0000-000000000000"
 
-# Create the bucket once with `npm run bucket:create`. It holds one generated
-# image served by /api/image; the console does not depend on its contents.
-[[r2_buckets]]
-binding = "IMAGE_BUCKET"
-bucket_name = "workos-audit-chat-images"
-
 # Workers AI binding, used for AI Gateway access (`env.AI.gateway(...)`) so the
 # model provider keys live in the gateway rather than in this Worker. Set the
 # AUDIT_CHAT_AI_GATEWAY secret to the name of a gateway in YOUR account that
