@@ -41,10 +41,6 @@ binding = "PROXY_DB"
 database_name = "cd26-workos-audit-proxy-db"
 database_id = "19133f64-d804-45be-9c50-c3d67db67f4b"
 
-[[r2_buckets]]
-binding = "IMAGE_BUCKET"
-bucket_name = "cd26-workos-audit-chat-images"
-
 # Workers AI binding used for AI Gateway access (`env.AI.gateway(...)`); the
 # internal-app-gateway (this app's default) holds the stored Anthropic/OpenAI
 # provider keys.
