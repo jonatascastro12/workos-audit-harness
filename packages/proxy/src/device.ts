@@ -278,6 +278,17 @@ const SENTINEL_TTL_CAP_SECONDS = 60 * 60;
 // cache. Without one, the table is the authoritative mapping: rows never go
 // stale, and unknown serials are rejected until an admin inserts them.
 //
+// The MDM call below is Kandji/Iru-shaped: it assumes
+// `GET {base}/api/v1/devices?serial_number=<serial>` returning an ARRAY whose
+// first element carries `user.email` / `user.name`. That is the only adapter
+// here. Jamf, Intune and others differ in both route and response shape, so they
+// need either the static table (supported, no code change) or a new branch in
+// this function — pointing KANDJI_API_BASE at them fails the Array.isArray check
+// below and stale-serves, which looks like an outage rather than a config error.
+//
+// The KANDJI_ env prefix is retained after Kandji's rename to Iru so existing
+// deployments do not have to rotate a secret to upgrade.
+//
 // `ttlOverride` comes from the runtime settings document (null = not
 // overridden); the env var and built-in default remain the fallbacks.
 export async function resolveDeviceUser(

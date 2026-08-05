@@ -30,9 +30,15 @@ WORKOS_ORG_ID = ""
 # `aud` — set both or the header is ignored (mTLS Option B is used instead).
 # ACCESS_TEAM_DOMAIN = "yourteam.cloudflareaccess.com"
 # ACCESS_AUD = "your-access-application-aud-tag"
-# Uncomment to resolve device→user live from Kandji (also requires the
+# Uncomment to resolve device→user live from Kandji/Iru (also requires the
 # KANDJI_API_TOKEN secret). Without it, the D1 device_user table is the
-# authoritative mapping.
+# authoritative mapping — which is the supported path for every other MDM.
+#
+# Kandji is now named Iru; the KANDJI_ prefix is kept so existing deployments do
+# not have to rotate a secret. This adapter is Kandji/Iru-shaped (it reads
+# `body[0].user.email` from /api/v1/devices?serial_number=...), so pointing it at
+# Jamf or Intune will NOT work — use the device_user table or add an adapter in
+# src/device.ts. See README.md.
 # KANDJI_API_BASE = "https://yourtenant.api.kandji.io"
 
 [observability]

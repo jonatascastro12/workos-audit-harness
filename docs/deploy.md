@@ -104,12 +104,12 @@ Secrets are set with `wrangler secret put` and never live in `wrangler.toml`:
 | Secret | Required | What it is |
 |---|---|---|
 | `WORKOS_API_KEY` | yes | The `sk_` key for the WorkOS environment events land in. The entire point of the proxy is that this exists only here. |
-| `KANDJI_API_TOKEN` | only for MDM mode | Kandji token, scoped to read devices. Pair with the `KANDJI_API_BASE` var. |
+| `KANDJI_API_TOKEN` | only for MDM mode | Kandji/Iru token, scoped to read devices. Pair with the `KANDJI_API_BASE` var. Kandji is now named Iru; the prefix is retained so deployments need not rotate secrets. |
 | `ACCESS_AUD` | see [§3.1](#31-route-a--cloudflare-access-zero-trust) | Can be a var instead; a secret is safer if CI redeploys `wrangler.toml`. |
 
 ```bash
 npx wrangler secret put WORKOS_API_KEY
-npx wrangler secret put KANDJI_API_TOKEN   # only if using Kandji
+npx wrangler secret put KANDJI_API_TOKEN   # only if using Kandji/Iru
 ```
 
 ### 2.4 Set the vars
@@ -164,9 +164,27 @@ The certificate identifies the **device**, not the user. Two options:
     "INSERT INTO device_user (serial, email, name, updated) VALUES ('KXVJ32DH30', 'jane@yourcompany.com', 'Jane Doe', unixepoch())"
   ```
 
-- **Kandji MDM** (`KANDJI_API_BASE` + `KANDJI_API_TOKEN`). The assigned user is
-  looked up live and cached in `device_user`. If Kandji is unreachable, stale
+- **Kandji/Iru MDM** (`KANDJI_API_BASE` + `KANDJI_API_TOKEN`). The assigned user
+  is looked up live and cached in `device_user`. If the MDM is unreachable, stale
   cache entries are served rather than dropping events.
+
+  Two things to know before you pick this option:
+
+  - **Kandji is now named Iru.** The env vars keep the `KANDJI_` prefix so
+    existing deployments don't have to rotate a secret; read them as "the
+    Iru/Kandji API".
+  - **It is the only MDM adapter, and it is vendor-shaped.** It calls
+    `GET {base}/api/v1/devices?serial_number=<serial>` and reads
+    `body[0].user.email`. Jamf, Intune and others use a different route and
+    response shape, so pointing `KANDJI_API_BASE` at them does not work — the
+    response fails the array check and the proxy stale-serves, which looks like
+    an outage rather than a misconfiguration. Use the static table above (fully
+    supported) or add a branch to `resolveDeviceUser()` in
+    `packages/proxy/src/device.ts`.
+
+  For most fleets the static table is the better choice regardless: it keeps
+  device→user resolution owned by whatever already owns your inventory, and it
+  removes a live dependency from the ingest hot path.
 
 Unknown or unassigned devices get a **403** and are never attributed to anyone.
 If loaner or conference machines should still land in the log, opt into the
