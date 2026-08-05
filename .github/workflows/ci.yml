@@ -34,6 +34,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # The version-bump check needs enough history to find the merge base
+          # with the target branch. The default shallow clone has none.
+          fetch-depth: 0
 
       - uses: actions/setup-node@v4
         with:
@@ -53,6 +57,18 @@ jobs:
       # unconditionally — it costs milliseconds.
       - name: Plugin versions are in sync
         run: npm run check:versions
+
+      # Distribution here IS the git repo: marketplace clients install by
+      # version, and pi loads dist/index.mjs straight from a checkout. A source
+      # change that ships without a version bump therefore leaves every machine
+      # on the old code with nothing to indicate it is stale — invisible on the
+      # repo side and invisible on the machine.
+      #
+      # PR-only: it needs a base to diff against, and on a direct push to main
+      # there is no meaningful one.
+      - name: Plugin versions were bumped
+        if: github.event_name == 'pull_request'
+        run: npm run check:versions -- --changed-since ${{ github.event.pull_request.base.sha }}
 
       # proxy-ci.yml typechecks the proxy only when packages/proxy changes. The
       # proxy consumes shared audit-core types, so an audit-core-only PR can
