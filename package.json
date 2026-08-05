@@ -14,6 +14,11 @@
     "packages/proxy",
     "packages/site"
   ],
+  "pi": {
+    "extensions": [
+      "./packages/pi-extension/dist/index.mjs"
+    ]
+  },
   "scripts": {
     "audit-harness": "npm run audit-harness -w @workos-inc/audit-core",
     "check:versions": "node scripts/check-plugin-versions.mjs",
