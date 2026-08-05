@@ -1,8 +1,16 @@
-# Deploys packages/proxy as the WorkOS-internal ingestion Worker
-# (cd26-workos-audit-proxy in the workos-tools-apps dispatch namespace),
-# using packages/proxy/wrangler.internal.toml. The package's vendor-neutral
-# wrangler.toml is untouched — external adopters deploy that one themselves.
-name: proxy deploy
+# WORKOS-INTERNAL INFRASTRUCTURE — NOT A SELF-HOSTING TEMPLATE.
+#
+# This deploys the live WorkOS audit ingestion Worker (cd26-workos-audit-proxy in
+# the workos-tools-apps dispatch namespace) from
+# packages/proxy/wrangler.internal.toml. The dispatch namespace, the ROUTES KV
+# namespace, the `claude-day` Doppler project and its AUDIT_HARNESS_* secret names
+# all exist only inside WorkOS. A fork will fail on its first run.
+#
+# The package's vendor-neutral packages/proxy/wrangler.toml is deliberately
+# untouched by this workflow — that is the one external adopters deploy. To
+# self-host, see docs/deploy.md and packages/proxy/README.md; do not copy this
+# file.
+name: internal proxy deploy (WorkOS only)
 
 on:
   push:
@@ -10,8 +18,15 @@ on:
       - main
     paths:
       - "packages/proxy/**"
-      - ".github/workflows/proxy-deploy.yml"
+      - ".github/workflows/internal-proxy-deploy.yml"
   workflow_dispatch:
+
+# Least privilege: every step below authenticates to Cloudflare or Doppler with
+# its own secret, so the workflow token only ever needs to read the checkout.
+# Spelled out rather than inherited because on a public repo the org-wide default
+# token permission is the difference between read-only and write.
+permissions:
+  contents: read
 
 defaults:
   run:
@@ -31,6 +46,10 @@ jobs:
         with:
           node-version: "22"
           cache: "npm"
+          # Resolved from the repo root, NOT from `defaults.run.working-directory`
+          # (that only applies to `run` steps). This is the root workspace
+          # lockfile, which is the right one — packages/proxy has no lockfile of
+          # its own. Do not "correct" this to packages/proxy/package-lock.json.
           cache-dependency-path: package-lock.json
 
       # packages/proxy is a workspace member; install from the repo root.

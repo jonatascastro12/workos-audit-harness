@@ -1,49 +1,92 @@
-name = "cd26-workos-audit-chat"
+# Vendor-neutral config: no account_id (wrangler uses your logged-in account),
+# no zone routes, no dispatch namespace. Deploy this one on your own Cloudflare
+# account — `npm run deploy` produces a reachable, AuthKit-gated console. See
+# README.md for the full walkthrough. The WorkOS-internal deploy lives in
+# wrangler.internal.toml; keep this file vendor-neutral.
+name = "workos-audit-chat"
 main = "./workers/app.ts"
 compatibility_date = "2026-02-10"
 compatibility_flags = ["nodejs_compat"]
-workers_dev = false
-account_id = "7e7fcec4d315661895440b439328033d"
+
+# REACHABILITY. Keep one of the two options below enabled, or the deploy
+# succeeds and the app is unreachable forever. That is exactly what
+# wrangler.internal.toml does on purpose — it is served through a Workers for
+# Platforms dispatch namespace, so it needs neither option — and it is the
+# single easiest thing to get wrong when self-hosting.
+#
+# Option A (default): the workers.dev URL. The app answers at
+# https://workos-audit-chat.<your-workers-subdomain>.workers.dev — put that
+# hostname in AUDIT_CHAT_PUBLIC_HOSTNAME below and in the AuthKit redirect URI.
+#
+# NOTE the deliberate asymmetry with packages/proxy, which sets
+# workers_dev = false: the proxy is an UNAUTHENTICATED ingest endpoint that must
+# sit behind mTLS/Access, so a workers.dev URL would be an open door. This app
+# is the opposite — every UI route goes through AuthKit (`ensureSignedIn`) and
+# every API route re-checks the session server-side, so a workers.dev URL
+# exposes a login page, not audit data. Do NOT "make the two configs
+# consistent": the difference IS the security model.
+workers_dev = true
+
+# Option B: serve it from your own hostname instead (nicer URL, and you can put
+# Cloudflare Access or WAF rules in front as defence in depth). Uncomment, set
+# your hostname, and set workers_dev = false above. custom_domain = true makes
+# wrangler create the DNS record and certificate; the zone must already be in
+# the account you deploy to.
+# [[routes]]
+# pattern = "audit-chat.example.com"
+# custom_domain = true
 
 [assets]
 directory = "./build/client"
 binding = "ASSETS"
 
-# Dispatch-native: no custom_domain route. This app deploys into the
-# workos-tools-apps dispatch namespace and is served via the zone wildcard
-# route + workos-tools-dispatch + ROUTES KV.
-# Deploy: wrangler deploy --dispatch-namespace workos-tools-apps
-
 [[d1_databases]]
 binding = "DB"
-database_name = "cd26-workos-audit-chat-db"
-database_id = "bf601292-5ee6-435f-8f94-58608fb31dd4"
+database_name = "workos-audit-chat-db"
+# Placeholder. Run `npm run db:create` and paste the database_id it prints, then
+# `npm run db:migrate:remote`. Local dev works without it (miniflare).
+database_id = "00000000-0000-0000-0000-000000000000"
 migrations_dir = "migrations"
 
-# The audit ingestion proxy's database (same Cloudflare account). The /settings
-# page reads/writes the proxy's runtime settings (app_state key "proxy_settings")
-# and its device_user cache through this binding — no HTTP admin API on the proxy.
-# Deliberately NO migrations_dir: the proxy repo owns this database's schema;
-# this app only reads/writes rows. All access goes through
-# app/lib/proxy-settings.server.ts.
-[[d1_databases]]
-binding = "PROXY_DB"
-database_name = "cd26-workos-audit-proxy-db"
-database_id = "19133f64-d804-45be-9c50-c3d67db67f4b"
+# OPTIONAL — the ingestion proxy's own D1 database (packages/proxy), in the same
+# Cloudflare account. Bind it only if you also deployed the proxy: /settings then
+# manages the proxy's runtime settings (pause/resume ingest, attribution org,
+# device-cache TTL, cached device->user rows) by writing the app_state row
+# "proxy_settings" in the proxy's database — the proxy has no HTTP admin API.
+# Deliberately NO migrations_dir: packages/proxy owns that schema; this app only
+# reads and writes rows, all of it through app/lib/proxy-settings.server.ts.
+#
+# Without this binding the console is fully functional and /settings renders a
+# "no proxy database bound" state instead of failing.
+# [[d1_databases]]
+# binding = "PROXY_DB"
+# database_name = "workos-audit-proxy-db"
+# # From packages/proxy's `npm run db:create` (or `npx wrangler d1 list`).
+# database_id = "00000000-0000-0000-0000-000000000000"
 
+# Create the bucket once with `npm run bucket:create`. It holds one generated
+# image served by /api/image; the console does not depend on its contents.
 [[r2_buckets]]
 binding = "IMAGE_BUCKET"
-bucket_name = "cd26-workos-audit-chat-images"
+bucket_name = "workos-audit-chat-images"
 
-# Workers AI binding used for AI Gateway access (`env.AI.gateway(...)`); the
-# gateway holds the stored Anthropic/OpenAI provider keys.
+# Workers AI binding, used for AI Gateway access (`env.AI.gateway(...)`) so the
+# model provider keys live in the gateway rather than in this Worker. Set the
+# AUDIT_CHAT_AI_GATEWAY secret to the name of a gateway in YOUR account that
+# holds an Anthropic (or OpenAI) key — or skip the gateway entirely with the
+# AUDIT_CHAT_ANTHROPIC_API_KEY / AUDIT_CHAT_OPENAI_API_KEY secret. See README.
 [ai]
 binding = "AI"
 remote = true
 
 [vars]
-# Hostname shown in the UI and used for the AuthKit redirect URI default.
-AUDIT_CHAT_PUBLIC_HOSTNAME = "cd26-workos-audit-chat.workos.tools"
+# Hostname this app is served from: shown in the UI and used to build the default
+# AuthKit redirect URI (https://<hostname>/callback). REPLACE THIS — the value
+# below is a placeholder, and leaving it means AuthKit redirects to a hostname
+# you do not own. Your first `npm run deploy` prints the real workers.dev
+# hostname; paste it here (or set the AUDIT_CHAT_WORKOS_REDIRECT_URI secret) and
+# deploy again.
+AUDIT_CHAT_PUBLIC_HOSTNAME = "workos-audit-chat.<your-subdomain>.workers.dev"
 
 [observability]
 enabled = true

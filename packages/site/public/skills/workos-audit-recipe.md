@@ -127,4 +127,4 @@ Expose a tool that takes a question, optional date range, and optional filters. 
 
 Full walkthrough with examples: https://audit-harness.workos.dev/blog/audit-logs-for-ai-harnesses
 
-Repository (CLI + plugins): https://github.com/jonatascastro12/workos-audit-harness
+Repository (CLI + plugins): https://github.com/workos/workos-audit-harness

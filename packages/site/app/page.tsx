@@ -69,12 +69,12 @@ export default function Page() {
                   <span>▸</span> quick start
                 </a>
                 <a
-                  href="https://github.com/jonatascastro12/workos-audit-harness"
+                  href="https://github.com/workos/workos-audit-harness"
                   target="_blank"
                   rel="noreferrer"
                   className="btn"
                 >
-                  github.com/jonatascastro12/workos-audit-harness
+                  github.com/workos/workos-audit-harness
                 </a>
               </div>
 
@@ -349,22 +349,22 @@ $ npm run create:harness-schemas -- --prefix=pi`}
             {[
               {
                 t: "Claude Code plugin",
-                href: "https://github.com/jonatascastro12/workos-audit-harness/tree/main/packages/claude-plugin",
+                href: "https://github.com/workos/workos-audit-harness/tree/main/packages/claude-plugin",
                 tag: "packages/claude-plugin",
               },
               {
                 t: "Codex plugin",
-                href: "https://github.com/jonatascastro12/workos-audit-harness/tree/main/packages/codex-plugin",
+                href: "https://github.com/workos/workos-audit-harness/tree/main/packages/codex-plugin",
                 tag: "packages/codex-plugin",
               },
               {
                 t: "pi-coding-agent extension",
-                href: "https://github.com/jonatascastro12/workos-audit-harness/tree/main/packages/pi-extension",
+                href: "https://github.com/workos/workos-audit-harness/tree/main/packages/pi-extension",
                 tag: "packages/pi-extension",
               },
               {
                 t: "audit-core (shared CLI)",
-                href: "https://github.com/jonatascastro12/workos-audit-harness/tree/main/packages/audit-core",
+                href: "https://github.com/workos/workos-audit-harness/tree/main/packages/audit-core",
                 tag: "packages/audit-core",
               },
               {
@@ -432,9 +432,9 @@ $ npm run create:harness-schemas -- --prefix=pi`}
                 source
               </div>
               <ul className="space-y-2 text-[13px]">
-                <li><a className="link" href="https://github.com/jonatascastro12/workos-audit-harness" target="_blank" rel="noreferrer">GitHub repository</a></li>
-                <li><a className="link" href="https://github.com/jonatascastro12/workos-audit-harness/blob/main/LICENSE" target="_blank" rel="noreferrer">License (MIT)</a></li>
-                <li><a className="link" href="https://github.com/jonatascastro12/workos-audit-harness/issues" target="_blank" rel="noreferrer">Issues</a></li>
+                <li><a className="link" href="https://github.com/workos/workos-audit-harness" target="_blank" rel="noreferrer">GitHub repository</a></li>
+                <li><a className="link" href="https://github.com/workos/workos-audit-harness/blob/main/LICENSE" target="_blank" rel="noreferrer">License (MIT)</a></li>
+                <li><a className="link" href="https://github.com/workos/workos-audit-harness/issues" target="_blank" rel="noreferrer">Issues</a></li>
               </ul>
             </div>
 

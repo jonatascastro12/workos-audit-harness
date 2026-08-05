@@ -13,7 +13,7 @@ The `workos-audit-harness` CLI (`auth-login`, `status`, `ensure-organization`, `
 ## Install
 
 ```bash
-git clone https://github.com/jonatascastro12/workos-audit-harness.git
+git clone https://github.com/workos/workos-audit-harness.git
 cd workos-audit-harness
 npm install
 ```

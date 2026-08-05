@@ -1,0 +1,110 @@
+# Universal CI — the one workflow here that runs green on any fork.
+#
+# Every other workflow in this directory is either scoped to a single package by
+# a `paths:` filter or WorkOS-internal (internal-chat-deploy.yml,
+# internal-proxy-deploy.yml — those need our Cloudflare account and Doppler
+# project and will fail anywhere else). Needs no secrets and touches no
+# infrastructure, so it is safe to run on pull requests from forks.
+#
+# Deliberately has no `paths:` filter: the gaps it closes are the cross-package
+# ones a path-filtered workflow structurally cannot see. Today an audit-core-only
+# change can break the proxy typecheck with nothing noticing, and a change to
+# scripts/bundle-plugins.mjs triggers no workflow at all.
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  # audit-core's postinstall fetches prebuilt CLI binaries from GitHub Releases.
+  # CI must never depend on a published release existing — a fresh fork has none
+  # — and the checkout is the source of truth here anyway.
+  WORKOS_AUDIT_HARNESS_SKIP_DOWNLOAD: "1"
+
+jobs:
+  verify:
+    name: Verify workspace
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          # Root workspace lockfile. packages/chat keeps its own lockfile and is
+          # not a workspace member, so it is not covered by this install — its
+          # lint/build run in internal-chat-deploy.yml's pull_request path.
+          cache-dependency-path: package-lock.json
+
+      - name: Install workspace dependencies
+        run: npm install --no-audit --no-fund
+
+      # plugin-versions.yml runs this too, but only when a version-bearing file
+      # changes. Skew also appears via unfiltered paths (editing the checker
+      # itself, or a bump landing in the marketplace manifest alone), so run it
+      # unconditionally — it costs milliseconds.
+      - name: Plugin versions are in sync
+        run: npm run check:versions
+
+      # proxy-ci.yml typechecks the proxy only when packages/proxy changes. The
+      # proxy consumes shared audit-core types, so an audit-core-only PR can
+      # break it invisibly.
+      - name: Typecheck the proxy
+        run: npm run verify -w @workos-inc/audit-proxy
+
+  bundle:
+    name: Plugin bundles build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: package-lock.json
+
+      - name: Install workspace dependencies
+        run: npm install --no-audit --no-fund
+
+      # Each plugin ships a committed dist/ because a marketplace install copies
+      # files without installing dependencies, so the entry points must already
+      # be bundled. Nothing verified the bundler still runs: a bad import in
+      # audit-core would first surface on a user's machine, at hook time, where
+      # the hooks are contractually silent about their own failures.
+      - name: Bundle every plugin
+        run: node scripts/bundle-plugins.mjs
+
+      # Deliberately NOT `git diff --exit-code packages/*/dist`. `bun build`
+      # output is not byte-stable across bun versions, so a byte comparison would
+      # go red on every bun release instead of on a real regression, and a CI
+      # that cries wolf on a public repo gets ignored. Asserting the entry points
+      # exist and are non-empty catches the failure mode that matters — the
+      # bundle no longer builds — with no false positives. Whether the *committed*
+      # dist/ was refreshed stays a reviewer concern.
+      - name: Bundled entry points are present and non-empty
+        run: |
+          set -euo pipefail
+          for f in \
+            packages/claude-plugin/dist/server/index.mjs \
+            packages/claude-plugin/dist/scripts/emit-event.mjs \
+            packages/codex-plugin/dist/server/index.mjs \
+            packages/codex-plugin/dist/scripts/emit-event.mjs \
+            packages/openclaw-plugin/dist/server/index.mjs \
+            packages/openclaw-plugin/dist/index.mjs \
+            packages/pi-extension/dist/index.mjs ; do
+            test -s "$f" || { echo "::error::missing or empty bundle: $f"; exit 1; }
+            echo "ok $f"
+          done

@@ -659,12 +659,12 @@ The tool should:
         <div className="flex flex-wrap items-center justify-between gap-4 text-[12px] uppercase tracking-[0.14em] dim">
           <Link href="/" className="link">← back to overview</Link>
           <a
-            href="https://github.com/jonatascastro12/workos-audit-harness"
+            href="https://github.com/workos/workos-audit-harness"
             target="_blank"
             rel="noreferrer"
             className="link"
           >
-            github.com/jonatascastro12/workos-audit-harness →
+            github.com/workos/workos-audit-harness →
           </a>
         </div>
       </article>

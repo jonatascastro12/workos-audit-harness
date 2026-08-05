@@ -28,7 +28,7 @@ claude plugin marketplace add . --scope user
 claude plugin install workos-audit@workos-audit-plugins --scope user
 ```
 
-The marketplace is already added on this machine. If you already have the plugin installed or you make local changes, update it with:
+If the marketplace is already added, or you have the plugin installed and make local changes, update it with:
 
 ```bash
 claude plugin update workos-audit@workos-audit-plugins
@@ -67,7 +67,8 @@ The practical consequence: if your org sets *anything* in the Claude.ai admin co
 
 ### Caveats
 
-- This repo is private: auto-install only succeeds on machines whose git credentials can clone `workos/workos-audit-harness`.
+- `workos/workos-audit-harness` is a public repo, so auto-install needs no git credentials — but it does need each machine to reach github.com. On a fleet that only talks to an allowlisted mirror, point the marketplace `source` at your own fork or an internal clone instead.
+- `autoUpdate: true` means the fleet tracks the marketplace as published, so an upstream change reaches every enrolled machine without a review step on your side. Fork and pin the `source` above if you need change control over what your devices run.
 - Server-managed settings only bind accounts signed into the org. The file-based config still works as a backstop for users on other accounts, but it is not a substitute on org accounts.
 - For device-scoped *recording* with an org-wide install, leave recording controlled by the MDM-delivered `/Library/Application Support/workos-audit/config.json` (see [Fleet rollout](../../README.md#fleet-rollout-no-key-on-laptops)) — the hooks no-op on devices without it.
 
@@ -151,5 +152,6 @@ npm run remove:claude-schemas -- --prefix=claude --dry-run
 ## Notes
 
 - Configure the plugin with your WorkOS API key and organization ID when Claude prompts for plugin settings.
-- This repo currently provides the runtime dependencies from the repo root `node_modules`, which is enough for local development with `--plugin-dir`.
-- Before publishing this plugin externally, bundle the MCP server or ship plugin-local dependencies.
+- A marketplace install is self-contained: the MCP server and every hook script are pre-bundled into `dist/` by `scripts/bundle-plugins.mjs` (`npm run bundle`), with `@workos-inc/audit-core` and its pure-JS dependencies inlined. `.mcp.json`, `hooks/hooks.json` and `package.json` all point at `dist/` rather than `server/` or `scripts/`, so an installed plugin never needs this repo's root `node_modules`.
+- The one exception is the native `@napi-rs/keyring`, which cannot be inlined. Bundled entry points carry a preflight that installs it on first use, and the plugin falls back to no-keyring mode if that install fails.
+- Working from a clone: `server/` and `scripts/` are the sources, `dist/` is committed build output. Re-run `npm run bundle` after editing either, or a marketplace install keeps running your last bundled version.

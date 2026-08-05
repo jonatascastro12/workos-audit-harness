@@ -20,7 +20,7 @@ This repo contains four agent integrations, a fleet-deployment proxy and a chat 
 ### Claude Code
 
 ```text
-/plugin marketplace add jonatascastro12/workos-audit-harness
+/plugin marketplace add workos/workos-audit-harness
 /plugin install workos-audit@workos-audit-plugins
 ```
 
@@ -29,7 +29,7 @@ Then restart Claude Code and run `/workos-audit-setup` to wire up credentials. S
 ### Codex
 
 ```bash
-git clone https://github.com/jonatascastro12/workos-audit-harness.git
+git clone https://github.com/workos/workos-audit-harness.git
 cd workos-audit-harness
 codex plugin marketplace add .
 ```
@@ -52,7 +52,7 @@ Restart the OpenClaw gateway after installing or updating the plugin. See [packa
 ### pi-coding-agent
 
 ```bash
-git clone https://github.com/jonatascastro12/workos-audit-harness.git
+git clone https://github.com/workos/workos-audit-harness.git
 cd workos-audit-harness
 npm install
 ```
