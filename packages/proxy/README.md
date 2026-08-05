@@ -92,7 +92,21 @@ Access then forwards the verified cert's CN to the Worker in the signed `Cf-Acce
 
 The cert identifies the **device** (serial in the CN), not the user. The Worker resolves the person two ways:
 
-- **Kandji MDM** (set `KANDJI_API_BASE` var + `KANDJI_API_TOKEN` secret): the device record's assigned user is looked up live and cached in D1 for `DEVICE_CACHE_TTL_SECONDS` (default 24 h). If Kandji is unreachable, stale cache entries are served rather than dropping events.
+- **Kandji/Iru MDM** (set `KANDJI_API_BASE` var + `KANDJI_API_TOKEN` secret): the device record's assigned user is looked up live and cached in D1 for `DEVICE_CACHE_TTL_SECONDS` (default 24 h). If the MDM is unreachable, stale cache entries are served rather than dropping events.
+
+  > **Kandji is now named Iru.** The environment variables keep the `KANDJI_` prefix
+  > so existing deployments don't have to rotate a secret to upgrade; read them as
+  > "the Iru/Kandji API". Point `KANDJI_API_BASE` at your tenant either way.
+
+  > **This is the only MDM adapter, and it is vendor-shaped.** It calls
+  > `GET {base}/api/v1/devices?serial_number=<serial>` and reads
+  > `body[0].user.email` / `body[0].user.name`. Jamf, Intune and everything else
+  > have a different API and response shape, so they will **not** work by pointing
+  > `KANDJI_API_BASE` at them — you need either the static table below (fully
+  > supported, no code change) or a small adapter in
+  > [`src/device.ts`](src/device.ts) `resolveDeviceUser()`. The static table is the
+  > recommended path: it keeps device→user resolution owned by whatever already
+  > owns your inventory.
 - **Static table** (default): the D1 `device_user` table is authoritative. Populate it yourself:
 
   ```bash

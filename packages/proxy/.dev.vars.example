@@ -8,5 +8,8 @@ WORKOS_ORG_ID="org_..."
 DEV_UNAUTHENTICATED_SERIAL="DEVSERIAL01"
 
 # Optional: live MDM lookups instead of a static device_user table.
+# Kandji is now named Iru; the KANDJI_ prefix is kept so deployments need not
+# rotate secrets. This adapter is Kandji/Iru-shaped only — other MDMs should use
+# the device_user table instead (see README.md).
 # KANDJI_API_BASE="https://yourtenant.api.kandji.io"
 # KANDJI_API_TOKEN="..."
