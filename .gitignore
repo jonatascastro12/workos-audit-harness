@@ -28,3 +28,6 @@ packages/audit-core/bin/workos-audit-harness-*
 # Proxy worker local state
 packages/proxy/.wrangler/
 packages/proxy/.dev.vars
+
+# Personal demo run-sheet — keep it local, it names internal hosts.
+DEMO_SCRIPT.md
