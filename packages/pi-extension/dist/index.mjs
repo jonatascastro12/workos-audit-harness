@@ -13922,7 +13922,14 @@ function getConfig() {
     proxyUrl
   };
 }
-function summarizeConfig(config) {
+function statusLine(config) {
+  if (!config.loggingEnabled)
+    return "audit: off";
+  if (config.proxyUrl && !getDeviceCertLabel())
+    return "audit: not recording";
+  return "audit: on";
+}
+function describeConfig(config) {
   if (!config.loggingEnabled)
     return "audit: off (disabled)";
   if (config.proxyUrl) {
@@ -14333,7 +14340,7 @@ function workosAuditLogsExtension(pi) {
     config = getConfig();
     client = createClient(config);
     if (ctx?.hasUI)
-      ctx.ui.setStatus(EXTENSION_STATUS_KEY, summarizeConfig(config));
+      ctx.ui.setStatus(EXTENSION_STATUS_KEY, statusLine(config));
   }
   const batcher = createEventBatcher({
     send: (events) => emitEvents(events, auditCoreConfig(config)),
@@ -14381,7 +14388,7 @@ function workosAuditLogsExtension(pi) {
     description: "Show WorkOS audit log extension configuration status",
     handler: async (_args, ctx) => {
       refreshStatus(ctx);
-      const summary = summarizeConfig(config);
+      const summary = describeConfig(config);
       if (ctx.hasUI)
         ctx.ui.notify(summary, config.enabled ? "info" : "warning");
       else
@@ -14452,7 +14459,7 @@ function workosAuditLogsExtension(pi) {
         refreshStatus(ctx);
         const summary = summarizeStoredConfig(config, readStoredConfig());
         if (ctx.hasUI)
-          ctx.ui.notify(summarizeConfig(config), config.enabled ? "info" : "warning");
+          ctx.ui.notify(describeConfig(config), config.enabled ? "info" : "warning");
         console.log(summary);
         return;
       }
