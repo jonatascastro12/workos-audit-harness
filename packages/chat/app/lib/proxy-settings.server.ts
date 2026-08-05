@@ -14,9 +14,9 @@ import {
 /**
  * Write side of the audit proxy's runtime settings.
  *
- * The settings live as ONE JSON document in the PROXY's D1 database
- * (cd26-workos-audit-proxy-db), in its existing app_state key/value table under
- * the key "proxy_settings", reached through the PROXY_DB binding. The proxy
+ * The settings live as ONE JSON document in the PROXY's own D1 database (the one
+ * packages/proxy deploys), in its existing app_state key/value table under the
+ * key "proxy_settings", reached through the PROXY_DB binding. The proxy
  * reads that document on every ingested event and falls back to its env vars /
  * built-in defaults for any absent or malformed field, so an absent row (or an
  * unreachable store) leaves ingestion untouched.
@@ -38,6 +38,11 @@ import {
  * grants, so the binding is technically full read/write on the proxy's
  * database; confinement to app_state's "proxy_settings" key and the
  * device_user cache table is by convention, enforced here.
+ *
+ * The binding is OPTIONAL: a deployment that runs only this console never
+ * deployed the proxy, so there is no database to bind. Every entry point here
+ * therefore takes `D1Database | undefined` and reports "not bound" as data — a
+ * console without the proxy must render /settings as unavailable, never throw.
  */
 
 export const PROXY_SETTINGS_KEY = "proxy_settings";
@@ -58,13 +63,23 @@ export interface SettingsRead {
   version: number;
   /**
    * False when the SELECT threw — covers the empty local-dev miniflare copy of
-   * PROXY_DB ("no such table") and any real D1 outage. The page then renders
-   * env defaults read-only and the action refuses writes.
+   * PROXY_DB ("no such table"), any real D1 outage, AND an absent binding. The
+   * page then renders env defaults read-only and the action refuses writes.
    */
   storeAvailable: boolean;
+  /**
+   * False when PROXY_DB is not bound at all (a console deployed without the
+   * ingestion proxy). Distinguished from an unreachable store so the page can
+   * say "no proxy database bound" instead of implying an outage — the two need
+   * completely different fixes. Always paired with storeAvailable: false.
+   */
+  storeBound: boolean;
 }
 
-export async function readSettingsDocument(db: D1Database): Promise<SettingsRead> {
+export async function readSettingsDocument(db: D1Database | undefined): Promise<SettingsRead> {
+  if (!db) {
+    return { raw: null, malformed: false, version: 0, storeAvailable: false, storeBound: false };
+  }
   let row: { value: string } | null;
   try {
     row = await db
@@ -73,13 +88,15 @@ export async function readSettingsDocument(db: D1Database): Promise<SettingsRead
       .first<{ value: string }>();
   } catch (error) {
     console.error("proxy settings read failed", String(error));
-    return { raw: null, malformed: false, version: 0, storeAvailable: false };
+    return { raw: null, malformed: false, version: 0, storeAvailable: false, storeBound: true };
   }
-  if (!row) return { raw: null, malformed: false, version: 0, storeAvailable: true };
+  if (!row) {
+    return { raw: null, malformed: false, version: 0, storeAvailable: true, storeBound: true };
+  }
   try {
     const parsed: unknown = JSON.parse(row.value);
     if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
-      return { raw: null, malformed: true, version: 0, storeAvailable: true };
+      return { raw: null, malformed: true, version: 0, storeAvailable: true, storeBound: true };
     }
     const raw = parsed as Record<string, unknown>;
     // Any integer counts; anything else (missing, string, float) reads as 0.
@@ -87,15 +104,15 @@ export async function readSettingsDocument(db: D1Database): Promise<SettingsRead
     // the two must stay identical or writes lock out forever.
     const version =
       typeof raw.version === "number" && Number.isInteger(raw.version) ? raw.version : 0;
-    return { raw, malformed: false, version, storeAvailable: true };
+    return { raw, malformed: false, version, storeAvailable: true, storeBound: true };
   } catch {
-    return { raw: null, malformed: true, version: 0, storeAvailable: true };
+    return { raw: null, malformed: true, version: 0, storeAvailable: true, storeBound: true };
   }
 }
 
 export type WriteResult =
   | { ok: true }
-  | { ok: false; reason: "conflict" | "malformed" | "unavailable" };
+  | { ok: false; reason: "conflict" | "malformed" | "unavailable" | "unbound" };
 
 /**
  * Compare-and-swap write: the update only applies while the stored version
@@ -109,10 +126,13 @@ export type WriteResult =
  * out permanently on a document whose version field was hand-edited away.
  */
 async function writeSettingsDocument(
-  db: D1Database,
+  db: D1Database | undefined,
   nextDoc: Record<string, unknown>,
   expectedVersion: number,
 ): Promise<WriteResult> {
+  // Single choke point for every document write, so the "no proxy database
+  // bound" case cannot slip past one of the three public writers below.
+  if (!db) return { ok: false, reason: "unbound" };
   let changes: number;
   try {
     const result = await db
@@ -158,7 +178,7 @@ export interface SettingsPatch {
 }
 
 export async function saveSettings(
-  db: D1Database,
+  db: D1Database | undefined,
   current: SettingsRead,
   patch: SettingsPatch,
   updatedBy: string,
@@ -181,7 +201,7 @@ export async function saveSettings(
 }
 
 export async function pauseIngest(
-  db: D1Database,
+  db: D1Database | undefined,
   current: SettingsRead,
   reason: string,
   autoResumeAt: string | null,
@@ -200,7 +220,7 @@ export async function pauseIngest(
 }
 
 export async function resumeIngest(
-  db: D1Database,
+  db: D1Database | undefined,
   current: SettingsRead,
   resumedBy: string,
 ): Promise<WriteResult> {
@@ -232,7 +252,7 @@ function stringOrNull(value: unknown): string | null {
 
 /**
  * Tolerant per-field view of the stored document, mirroring the proxy's
- * parser (workos-audit-proxy/app/lib/settings.server.ts) so the provenance
+ * parser (packages/proxy/src/settings.ts) so the provenance
  * badges and effective values shown here always match what the proxy applies.
  */
 export function resolveEffective(read: SettingsRead, envOrgId: string | null): EffectiveSettings {
@@ -296,7 +316,10 @@ export interface DeviceUserList {
   available: boolean;
 }
 
-export async function listDeviceUsers(db: D1Database): Promise<DeviceUserList> {
+export async function listDeviceUsers(db: D1Database | undefined): Promise<DeviceUserList> {
+  // Not bound reads the same as unreadable to the caller: an empty list marked
+  // unavailable. The page explains WHICH of the two it is from storeBound.
+  if (!db) return { rows: [], total: 0, available: false };
   try {
     const [list, count] = await db.batch([
       db.prepare(
@@ -319,6 +342,9 @@ export function isValidDeviceSerial(serial: string): boolean {
   return SERIAL_RE.test(serial);
 }
 
+// The two purges still REQUIRE a bound database: they are destructive, so the
+// caller must have narrowed PROXY_DB (the /settings action refuses the intent
+// outright when it is absent) rather than have a silent no-op look like success.
 export async function purgeDeviceUser(db: D1Database, serial: string): Promise<void> {
   await db.prepare("DELETE FROM device_user WHERE serial = ?").bind(serial).run();
 }

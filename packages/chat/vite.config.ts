@@ -6,7 +6,21 @@ import tsconfigPaths from "vite-tsconfig-paths";
 
 export default defineConfig({
   plugins: [
-    cloudflare({ viteEnvironment: { name: "ssr" } }),
+    cloudflare({
+      viteEnvironment: { name: "ssr" },
+      // Which Wrangler config to build against. Unset = wrangler.toml (the
+      // vendor-neutral one); `npm run deploy:internal` sets
+      // ./wrangler.internal.toml.
+      //
+      // This has to be chosen at BUILD time, not deploy time: the build bakes
+      // the resolved config into build/server/wrangler.json and writes
+      // .wrangler/deploy/config.json, which `wrangler deploy` then follows —
+      // so `wrangler deploy --config wrangler.internal.toml` does not merely
+      // get ignored, it fails outright (it bypasses the redirect and tries to
+      // bundle workers/app.ts, whose virtual react-router server build only
+      // exists inside vite). Verified.
+      configPath: process.env.WRANGLER_CONFIG_PATH,
+    }),
     tailwindcss(),
     reactRouter(),
     tsconfigPaths(),

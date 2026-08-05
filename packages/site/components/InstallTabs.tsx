@@ -18,33 +18,33 @@ const TARGETS: Target[] = [
     name: "Claude Code",
     blurb: "Marketplace install. /workos-audit-setup wires creds.",
     meta: "plugin · MCP · hooks",
-    code: `$ claude plugin marketplace add jonatascastro12/workos-audit-harness
+    code: `$ claude plugin marketplace add workos/workos-audit-harness
 $ claude plugin install workos-audit@workos-audit-plugins
 # restart claude code, then:
 $ /workos-audit-setup`,
-    link: "https://github.com/jonatascastro12/workos-audit-harness/tree/main/packages/claude-plugin",
+    link: "https://github.com/workos/workos-audit-harness/tree/main/packages/claude-plugin",
   },
   {
     id: "codex",
     name: "Codex",
     blurb: "Add the marketplace, install workos-audit, restart.",
     meta: "plugin · MCP · hooks",
-    code: `$ git clone https://github.com/jonatascastro12/workos-audit-harness.git
+    code: `$ git clone https://github.com/workos/workos-audit-harness.git
 $ cd workos-audit-harness
 $ codex plugin marketplace add .
 # inside codex: install workos-audit, then restart`,
-    link: "https://github.com/jonatascastro12/workos-audit-harness/tree/main/packages/codex-plugin",
+    link: "https://github.com/workos/workos-audit-harness/tree/main/packages/codex-plugin",
   },
   {
     id: "pi",
     name: "pi-coding-agent",
     blurb: "Register the extension. Ships the workos-audit-harness CLI.",
     meta: "extension · CLI",
-    code: `$ git clone https://github.com/jonatascastro12/workos-audit-harness.git
+    code: `$ git clone https://github.com/workos/workos-audit-harness.git
 $ cd workos-audit-harness
 $ npm install
 # then point pi at packages/pi-extension/index.ts`,
-    link: "https://github.com/jonatascastro12/workos-audit-harness/tree/main/packages/pi-extension",
+    link: "https://github.com/workos/workos-audit-harness/tree/main/packages/pi-extension",
   },
 ];
 

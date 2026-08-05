@@ -39,7 +39,7 @@ export function StatusBar() {
           </Link>
           <span className="dim hidden sm:inline">·</span>
           <a
-            href="https://github.com/jonatascastro12/workos-audit-harness/tree/main"
+            href="https://github.com/workos/workos-audit-harness/tree/main"
             target="_blank"
             rel="noreferrer"
             className="dim hidden sm:inline hover:text-[var(--accent)] transition-colors"

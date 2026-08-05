@@ -5,7 +5,12 @@ End-to-end live QA of each plugin against the WorkOS staging sandbox (active
 `qa/recordings/<plugin>.gif`; the tapes that produced them are next to each gif
 and re-runnable via `vhs qa/recordings/<plugin>.tape`.
 
-Org used: `org_01KRS134BMB9CA308BEPGDQ5G8` ("Audit Log Harness").
+Org used: an organization named `Audit Log Harness`
+(`org_XXXXXXXXXXXXXXXXXXXXXXXXXX` — the real id was internal test scaffolding
+and is no longer committed). This pass pinned it explicitly; to do the same on a
+re-run, export `QA_ORG_ID`. With that unset, the harness finds-or-creates
+`Audit Log Harness` in whatever environment you are authenticated against, which
+reproduces the pass on a clean account.
 
 ## Bugs found and fixed during this pass
 
@@ -158,6 +163,6 @@ vhs qa/recordings/pi-extension.tape
 ```
 
 Helpers used by the tapes:
-- `qa/recordings/_setup.sh` — exports `WORKOS_ORGANIZATION_ID`, points config to `/tmp`, writes reusable query JSON files.
+- `qa/recordings/_setup.sh` — exports `WORKOS_ORGANIZATION_ID` only when `QA_ORG_ID` is set (otherwise the harness picks the org), points config to `/tmp`, writes reusable query JSON files.
 - `qa/recordings/probe.mjs` — drives a plugin's MCP server over stdio (`status` or `query`).
 - `qa/recordings/emit.sh` — invokes a plugin's `emit-event.mjs` with a minimal stub Claude/Codex payload.

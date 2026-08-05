@@ -11,7 +11,7 @@ type Target = {
   command: string;
 };
 
-const REPO = "jonatascastro12/workos-audit-harness";
+const REPO = "workos/workos-audit-harness";
 const REPO_PATH = "packages/site/public/skills/workos-audit-recipe.md";
 const SKILL_RAW_URL = `https://raw.githubusercontent.com/${REPO}/main/${REPO_PATH}`;
 const SKILL_VIEW_URL = `https://github.com/${REPO}/blob/main/${REPO_PATH}`;

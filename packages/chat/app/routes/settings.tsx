@@ -58,6 +58,9 @@ export async function loader(args: LoaderFunctionArgs) {
         });
       }
       const envOrgId = env.AUDIT_HARNESS_WORKOS_ORG_ID ?? null;
+      // PROXY_DB is optional (see wrangler.toml): a console deployed without the
+      // ingestion proxy has nothing to bind, and both reads below report that as
+      // data instead of throwing.
       const [organizations, settings, devices] = await Promise.all([
         listOrganizations(tenant.apiKey),
         readSettingsDocument(env.PROXY_DB),
@@ -67,6 +70,7 @@ export async function loader(args: LoaderFunctionArgs) {
         effective: resolveEffective(settings, envOrgId),
         version: settings.version,
         storeAvailable: settings.storeAvailable,
+        storeBound: settings.storeBound,
         malformed: settings.malformed,
         organizations,
         devices,
@@ -90,6 +94,10 @@ const CONFLICT_ERROR = "Settings changed in another session. Reload the page and
 const STORE_UNAVAILABLE_ERROR =
   "The proxy settings store is not reachable from this app. In local dev the proxy database " +
   "is a separate empty copy — apply the proxy's migrations to the local PROXY_DB to test writes.";
+const STORE_UNBOUND_ERROR =
+  "No proxy database bound — settings unavailable. This console does not need the ingestion " +
+  "proxy to answer questions about the audit trail; to manage the proxy's runtime settings from " +
+  "here, bind its D1 database as PROXY_DB in wrangler.toml (see the README) and deploy again.";
 const MALFORMED_ERROR =
   "The stored settings document is not valid JSON, so saving is disabled to avoid overwriting " +
   "it. Inspect and repair the app_state row 'proxy_settings' in the proxy database, or delete " +
@@ -105,6 +113,7 @@ const AUTO_RESUME_SECONDS: Record<string, number | null> = {
 function writeError(result: Extract<WriteResult, { ok: false }>): ActionResult {
   if (result.reason === "conflict") return { error: CONFLICT_ERROR };
   if (result.reason === "malformed") return { error: MALFORMED_ERROR };
+  if (result.reason === "unbound") return { error: STORE_UNBOUND_ERROR };
   return { error: STORE_UNAVAILABLE_ERROR };
 }
 
@@ -134,6 +143,13 @@ export async function action(args: ActionFunctionArgs): Promise<ActionResult> {
     }
   }
 
+  // PROXY_DB is optional (see wrangler.toml). Checked AFTER the full auth +
+  // allowed-domain + origin gate above, so an unauthenticated caller learns
+  // nothing about this deployment's bindings — and narrowed once here so every
+  // mutation below, the destructive purges included, provably has a database.
+  const proxyDb = env.PROXY_DB;
+  if (!proxyDb) return { error: STORE_UNBOUND_ERROR };
+
   const formData = await args.request.formData();
   const intent = formData.get("intent");
   const editor = auth.user.email ?? auth.user.id;
@@ -144,7 +160,7 @@ export async function action(args: ActionFunctionArgs): Promise<ActionResult> {
       return { error: "That device serial is not valid." };
     }
     try {
-      await purgeDeviceUser(env.PROXY_DB, serial);
+      await purgeDeviceUser(proxyDb, serial);
     } catch (error) {
       console.error("purge device failed", String(error));
       return { error: STORE_UNAVAILABLE_ERROR };
@@ -155,7 +171,7 @@ export async function action(args: ActionFunctionArgs): Promise<ActionResult> {
   if (intent === "purge-all-devices") {
     let count: number;
     try {
-      count = await purgeAllDeviceUsers(env.PROXY_DB);
+      count = await purgeAllDeviceUsers(proxyDb);
     } catch (error) {
       console.error("purge all devices failed", String(error));
       return { error: STORE_UNAVAILABLE_ERROR };
@@ -164,7 +180,7 @@ export async function action(args: ActionFunctionArgs): Promise<ActionResult> {
   }
 
   // Everything below is a settings-document mutation: read fresh, CAS-write.
-  const current = await readSettingsDocument(env.PROXY_DB);
+  const current = await readSettingsDocument(proxyDb);
   if (!current.storeAvailable) return { error: STORE_UNAVAILABLE_ERROR };
   if (current.malformed) return { error: MALFORMED_ERROR };
 
@@ -234,7 +250,7 @@ export async function action(args: ActionFunctionArgs): Promise<ActionResult> {
       patch.deviceCacheTtlSeconds = raw;
     }
 
-    const result = await saveSettings(env.PROXY_DB, current, patch, editor);
+    const result = await saveSettings(proxyDb, current, patch, editor);
     if (!result.ok) return writeError(result);
     return { ok: "Settings saved. The proxy applies them to the next ingested event." };
   }
@@ -252,13 +268,13 @@ export async function action(args: ActionFunctionArgs): Promise<ActionResult> {
     const seconds = AUTO_RESUME_SECONDS[autoResumeChoice];
     const autoResumeAt =
       seconds === null ? null : new Date(Date.now() + seconds * 1000).toISOString();
-    const result = await pauseIngest(env.PROXY_DB, current, reason, autoResumeAt, editor);
+    const result = await pauseIngest(proxyDb, current, reason, autoResumeAt, editor);
     if (!result.ok) return writeError(result);
     return { ok: "Ingestion paused." };
   }
 
   if (intent === "resume-ingest") {
-    const result = await resumeIngest(env.PROXY_DB, current, editor);
+    const result = await resumeIngest(proxyDb, current, editor);
     if (!result.ok) return writeError(result);
     return { ok: "Ingestion resumed." };
   }
@@ -478,8 +494,7 @@ function AttributionCard({
               Every ingested event is attributed to this organization. Effective:{" "}
               <Code size="1">{effective.workosOrgId.value ?? "not configured"}</Code> (
               {effective.workosOrgId.source}). The env default shown is this admin app&apos;s copy
-              of AUDIT_HARNESS_WORKOS_ORG_ID; the proxy reads its own copy from the shared Doppler
-              config.
+              of AUDIT_HARNESS_WORKOS_ORG_ID; the proxy reads its own copy from its own environment.
             </Text>
           </Flex>
           <Flex direction="column" gap="2">
@@ -582,6 +597,7 @@ export default function Settings() {
     effective,
     version,
     storeAvailable,
+    storeBound,
     malformed,
     organizations,
     devices,
@@ -644,12 +660,25 @@ export default function Settings() {
               Proxy settings
             </Heading>
             <Text size="2" color="gray">
-              Runtime configuration for <Code size="1">cd26-workos-audit-proxy</Code>, the harness
-              audit ingestion proxy. Changes apply to the next ingested event — no redeploy.
+              Runtime configuration for the harness audit ingestion proxy (
+              <Code size="1">packages/proxy</Code>). Changes apply to the next ingested event — no
+              redeploy.
             </Text>
           </Flex>
 
-          {!storeAvailable ? (
+          {/* Two different "read-only" reasons, deliberately worded apart: no
+              binding at all is a deployment choice with nothing to fix, an
+              unreachable store is a migration or outage problem. */}
+          {!storeBound ? (
+            <Callout.Root color="yellow" size="1">
+              <Callout.Text>
+                No proxy database bound — settings unavailable. This console answers questions about
+                the audit trail without the ingestion proxy; to manage the proxy&apos;s runtime
+                settings from here, bind its D1 database as <Code size="1">PROXY_DB</Code> in{" "}
+                <Code size="1">wrangler.toml</Code> (see the README) and deploy again.
+              </Callout.Text>
+            </Callout.Root>
+          ) : !storeAvailable ? (
             <Callout.Root color="yellow" size="1">
               <Callout.Text>
                 Showing environment defaults read-only — the proxy settings store is not reachable
@@ -866,7 +895,11 @@ export default function Settings() {
               <FetcherCallouts data={purgeAllFetcher.data} />
               {!devices.available ? (
                 <Callout.Root color="yellow" size="1">
-                  <Callout.Text>The device cache table could not be read.</Callout.Text>
+                  <Callout.Text>
+                    {storeBound
+                      ? "The device cache table could not be read."
+                      : "The device cache lives in the proxy's database, which is not bound here."}
+                  </Callout.Text>
                 </Callout.Root>
               ) : devices.rows.length === 0 ? (
                 <Text size="2" color="gray">
@@ -896,10 +929,12 @@ export default function Settings() {
                 Secrets
               </Heading>
               <Flex align="center" justify="between" gap="3">
-                <Code size="1">AUDIT_HARNESS_WORKOS_API_KEY</Code>
+                {/* Presence covers either name — the app falls back to the
+                    proxy's AUDIT_HARNESS_WORKOS_API_KEY. */}
+                <Code size="1">AUDIT_CHAT_WORKOS_API_KEY / AUDIT_HARNESS_WORKOS_API_KEY</Code>
                 {secretsPresence.workosApiKey ? (
                   <Badge color="green" size="1">
-                    Set via Doppler
+                    Set
                   </Badge>
                 ) : (
                   <Badge color="red" size="1">
@@ -908,14 +943,15 @@ export default function Settings() {
                 )}
               </Flex>
               <Flex align="center" justify="between" gap="3">
-                <Code size="1">AUDIT_HARNESS_KANDJI_API_TOKEN</Code>
+                <Code size="1">KANDJI_API_TOKEN</Code>
                 <Badge color="gray" size="1">
-                  Managed in the proxy Doppler config
+                  Managed on the proxy Worker
                 </Badge>
               </Flex>
               <Text size="1" color="gray">
-                Secrets are managed in the claude-day Doppler project and synced by CI. They are
-                never stored in this database and cannot be viewed or changed here.
+                Secrets are Worker secrets set with <Code size="1">wrangler secret put</Code>{" "}
+                (WorkOS internal: synced from Doppler by CI). They are never stored in this database
+                and cannot be viewed or changed here.
               </Text>
             </Flex>
           </Card>

@@ -6,9 +6,10 @@ import { configureSessionStorage } from "@workos-inc/authkit-react-router/dist/c
 import { createContext } from "react-router";
 
 /**
- * Secrets and optional vars are not part of the generated `Env` (they are set
- * via Doppler → Cloudflare secrets, or .dev.vars locally), so they are
- * declared here and the binding env is widened to include them.
+ * Secrets and optional vars are not part of the generated `Env` (they are set as
+ * Worker secrets — WorkOS-internally via a Doppler sync — or in .dev.vars
+ * locally), so they are declared here and the binding env is widened to include
+ * them.
  */
 export interface AuditChatSecrets {
   /** WorkOS API key for the tenant the proxy ingests into. Falls back to the proxy's secret. */
@@ -33,7 +34,19 @@ export interface AuditChatSecrets {
   AUDIT_CHAT_OPENAI_API_KEY?: string;
 }
 
-export type AuditChatEnv = Env & AuditChatSecrets;
+/**
+ * PROXY_DB is re-declared OPTIONAL on purpose. It binds the ingestion proxy's
+ * own D1 database, which a deployment that runs only this console does not have
+ * (the binding is commented out in the vendor-neutral wrangler.toml and bound in
+ * wrangler.internal.toml). `wrangler types` emits it as a required property
+ * whenever the binding happens to be present, so overriding it here keeps the
+ * app compiling and behaving identically either way, and forces every call site
+ * to handle "not bound" instead of throwing on `undefined.prepare`.
+ */
+export type AuditChatEnv = Omit<Env, "PROXY_DB"> &
+  AuditChatSecrets & {
+    PROXY_DB?: D1Database;
+  };
 
 /**
  * Loaders and actions always receive a `RouterContextProvider`, so the worker
@@ -60,7 +73,7 @@ export const DEFAULT_MODEL = "anthropic/claude-sonnet-4-6";
 function required(value: string | undefined, name: string): string {
   if (!value) {
     throw new Error(
-      `Missing ${name}. Set it as a Cloudflare secret (Doppler claude-day) or in .dev.vars for local dev.`,
+      `Missing ${name}. Set it as a Worker secret (\`wrangler secret put\`), or in .dev.vars for local dev.`,
     );
   }
   return value;

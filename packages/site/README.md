@@ -1,7 +1,7 @@
 # @workos-inc/audit-harness-site
 
 Marketing and documentation site for the
-[WorkOS Audit Harness](https://github.com/jonatascastro12/workos-audit-harness).
+[WorkOS Audit Harness](https://github.com/workos/workos-audit-harness).
 
 Next.js 15 (App Router) + Tailwind CSS v4. Designed to deploy on Vercel.
 

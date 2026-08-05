@@ -1,9 +1,45 @@
-# Deploys packages/chat (the audit-chat admin console) to Cloudflare.
+# WORKOS-INTERNAL INFRASTRUCTURE — NOT A SELF-HOSTING TEMPLATE.
+#
+# This deploys the live WorkOS audit-chat console. Every identifier below exists
+# only in the WorkOS Cloudflare account and the WorkOS Doppler org: the
+# `workos-tools-apps` dispatch namespace, the ROUTES KV namespace that fronts it,
+# the `claude-day` Doppler project, and the `cd26-`-prefixed script and database
+# names. A fork has none of them, so this workflow will fail on its first run and
+# there is nothing to learn from the failure. It is kept here because it is how
+# we ship, not as an example.
+#
+# Self-hosting your own console? Do NOT copy this file — see docs/deploy.md and
+# packages/chat/README.md. Self-hosted deploys are a `wrangler deploy` against
+# your own account with your own D1 ids; the dispatch-namespace indirection below
+# is a WorkOS-specific ingress and is not something you need or want.
 #
 # packages/chat is deliberately NOT an npm workspace member: it keeps its own
 # package-lock.json (vendored WorkOS design system + React Router toolchain),
 # so every step runs with packages/chat as the working directory.
-name: chat deploy
+#
+# Which wrangler config wins is decided at BUILD time, not deploy time, and that
+# is easy to get backwards. The Cloudflare vite plugin resolves the config during
+# `react-router build`, bakes it into build/server/wrangler.json, and writes
+# .wrangler/deploy/config.json pointing at it; `wrangler deploy` then follows that
+# redirect. So:
+#
+#   - the build MUST be `npm run build:internal` (it sets WRANGLER_CONFIG_PATH),
+#     because a neutral build bakes the neutral config and no later flag undoes it
+#   - the deploy MUST NOT pass `--config`. Doing so bypasses the redirect, and
+#     wrangler then tries to bundle workers/app.ts directly and fails outright on
+#     `Could not resolve "virtual:react-router/server-build"` — that module only
+#     exists inside vite. Verified by dry run.
+#
+# D1 steps are different: they never go through the build, so they DO need an
+# `*:internal` npm script (which passes --config) to reach the real database.
+#
+# Getting the build wrong is the dangerous half: a neutral build deploys a script
+# named `workos-audit-chat` while the live `cd26-workos-audit-chat` freezes on its
+# last good deploy, and the ROUTES KV key is rewritten to the new empty one.
+# Green CI, dead console.
+# The deployed identity is derived by `sed` from wrangler.internal.toml; if you
+# ever need to change that, change it in all three places below at once.
+name: internal chat deploy (WorkOS only)
 
 on:
   push:
@@ -11,11 +47,11 @@ on:
       - main
     paths:
       - "packages/chat/**"
-      - ".github/workflows/chat-deploy.yml"
+      - ".github/workflows/internal-chat-deploy.yml"
   pull_request:
     paths:
       - "packages/chat/**"
-      - ".github/workflows/chat-deploy.yml"
+      - ".github/workflows/internal-chat-deploy.yml"
   workflow_dispatch:
 
 # contents: write lets the deployment-URL commit comment post; everything else
@@ -49,23 +85,38 @@ jobs:
       - name: Run linter
         run: npm run lint
 
+      # Intentionally the NEUTRAL config: --local applies the migrations to a
+      # throwaway miniflare sqlite, so this only asserts the SQL in migrations/
+      # still applies cleanly. The database name it prints is irrelevant, and
+      # using the neutral config means PRs from anywhere validate the same thing.
       - name: Validate migrations
         run: npm run db:migrate:local
 
+      # build:internal, not build: this is what actually selects
+      # wrangler.internal.toml for the deploy (see the header). A plain `npm run
+      # build` here would silently ship the vendor-neutral config.
       - name: Build
-        run: npm run build
+        run: npm run build:internal
         env:
           NODE_ENV: production
 
       - name: Run database migrations
         if: github.ref == 'refs/heads/main'
-        run: npm run db:migrate:remote
+        run: npm run db:migrate:internal
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
 
       # Deploy INTO the dispatch namespace (no custom domain consumed). Reached via
       # the zone wildcard route -> workos-tools-dispatch -> ROUTES KV.
+      #
+      # Deliberately NO --config: the Build step already baked
+      # wrangler.internal.toml into build/server/wrangler.json and wrangler follows
+      # .wrangler/deploy/config.json to it. Passing --config here bypasses that
+      # redirect and fails on `virtual:react-router/server-build`.
+      #
+      # Raw `npx wrangler` rather than `npm run deploy:internal` avoids a second
+      # `react-router build` — the Build step above already produced ./build.
       - name: Deploy app (dispatch namespace)
         if: github.ref == 'refs/heads/main'
         run: npx wrangler deploy --dispatch-namespace workos-tools-apps
@@ -75,7 +126,7 @@ jobs:
 
       - name: Deploy workflow worker
         if: github.ref == 'refs/heads/main'
-        run: npm run deploy:worker
+        run: npm run deploy:worker:internal
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
@@ -89,9 +140,11 @@ jobs:
         run: |
           set -euo pipefail
           curl -sLf https://cli.doppler.com/install.sh | sudo sh
-          # Derive the deployed script name from wrangler.toml — rename-app prefixes
-          # the Cloudflare name (cd26-<app>), so never hardcode the placeholder here.
-          SCRIPT=$(sed -n 's/^name *= *"\(.*\)".*/\1/p' wrangler.toml | head -1)
+          # Derive the deployed script name from the INTERNAL config, which is the
+          # one the deploy step above uploaded (cd26-workos-audit-chat). Reading
+          # wrangler.toml here would PUT ~120 secrets onto a script this workflow
+          # never deploys and leave the live one with stale values.
+          SCRIPT=$(sed -n 's/^name *= *"\(.*\)".*/\1/p' wrangler.internal.toml | head -1)
 
           # One compact JSON body per secret: jq escapes newlines, so multi-line
           # values (PEM keys, etc.) survive. A shell `read` on tab/newline would
@@ -130,7 +183,7 @@ jobs:
           # `secret bulk`, and the shared Doppler config has outgrown it —
           # upload the companion workflow worker in chunks of 90.
           doppler secrets --json | jq -c 'with_entries(.value = .value.computed) | to_entries | _nwise(90) | from_entries' | while IFS= read -r chunk; do
-            printf '%s' "$chunk" | npx wrangler secret bulk --config wrangler.worker.toml
+            printf '%s' "$chunk" | npx wrangler secret bulk --config wrangler.worker.internal.toml
           done
 
           [ "$failed" = "0" ] || exit 1
@@ -140,12 +193,14 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
 
       # Idempotent: map this app's subdomain -> its namespaced script. Both are the
-      # wrangler.toml `name` (rename-app cd26-prefixes it), so derive it rather than
-      # hardcode. --remote is required — wrangler v4 `kv key put` defaults to LOCAL sim.
+      # wrangler.internal.toml `name`, so derive it rather than hardcode — but derive
+      # it from the SAME config the deploy used, or this rewrites the live route to
+      # a script that was never deployed.
+      # --remote is required — wrangler v4 `kv key put` defaults to LOCAL sim.
       - name: Register dispatch route in ROUTES KV
         if: github.ref == 'refs/heads/main'
         run: |
-          SCRIPT=$(sed -n 's/^name *= *"\(.*\)".*/\1/p' wrangler.toml | head -1)
+          SCRIPT=$(sed -n 's/^name *= *"\(.*\)".*/\1/p' wrangler.internal.toml | head -1)
           npx wrangler kv key put --remote --namespace-id 124917c1f819408193cd4e56b39543f3 "$SCRIPT" "$SCRIPT"
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}

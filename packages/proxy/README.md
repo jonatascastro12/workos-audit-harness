@@ -36,7 +36,7 @@ The clients in this repo ([claude-plugin](../claude-plugin), [codex-plugin](../c
 
 One-click — Cloudflare clones the repo, provisions the D1 database, and deploys the Worker:
 
-[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https%3A%2F%2Fgithub.com%2Fjonatascastro12%2Fworkos-audit-harness%2Ftree%2Fmain%2Fpackages%2Fproxy)
+[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https%3A%2F%2Fgithub.com%2Fworkos%2Fworkos-audit-harness%2Ftree%2Fmain%2Fpackages%2Fproxy)
 
 Afterwards you still need steps 2–3 below (migrations, secrets, vars) and the [mTLS setup](#put-mtls-in-front-of-apievents).
 
