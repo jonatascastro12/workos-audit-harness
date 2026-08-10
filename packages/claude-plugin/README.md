@@ -38,7 +38,7 @@ After installing or updating, restart Claude Code.
 
 ## Enforce the plugin fleet-wide (managed settings)
 
-To install and force-enable the plugin for a whole fleet, deliver this through Claude Code [managed settings](https://code.claude.com/docs/en/settings#settings-files). `extraKnownMarketplaces` registers the marketplace automatically and `enabledPlugins` force-installs the plugin so users cannot disable it:
+To install and enable the plugin for a whole fleet, deliver this through Claude Code [managed settings](https://code.claude.com/docs/en/settings#settings-files). `extraKnownMarketplaces` registers the marketplace automatically and `enabledPlugins` installs and enables the plugin on each device's next launch:
 
 ```json
 {
@@ -53,7 +53,7 @@ To install and force-enable the plugin for a whole fleet, deliver this through C
 }
 ```
 
-Optionally add `strictKnownMarketplaces` with the same source to also block users from adding any other marketplace.
+**Treat this as distribution, not enforcement.** As of Claude Code 2.1.226 we observed that a user can run `/plugin marketplace remove` — which uninstalls the plugin with the marketplace — and nothing re-registers it on later launches, despite `enabledPlugins` remaining in managed settings. We also observed `strictKnownMarketplaces` (including the documented empty-array lockdown) not blocking marketplace adds at all; both behaviors are reported upstream. Verify on the Claude Code version your fleet runs before relying on either. This is one more instance of the general rule in the [trust model](../proxy/README.md#trust-model): endpoint configuration is user-controlled, so the durable control is detection — reconcile emitted events against the Anthropic admin usage API, where sessions that billed tokens but emitted nothing stand out.
 
 ### Pick one delivery mechanism
 
