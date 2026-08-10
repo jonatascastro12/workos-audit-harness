@@ -21,13 +21,7 @@
     "db:migrate:remote": "wrangler d1 migrations apply workos-audit-chat-db --remote",
     "sync-design-system": "node scripts/sync-design-system.mjs",
     "verify": "npx tsc --noEmit && npm run build",
-    "wrangler": "wrangler",
-    "predev:internal": "npm run db:migrate:local",
-    "dev:internal": "doppler run --project claude-day --config dev --mount .dev.vars --mount-format env -- react-router dev",
-    "build:internal": "WRANGLER_CONFIG_PATH=./wrangler.internal.toml react-router build",
-    "deploy:internal": "npm run build:internal && wrangler deploy --dispatch-namespace workos-tools-apps",
-    "db:migrate:internal": "wrangler d1 migrations apply cd26-workos-audit-chat-db --remote --config wrangler.internal.toml",
-    "logs:internal": "wrangler tail --config wrangler.internal.toml"
+    "wrangler": "wrangler"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.83",

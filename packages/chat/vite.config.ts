@@ -9,8 +9,8 @@ export default defineConfig({
     cloudflare({
       viteEnvironment: { name: "ssr" },
       // Which Wrangler config to build against. Unset = wrangler.toml (the
-      // vendor-neutral one); `npm run deploy:internal` sets
-      // ./wrangler.internal.toml.
+      // vendor-neutral one); WorkOS's internal deploy pipeline sets this to
+      // an overlaid internal config.
       //
       // This has to be chosen at BUILD time, not deploy time: the build bakes
       // the resolved config into build/server/wrangler.json and writes

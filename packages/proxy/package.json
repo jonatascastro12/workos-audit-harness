@@ -12,9 +12,7 @@
     "db:migrate:local": "CI=1 wrangler d1 migrations apply workos-audit-proxy-db --local",
     "db:migrate:remote": "wrangler d1 migrations apply workos-audit-proxy-db --remote",
     "logs": "wrangler tail",
-    "verify": "tsc --noEmit",
-    "deploy:internal": "wrangler deploy --config wrangler.internal.toml --dispatch-namespace workos-tools-apps",
-    "db:migrate:internal": "wrangler d1 migrations apply cd26-workos-audit-proxy-db --remote --config wrangler.internal.toml"
+    "verify": "tsc --noEmit"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4",

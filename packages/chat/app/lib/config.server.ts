@@ -37,8 +37,8 @@ export interface AuditChatSecrets {
 /**
  * PROXY_DB is re-declared OPTIONAL on purpose. It binds the ingestion proxy's
  * own D1 database, which a deployment that runs only this console does not have
- * (the binding is commented out in the vendor-neutral wrangler.toml and bound in
- * wrangler.internal.toml). `wrangler types` emits it as a required property
+ * (the binding is commented out in the vendor-neutral wrangler.toml and bound
+ * only in WorkOS's internal deploy). `wrangler types` emits it as a required property
  * whenever the binding happens to be present, so overriding it here keeps the
  * app compiling and behaving identically either way, and forces every call site
  * to handle "not bound" instead of throwing on `undefined.prepare`.

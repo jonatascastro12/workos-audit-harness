@@ -1,6 +1,10 @@
 # Vendor-neutral config: no account_id (wrangler uses your logged-in account)
 # and no zone routes. After your first deploy, attach the Worker to a hostname
 # on your own zone so you can put mTLS in front of it — see README.md.
+# Keep this file vendor-neutral: WorkOS's own deploy lives in the private
+# workos-audit-harness-deploy repo, which overlays a sibling internal config —
+# if you ADD OR RENAME A BINDING OR VAR here, that internal config must be
+# updated in the same change-set.
 name = "workos-audit-proxy"
 main = "src/index.ts"
 compatibility_date = "2026-02-10"
