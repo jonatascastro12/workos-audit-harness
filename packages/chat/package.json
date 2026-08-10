@@ -76,7 +76,7 @@
     "tailwindcss": "^4",
     "typescript": "^5",
     "vite": "^7",
-    "vite-tsconfig-paths": "^5",
+    "vite-tsconfig-paths": "^6",
     "wrangler": "^4"
   },
   "overrides": {
