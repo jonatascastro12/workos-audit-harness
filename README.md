@@ -1,5 +1,9 @@
 # workos-audit-harness
 
+<p align="center">
+  <img src="docs/assets/audit-harness-eye.gif" width="440" alt="Audit Harness — every agent, one audit trail" />
+</p>
+
 Audit logging for AI coding agents: one event vocabulary, four working integrations, and an honest account of where each place you can emit from tops out.
 
 **If you build an agent harness, emit audit events from your own backend.** Your servers already see the session, the model, and every tool call the agent makes — and a customer's developer cannot rewrite them there. That is the only place an event's *content* can be attested, and it's the architecture we recommend. Start with the guide [Add enterprise-grade audit logs to your AI harness](packages/site/app/blog/audit-logs-for-ai-harnesses/page.tsx) and the shared event taxonomy in [`packages/audit-core`](packages/audit-core/src/harness-audit-schemas.mjs).
