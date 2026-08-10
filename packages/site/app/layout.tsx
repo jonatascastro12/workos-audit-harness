@@ -4,14 +4,14 @@ import { getSiteUrl } from "@/lib/site-url";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "WorkOS Audit Harness — ship audit logs from your coding agents",
+  title: "WorkOS Audit Harness — audit logs for AI coding agents",
   description:
-    "A CLI + plugins that emit Claude Code, Codex, and pi-coding-agent lifecycle events to WorkOS Audit Logs. One harness, one schema set, three integrations.",
+    "Build audit logs into your AI harness and emit them from your own backend, where events can't be forged. Plus working plugins for Claude Code, Codex, OpenClaw, and pi when you need to instrument a harness you don't own.",
   metadataBase: new URL(getSiteUrl()),
   openGraph: {
     title: "WorkOS Audit Harness",
     description:
-      "Ship WorkOS audit logs from your coding agents. Claude Code, Codex, pi-coding-agent.",
+      "Audit logs for AI coding agents. Emit from your backend if you build the harness; instrument the endpoint if you don't.",
     type: "website",
   },
   icons: {

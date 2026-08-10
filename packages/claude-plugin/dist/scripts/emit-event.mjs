@@ -3771,7 +3771,7 @@ var init_webapi_CxKOxXjo = __esm(() => {
 });
 
 // scripts/emit-event.mjs
-import { existsSync as existsSync4, readFileSync as readFileSync4 } from "node:fs";
+import { existsSync as existsSync5, readFileSync as readFileSync4 } from "node:fs";
 
 // ../audit-core/src/util.mjs
 import { createHash } from "node:crypto";
@@ -9126,6 +9126,42 @@ var configLoader = createConfigLoader({
   }
 });
 
+// scripts/transcript.mjs
+import { existsSync as existsSync4, readdirSync } from "node:fs";
+import { homedir } from "node:os";
+import path4 from "node:path";
+var SESSION_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_-]{7,63}$/;
+function transcriptRoots() {
+  const roots = [];
+  const configDir = process.env.CLAUDE_CONFIG_DIR;
+  if (typeof configDir === "string" && configDir.trim()) {
+    roots.push(path4.join(configDir.trim(), "projects"));
+  }
+  roots.push(path4.join(homedir(), ".claude", "projects"));
+  return roots;
+}
+function resolveTranscriptPath(sessionId) {
+  if (typeof sessionId !== "string" || !SESSION_ID_PATTERN.test(sessionId))
+    return;
+  const leaf = `${sessionId}.jsonl`;
+  for (const root of transcriptRoots()) {
+    let entries;
+    try {
+      entries = readdirSync(root, { withFileTypes: true });
+    } catch {
+      continue;
+    }
+    for (const entry of entries) {
+      if (!entry.isDirectory())
+        continue;
+      const candidate = path4.join(root, entry.name, leaf);
+      if (existsSync4(candidate))
+        return candidate;
+    }
+  }
+  return;
+}
+
 // scripts/emit-event.mjs
 var EVENT_NAMES = new Set([
   "session-started",
@@ -9171,7 +9207,7 @@ function isHumanPromptEntry(entry) {
   return typeof entry.message?.content === "string";
 }
 function getTranscriptTokenUsage(transcriptPath) {
-  if (!transcriptPath || typeof transcriptPath !== "string" || !existsSync4(transcriptPath))
+  if (!transcriptPath || typeof transcriptPath !== "string" || !existsSync5(transcriptPath))
     return {};
   try {
     const session = emptyTokenUsage();
@@ -9247,20 +9283,21 @@ function buildEvent(kind, payload, config) {
     "turn-failed": `${config.actionPrefix}.turn.failed`
   }[kind];
   let metadata = {};
+  const transcriptPath = resolveTranscriptPath(payload.session_id);
   if (kind === "session-started") {
     metadata = compactMetadata({
       source: payload.source,
       cwd: payload.cwd,
-      transcript_path: payload.transcript_path,
+      transcript_path: transcriptPath,
       permission_mode: payload.permission_mode
     });
   } else if (kind === "session-ended") {
     metadata = compactMetadata({
       reason: payload.reason,
       cwd: payload.cwd,
-      transcript_path: payload.transcript_path,
+      transcript_path: transcriptPath,
       permission_mode: payload.permission_mode,
-      ...getTranscriptTokenUsage(payload.transcript_path)
+      ...getTranscriptTokenUsage(transcriptPath)
     });
   } else if (kind === "prompt-submitted") {
     metadata = compactMetadata({
@@ -9306,14 +9343,14 @@ function buildEvent(kind, payload, config) {
     metadata = compactMetadata({
       cwd: payload.cwd,
       permission_mode: payload.permission_mode,
-      ...getTranscriptTokenUsage(payload.transcript_path)
+      ...getTranscriptTokenUsage(transcriptPath)
     });
   } else if (kind === "turn-failed") {
     metadata = compactMetadata({
       error_type: payload.error_type || payload.reason,
       cwd: payload.cwd,
       permission_mode: payload.permission_mode,
-      ...getTranscriptTokenUsage(payload.transcript_path)
+      ...getTranscriptTokenUsage(transcriptPath)
     });
   }
   return {

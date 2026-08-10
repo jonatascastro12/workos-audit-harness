@@ -4,13 +4,17 @@ A small Cloudflare Worker that lets a fleet of laptops append [WorkOS Audit Logs
 
 ## Why
 
-WorkOS API keys are full-access — there is no "audit-append-only" scope. Putting an `sk_` key on a machine the user controls means a leaked laptop key is a full environment compromise. This proxy inverts that:
+**Read this first: if you are building the harness, don't use this.** Emit audit events from your own backend, where the session, the model, and every tool call are already visible and a user cannot rewrite them. That is the recommended architecture and it makes this proxy unnecessary.
+
+This proxy is for the other case — **you operate a fleet and your agent vendors haven't shipped server-side auditing.** You need coverage now, over harnesses you don't control, on machines your developers administer. That constrains what is achievable, and the [trust model](#trust-model) is explicit about the ceiling.
+
+Given that constraint, the problem is credentials. WorkOS API keys are full-access — there is no "audit-append-only" scope. Putting an `sk_` key on a machine the user controls means a leaked laptop key is a full environment compromise. This proxy inverts that:
 
 - The laptop authenticates with a **device certificate that's already on it** (by default, the Okta device-attestation cert on Okta-managed Macs) over **mTLS**, verified by Cloudflare at the edge.
 - The proxy maps the cert's device serial to a **real person** server-side (via your MDM or a static table), so a laptop can't spoof who it is.
 - The proxy holds the real `sk_` key and forwards the event with the actor, organization, and connecting IP set **authoritatively** — any client-supplied identity is dropped.
 
-A compromised laptop can do exactly one thing: append rate-limited audit events as itself.
+A compromised laptop can do exactly one thing: append rate-limited audit events as itself. It can still lie about *what* those events say — see [Trust model](#trust-model).
 
 ```
 ┌──────────────────────┐   mTLS (device cert)    ┌─────────────────────────┐
@@ -31,6 +35,42 @@ A compromised laptop can do exactly one thing: append rate-limited audit events 
 The clients in this repo ([claude-plugin](../claude-plugin), [codex-plugin](../codex-plugin), [openclaw-plugin](../openclaw-plugin), [pi-extension](../pi-extension)) already speak this protocol: they discover the device cert in the macOS keychain and POST through it via `curl --cert <label>` on the Secure Transport backend.
 
 > **macOS only (client side).** The mTLS emission path depends on the macOS keychain and Apple's Secure Transport curl backend — there is no Linux/Windows client support yet. The proxy itself is platform-agnostic; on non-Mac machines the plugins detect that no device cert is available and fall back to the API-key or WorkOS-CLI transport (or skip emission, logging locally).
+
+## Trust model
+
+Read this before you build anything on top of the log. Events are **device-attested claims about harness activity, not verified facts.**
+
+What the proxy establishes server-side, which a laptop cannot forge:
+
+- **Origin device** — the client cert chains to your CA and its CN carries the device serial.
+- **Actor identity** — resolved from the serial server-side. Client-supplied `actor`, `organization_id`, and `context` are dropped.
+- **Connecting IP and receipt time** — stamped by the proxy.
+
+What is merely **claimed by the device** and accepted on trust: everything in the event body — `action`, `targets`, and all `metadata` (tool names, input/result hashes, token counts, command previews, `cwd`).
+
+That gap is structural, not an implementation gap. Events are generated on hardware the user administers, so no endpoint mechanism makes the body self-verifying: the device certificate proves *who is sending*, never *whether the content is true*. Someone who controls a laptop can
+
+- **fabricate** — hand-craft plausible events, which land attributed to themselves, and
+- **suppress** — disable the hook and emit nothing at all.
+
+Neither requires root, and code-signing the emitter does not fix it: a signed helper still takes its input from whatever process invokes it, and hook registration is user config, so a crafted payload arrives with the same process ancestry as a genuine one.
+
+### Consequences for anything downstream
+
+- **Treat event content as untrusted input.** Metadata is attacker-controllable text, so a forged event is also a prompt-injection channel into whoever reads the log. Never let it reach an LLM, a shell, or a query as instructions. The [audit chat console](../chat) handles this in its system prompt: event bodies are declared untrusted data, and content that tries to redirect the model is reported as a finding instead of obeyed.
+- **Detect rather than prevent.** Reconcile against a source of truth outside the laptop. For Claude Code, the Anthropic Admin usage API is the practical one: sessions that emitted events but billed no tokens are suspect, and — the stronger signal — billed tokens with no corresponding events indicate suppression. Aggregate usage data cannot detect *padding* of a real session, so don't claim it does.
+- **Blast radius is bounded.** Fabrication is self-attributed and rate-limited, so the worst case is noise under the forger's own name, not impersonation of someone else.
+- **Scope is the harness.** The log records activity that flowed through an instrumented agent. Work done outside one is simply absent, and no proxy-side control changes that.
+
+### Raising the bar
+
+Available improvements, in rough order of value per unit of effort. None of them close the gap above; they raise cost and improve detection.
+
+- **Hash-chain events per device** and periodically sign the chain head, making the stored history tamper-evident and non-backdatable even against a later-compromised proxy or admin.
+- **Move the cert behind a root-owned daemon** whose keychain ACL admits only that code-signed binary, and issue your own cert via SCEP (Kandji/Iru) or Apple Managed Device Attestation so the key is Secure Enclave–bound and cannot be copied to another machine. This removes the trivially discoverable `curl` path and stops malware that isn't harness-aware.
+- **Upstream countersignatures** are the only structural fix: signed per-turn receipts from the agent vendor, verifiable at the proxy. No vendor offers this today; it is worth asking for.
+
+On the client side, the Claude Code emitter already derives the transcript from the hook payload's `session_id` by lookup under the known transcript root, rather than opening a caller-supplied `transcript_path` (see [`packages/claude-plugin/scripts/transcript.mjs`](../claude-plugin/scripts/transcript.mjs)). Transcripts remain user-writable, so this narrows the interface rather than making token counts trustworthy.
 
 ## Deploy to your own Cloudflare account
 
