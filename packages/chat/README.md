@@ -127,14 +127,18 @@ npm run verify   # tsc --noEmit && build
 
 ## WorkOS-internal deployment
 
-**Internal only — external adopters can ignore this section.** It documents the deploy behind [https://cd26-workos-audit-chat.workos.tools](https://cd26-workos-audit-chat.workos.tools) and none of it works outside the WorkOS Cloudflare account.
+WorkOS's own deployment of this console lives in the private
+`workos/workos-audit-harness-deploy` repository: it builds this package from a
+pinned commit of this repo with an internal wrangler config overlaid, so
+nothing WorkOS-specific (account ids, resource names, secret stores) needs to
+exist here. External adopters deploy the vendor-neutral `wrangler.toml` — see
+[Deploy to your own Cloudflare account](#deploy-to-your-own-cloudflare-account).
 
-- `wrangler.internal.toml` holds the WorkOS-only values: `account_id`, the real `database_id`s, the `cd26-` resource names, the `PROXY_DB` binding to `cd26-workos-audit-proxy-db`, and `AUDIT_CHAT_PUBLIC_HOSTNAME = cd26-workos-audit-chat.workos.tools`. The vendor-neutral `wrangler.toml` must stay vendor-neutral.
-- The console is **dispatch-namespace-native**: it deploys into `workos-tools-apps` and is served through the zone wildcard route → `workos-tools-dispatch` → `ROUTES` KV. That is why the internal config needs neither `workers_dev` nor a route — and why the same trick would leave a customer's deploy unreachable.
-- Scripts: `npm run deploy:internal`, `npm run db:migrate:internal`, `npm run logs:internal`, and `npm run dev:internal` (mounts `claude-day/dev` from Doppler as `.dev.vars`).
-- **Which config gets deployed is decided at BUILD time, not deploy time.** The Cloudflare vite plugin bakes the resolved config into `build/server/wrangler.json` and writes `.wrangler/deploy/config.json`, which `wrangler deploy` then follows — so `wrangler deploy --config wrangler.internal.toml` does not work at all (it bypasses the redirect and fails to bundle `workers/app.ts`). The selector is `WRANGLER_CONFIG_PATH`, read by `vite.config.ts`: `npm run build:internal` sets it, and `npm run deploy:internal` is `build:internal` followed by a plain `wrangler deploy --dispatch-namespace workos-tools-apps`.
-- Secrets live in the shared `claude-day` Doppler project (`dev` locally, `prd` synced to Cloudflare by CI on push to `main`) and reuse the proxy's `AUDIT_HARNESS_WORKOS_API_KEY` / `AUDIT_HARNESS_WORKOS_ORG_ID`. The AuthKit client and both redirect URIs (`…workos.tools/callback` and `http://localhost:5173/callback`) are registered on the internal WorkOS environment.
-- CI is `.github/workflows/internal-chat-deploy.yml`: build, migrate, deploy into the dispatch namespace, sync Doppler secrets (one API `PUT` per secret — `wrangler secret bulk` has no `--dispatch-namespace`), and register the `ROUTES` KV entry.
-- **Which config ships is decided by the BUILD, not the deploy.** The Cloudflare vite plugin resolves the config during `react-router build`, bakes it into `build/server/wrangler.json`, and writes `.wrangler/deploy/config.json` for `wrangler deploy` to follow. So CI must build with `npm run build:internal` (it sets `WRANGLER_CONFIG_PATH`) and then deploy with a **bare** `wrangler deploy --dispatch-namespace workos-tools-apps`. Passing `--config` to the deploy bypasses the redirect and fails outright on `Could not resolve "virtual:react-router/server-build"`. Getting the build wrong is the dangerous half: a neutral build deploys a script named `workos-audit-chat` while the live `cd26-workos-audit-chat` freezes and the `ROUTES` KV key is repointed at the empty one — green CI, dead console.
-- D1 steps never go through the build, so they DO need `--config` via `npm run db:migrate:internal`.
-- The env default shown for the organization on `/settings` is **this app's** copy of `AUDIT_HARNESS_WORKOS_ORG_ID`; the proxy reads its own copy. Both come from the same Doppler config, but if they ever diverge the label may not match what the proxy applies.
+One consequence matters for contributors: **which wrangler config ships is
+decided at BUILD time, not deploy time.** The Cloudflare vite plugin resolves
+the config named by `WRANGLER_CONFIG_PATH` during `react-router build`, bakes
+it into `build/server/wrangler.json`, and writes `.wrangler/deploy/config.json`
+for `wrangler deploy` to follow — passing `--config` at deploy time bypasses
+that redirect and fails outright. And if you **add or rename a binding or var
+in `wrangler.toml`**, flag it in your PR: the internal overlay config must be
+updated in step, or the internal deploy's config-proof step will fail.

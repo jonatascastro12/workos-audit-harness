@@ -7,8 +7,9 @@ console.
 
 The deployable configs (`wrangler.toml`) are vendor-neutral: no account id, no
 zone, placeholders where an id belongs. WorkOS's own deployment values live in
-the sibling `wrangler.internal.toml` files, kept in-tree so the customer-facing
-config stays honest — you never need to read or edit those.
+a separate private repository (`workos-audit-harness-deploy`), so the
+customer-facing config stays honest — everything you can see here is
+everything you need.
 
 ## 1. What you get, and one limitation up front
 
@@ -258,8 +259,8 @@ is `/api/events`, and confirm you are reading the right app's Overview page.
 Related trap: if CI redeploys `wrangler.toml` on every push, a placeholder
 `ACCESS_AUD` in `[vars]` **is** the outage. Deliver the value as a Worker secret
 instead — secrets persist across script uploads, so stage it once before the
-first deploy and there is no gap. (This is why our own
-`wrangler.internal.toml` deliberately omits it.)
+first deploy and there is no gap. (WorkOS's own internal config deliberately
+omits it for the same reason.)
 
 ### 3.2 Route B — direct mTLS on your zone (API Shield / Client Certificates)
 

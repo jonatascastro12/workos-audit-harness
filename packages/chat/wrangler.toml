@@ -1,18 +1,20 @@
 # Vendor-neutral config: no account_id (wrangler uses your logged-in account),
 # no zone routes, no dispatch namespace. Deploy this one on your own Cloudflare
 # account — `npm run deploy` produces a reachable, AuthKit-gated console. See
-# README.md for the full walkthrough. The WorkOS-internal deploy lives in
-# wrangler.internal.toml; keep this file vendor-neutral.
+# README.md for the full walkthrough. Keep this file vendor-neutral: WorkOS's
+# own deploy lives in the private workos-audit-harness-deploy repo, which
+# overlays a sibling internal config — if you ADD OR RENAME A BINDING OR VAR
+# here, that internal config must be updated in the same change-set.
 name = "workos-audit-chat"
 main = "./workers/app.ts"
 compatibility_date = "2026-02-10"
 compatibility_flags = ["nodejs_compat"]
 
 # REACHABILITY. Keep one of the two options below enabled, or the deploy
-# succeeds and the app is unreachable forever. That is exactly what
-# wrangler.internal.toml does on purpose — it is served through a Workers for
-# Platforms dispatch namespace, so it needs neither option — and it is the
-# single easiest thing to get wrong when self-hosting.
+# succeeds and the app is unreachable forever. (WorkOS's internal deploy
+# disables both on purpose — it is served through a Workers for Platforms
+# dispatch namespace, so it needs neither option — and that is the single
+# easiest thing to get wrong when self-hosting.)
 #
 # Option A (default): the workers.dev URL. The app answers at
 # https://workos-audit-chat.<your-workers-subdomain>.workers.dev — put that
