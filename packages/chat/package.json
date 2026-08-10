@@ -63,7 +63,7 @@
     "remark-gfm": "^4.0.1",
     "scroll-into-view-if-needed": "^2.2.26",
     "tslib": "^2.4.0",
-    "zod": "^3.25.76"
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@cloudflare/vite-plugin": "^1.13.5",
