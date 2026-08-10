@@ -30,7 +30,7 @@
     "logs:internal": "wrangler tail --config wrangler.internal.toml"
   },
   "dependencies": {
-    "@ai-sdk/anthropic": "^3.0.83",
+    "@ai-sdk/anthropic": "^4.0.34",
     "@ai-sdk/openai": "^3.0.70",
     "@ai-sdk/react": "^3.0.204",
     "@ariakit/react": "^0.4.17",
