@@ -14,7 +14,8 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          # wrangler v4 requires Node >= 22
+          node-version: 22
       - run: npm install
         env:
           WORKOS_AUDIT_HARNESS_SKIP_DOWNLOAD: "1"

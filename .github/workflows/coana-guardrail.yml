@@ -2,6 +2,14 @@ name: Coana Guardrail
 
 on: pull_request
 
+# compare-reports reads and posts PR comments; the org default token is
+# read-only, so grant it explicitly. (On fork PRs the token stays read-only
+# regardless — the comment is best-effort there.)
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
 jobs:
   guardrail:
     runs-on: ubuntu-latest
