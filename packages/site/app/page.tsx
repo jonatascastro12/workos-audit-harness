@@ -43,30 +43,35 @@ export default function Page() {
           <div>
               <div className="reveal reveal-1 text-[12px] uppercase tracking-[0.18em] dim mb-8 flex items-center gap-3">
                 <span className="ok">●</span>
-                <span>audit logging for coding agents</span>
+                <span>audit logging for AI agents</span>
               </div>
 
               <h1 className="reveal reveal-2 glyph" style={{ minHeight: "1.9em" }}>
                 <TypeText
-                  ariaLabel="Ship audit logs from your agents"
+                  ariaLabel="Audit logs for AI agents"
                   speed={70}
                   startDelay={520}
                   segments={[
-                    { text: "Ship audit logs\nfrom your " },
-                    { text: "agents", className: "dim" },
+                    { text: "Audit logs for\n" },
+                    { text: "AI agents", className: "dim" },
                   ]}
                 />
               </h1>
 
               <p className="reveal reveal-3 mt-10 max-w-[44ch] text-[15px] md:text-[16px] leading-[1.7] text-[var(--fg-2)]">
                 <span className="dim">{">"} </span>
-                Lifecycle events from Claude Code, Codex, and
-                pi-coding-agent — streamed to WorkOS, queryable over MCP.
+                Building a harness? Emit from your own backend, where events
+                can&apos;t be forged. Instrumenting one you don&apos;t own?
+                Plugins for Claude Code, Codex, OpenClaw and pi — streamed to
+                WorkOS, queryable over MCP.
               </p>
 
               <div className="reveal reveal-4 mt-10 flex flex-wrap items-center gap-3">
-                <a href="#quick-start" className="btn btn-primary">
-                  <span>▸</span> quick start
+                <a href="/blog/audit-logs-for-ai-harnesses" className="btn btn-primary">
+                  <span>▸</span> build it into your harness
+                </a>
+                <a href="#quick-start" className="btn">
+                  instrument an agent
                 </a>
                 <a
                   href="https://github.com/workos/workos-audit-harness"
@@ -80,10 +85,10 @@ export default function Page() {
 
               <div className="reveal reveal-5 mt-14 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 border rule max-w-[960px]">
                 {[
+                  { name: "build your own",   prefix: "agent.*",   meta: "guide · 15 min",       href: "/blog/audit-logs-for-ai-harnesses", emphasized: true },
                   { name: "claude code",      prefix: "claude.*",  meta: "plugin · MCP · hooks", href: "#quick-start" },
                   { name: "codex",            prefix: "codex.*",   meta: "plugin · MCP · hooks", href: "#quick-start" },
                   { name: "pi-coding-agent",  prefix: "pi.*",      meta: "extension · CLI",      href: "#quick-start" },
-                  { name: "build your own",   prefix: "agent.*",   meta: "guide · 12 min",       href: "/blog/audit-logs-for-ai-harnesses", emphasized: true },
                 ].map((p, i, arr) => {
                   const right = (i + 1) % 2 === 0;
                   const lastRowLg = i >= arr.length - 1;
@@ -113,7 +118,7 @@ export default function Page() {
                         </span>
                         {p.emphasized && (
                           <span className="text-[11px] accent border border-[var(--accent)] px-1.5 py-[1px] tracking-[0.08em] uppercase">
-                            new
+                            start here
                           </span>
                         )}
                       </div>
@@ -152,8 +157,8 @@ export default function Page() {
               },
               {
                 k: "schemas",
-                t: "One set. Three prefixes.",
-                glyph: ["claude.*", "codex.*", "pi.*"],
+                t: "One vocabulary. Any harness.",
+                glyph: ["agent.*", "claude.*", "codex.*", "pi.*"],
               },
               {
                 k: "mcp",
@@ -224,10 +229,20 @@ export default function Page() {
           <div className="h-sec mb-3">
             <span>03 — quick start</span>
           </div>
-          <h2 className="text-[28px] md:text-[36px] leading-[1.1] tracking-[-0.02em] mb-10 max-w-[28ch]">
-            Pick your coding agent.<br />
+          <h2 className="text-[28px] md:text-[36px] leading-[1.1] tracking-[-0.02em] mb-5 max-w-[28ch]">
+            Instrumenting an agent you don&apos;t own?<br />
             <span className="dim">Three keystrokes from zero to audited.</span>
           </h2>
+
+          <p className="mb-10 max-w-[62ch] text-[13px] leading-[1.7] dim">
+            These plugins emit from the endpoint, so events are authenticated per
+            device but their content is a claim made by the machine that sent them. If
+            you are building the harness itself,{" "}
+            <a href="/blog/audit-logs-for-ai-harnesses" className="link">
+              emit from your own backend instead
+            </a>{" "}
+            — it is the only place an event&apos;s content can be attested.
+          </p>
 
           <InstallTabs />
         </div>

@@ -12,7 +12,7 @@ export const metadata: Metadata = {
   title:
     "Build your own — Add enterprise-grade audit logs to your AI harness · WorkOS Audit Harness",
   description:
-    "How to map AI-harness lifecycle hooks to WorkOS Audit Logs: schemas, event ingestion, security posture, and letting the agent query its own trail.",
+    "How to map AI-harness lifecycle hooks to WorkOS Audit Logs: schemas, emitting from your own backend so events cannot be forged, and letting the agent query its own trail.",
 };
 
 const EVENTS_TABLE: Array<[string, string, string]> = [
@@ -55,7 +55,7 @@ export default function Post() {
             <span className="tag on">essay</span>
             <span>2026-05-16</span>
             <span className="opacity-40">·</span>
-            <span>~12 min read</span>
+            <span>~15 min read</span>
             <span className="opacity-40">·</span>
             <span>build your own integration</span>
           </div>
@@ -408,10 +408,19 @@ await workos.auditLogs.createEvent(process.env.WORKOS_ORGANIZATION_ID!, {
           shutdown, tool results, and user-triggered shell commands.
         </P>
 
-        <H2 n="07">Step 5 — Keep secrets on the server</H2>
-        <P>WorkOS API calls require an API key. For a SaaS product, the safest architecture is usually:</P>
+        <H2 n="07">Step 5 — Emit from your server, not from the endpoint</H2>
+        <P>
+          This is the most consequential decision in the whole integration, and it is
+          worth being precise about why. There are two reasons to emit server-side. The
+          first is well known. The second is the one that determines whether your audit
+          log is evidence or merely testimony.
+        </P>
+        <P>
+          <b>Secrets.</b> WorkOS API calls require an API key, and keys do not belong on
+          machines you do not control. So the shape is:
+        </P>
         <OL>
-          <OLI>The browser or local harness sends lifecycle events to your backend.</OLI>
+          <OLI>The browser or local harness triggers a lifecycle event.</OLI>
           <OLI>Your backend authenticates the user and resolves the WorkOS organization ID for that customer.</OLI>
           <OLI>Your backend emits the WorkOS Audit Log event using a server-side API key.</OLI>
         </OL>
@@ -419,18 +428,91 @@ await workos.auditLogs.createEvent(process.env.WORKOS_ORGANIZATION_ID!, {
         <ServerFlow />
 
         <P>
-          That keeps the API key out of untrusted clients and gives you one place to
-          enforce policy, normalize event shape, redact sensitive values, and retry
-          failed ingestion.
+          <b>Integrity.</b> An audit event composed on a machine its user administers is
+          a <em>claim</em>, not a fact. Whoever owns that machine can hand-craft events
+          that never happened, and can stop real ones from being sent at all. No amount
+          of client-side hardening fixes this — not device certificates, not code
+          signing, not a hardware-backed key. Those authenticate <em>who is sending</em>.
+          None of them can attest that the content is true, because the content is
+          composed where the attacker already has write access.
+        </P>
+        <Quote>
+          Relaying client-supplied events through your backend solves the key problem
+          and leaves the integrity problem untouched.
+        </Quote>
+        <P>
+          The fix is to <b>compose the event on the server from what your backend already
+          observed</b>, rather than forwarding what the client reported. You are running
+          the agent loop: your infrastructure issues the tool calls, selects the model,
+          and counts the tokens. Emit from that, and the event becomes something the user
+          cannot fabricate or suppress. This is the single biggest advantage you have as
+          the harness vendor, and it is unavailable to anyone instrumenting your product
+          from the outside.
         </P>
         <P>
-          For internal tools or local-only harnesses, you can use an environment
-          variable or secret manager directly in the harness process. Treat the key
-          like any other service credential: do not commit, do not print, do not
-          expose to model context.
+          Some facts genuinely only exist on the endpoint — the working directory, the
+          git repository and branch, whether a human approved a prompt locally. Collect
+          those if they are useful, but keep them in a clearly separate part of the
+          event, and treat them as unverified. A good rule: anything the server observed
+          is a fact, anything the client reported is a claim, and the two should never be
+          indistinguishable to whoever reads the log later.
+        </P>
+        <P>
+          For internal tools or local-only harnesses with no backend, you can use an
+          environment variable or secret manager directly in the harness process. Treat
+          the key like any other service credential: do not commit, do not print, do not
+          expose to model context. Just be honest in your documentation that events from
+          that deployment are endpoint claims.
         </P>
 
-        <H2 n="08">Step 6 — Let the agent query the audit trail</H2>
+        <H2 n="08">Step 6 — Map every event to the right customer</H2>
+        <P>
+          Emitting server-side raises a question that never comes up when a laptop
+          talks straight to the API: your backend serves every customer, so each event
+          has to carry the correct organization, and getting that wrong is worse than
+          not logging at all. An event delivered to the wrong tenant is a data leak,
+          and one delivered to no tenant is invisible.
+        </P>
+        <P>
+          Resolve the organization from the authenticated session, server-side, on every
+          event. Never accept it from the client, and never infer it from something the
+          user can change — an email domain, a workspace name, a header. The same rule
+          you apply to the actor applies here: identity is something your backend looks
+          up, not something the request asserts.
+        </P>
+        <UL>
+          <LI>
+            <b>One organization per customer.</b> The mapping usually already exists in
+            whatever you use for SSO or provisioning. Reuse it rather than inventing a
+            second source of truth that can drift.
+          </LI>
+          <LI>
+            <b>Users who belong to several organizations.</b> Common with contractors
+            and agencies. Scope the event to the organization whose resources the
+            session actually touched, not to a default the user picked at login.
+          </LI>
+          <LI>
+            <b>Activity with no customer.</b> Personal or free-tier usage, internal
+            testing, and your own staff. Decide deliberately where those go; routing
+            them into a customer&apos;s log because it was the nearest match is the
+            mistake to avoid.
+          </LI>
+          <LI>
+            <b>Fail closed.</b> If the organization cannot be resolved, drop the event
+            to your own error tracking and alert. Do not guess, and do not fall back to
+            a catch-all organization.
+          </LI>
+        </UL>
+        <P>
+          If your customers connect their own WorkOS environment rather than living in
+          yours, this becomes a connected-app problem: you are writing into a tenant
+          that grants you access, so you also inherit their retention and residency
+          expectations. Worth settling before you ship, because emitting prompt and tool
+          content from your infrastructure into a customer&apos;s audit sink is a
+          data-handling decision as much as an engineering one.
+        </P>
+
+        <H2 n="09">Step 7 — Let the agent query the audit trail</H2>
         <P>
           Audit logs become even more useful when your harness can help answer
           questions about them. WorkOS supports creating audit log exports for an
@@ -475,7 +557,7 @@ return { rowCount: rows.length, rows: rows.slice(0, 50) };`}
         />
         <P>That turns WorkOS Audit Logs into both a compliance feature and an operational debugging tool.</P>
 
-        <H2 n="09">Example — Pi harness integration</H2>
+        <H2 n="10">Example — Pi harness integration</H2>
         <P>
           I built a local example as a Pi extension. It demonstrates the full loop:
           define schemas, seed them, emit Audit Log events from Pi hooks, and expose
@@ -526,7 +608,7 @@ return { rowCount: rows.length, rows: rows.slice(0, 50) };`}
           storing unbounded command output.
         </P>
 
-        <H2 n="10">You can use an agent to build the integration</H2>
+        <H2 n="11">You can use an agent to build the integration</H2>
         <P>
           Because harnesses have explicit lifecycle hooks and WorkOS Audit Logs has a
           structured API, you can use an LLM agent to implement most of the
@@ -616,23 +698,26 @@ The tool should:
           schemas, security posture, and event taxonomy are explicit and reviewable.
         </P>
 
-        <H2 n="11">Implementation checklist</H2>
+        <H2 n="12">Implementation checklist</H2>
         <P>Before shipping, review the integration against this checklist:</P>
         <UL>
           <LI>Every emitted action has a WorkOS Audit Logs schema.</LI>
-          <LI>Organization IDs map correctly to customers or tenants.</LI>
+          <LI>Organization IDs map correctly to customers or tenants, resolved server-side from the authenticated session.</LI>
+          <LI>Events that cannot be attributed to an organization fail closed and alert, rather than landing in a catch-all.</LI>
           <LI>Actors are real users, admins, systems, or service accounts.</LI>
           <LI>Targets use stable IDs and useful types.</LI>
           <LI>Raw prompts, tool inputs, tool outputs, and command output are not logged unless explicitly intended.</LI>
           <LI>Sensitive fields are hashed, truncated, or omitted.</LI>
           <LI>The WorkOS API key is stored server-side or in a trusted secret manager.</LI>
+          <LI>Events are composed server-side from what your backend observed — not relayed from client-supplied payloads.</LI>
+          <LI>Any endpoint-supplied context is separated from server-observed facts and documented as unverified.</LI>
           <LI>Event ingestion failures do not break the agent experience.</LI>
           <LI>High-value actions — commands, approvals, file writes, exports, model changes — are covered.</LI>
           <LI>Audit export access is itself audited.</LI>
           <LI>The harness can query logs with filters and cite evidence from exported rows.</LI>
         </UL>
 
-        <H2 n="12">Conclusion</H2>
+        <H2 n="13">Conclusion</H2>
         <P>
           AI harnesses already have the lifecycle hooks you need for audit logging.
           WorkOS Audit Logs gives you the schema validation, organization scoping,
@@ -645,13 +730,21 @@ The tool should:
           <OLI>Define schemas for those events.</OLI>
           <OLI>Seed the schemas into WorkOS.</OLI>
           <OLI>Emit events from your harness hooks.</OLI>
-          <OLI>Keep API keys and organization mapping on the server.</OLI>
+          <OLI>Compose and send them from your backend, not from the endpoint.</OLI>
+          <OLI>Resolve the customer organization server-side, and fail closed when you cannot.</OLI>
           <OLI>Let your harness query exported logs when customers need answers.</OLI>
         </OL>
         <P>
           The result is a much stronger enterprise story for any AI product: customers
           can see what happened, who did it, what was affected, and when — with
           structured evidence they can export, review, and trust.
+        </P>
+        <P>
+          That last word is the one worth earning. An audit trail is only worth as much
+          as the weakest claim in it, and where you emit from decides that. Because you
+          run the agent loop, you can emit events your customers&apos; own developers
+          cannot forge or silently switch off — which is a guarantee nobody
+          instrumenting your product from the outside can offer them.
         </P>
 
         <HR />

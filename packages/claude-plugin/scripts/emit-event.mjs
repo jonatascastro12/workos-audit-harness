@@ -3,6 +3,7 @@ import { sha256, byteLength, truncateMetadataString } from '@workos-inc/audit-co
 import { compactMetadata, readStdin, parseJson, createToolTimingStore } from '@workos-inc/audit-core/hook-runtime';
 import { emitEvent } from '@workos-inc/audit-core/emit-event';
 import { configLoader } from './config-file.mjs';
+import { resolveTranscriptPath } from './transcript.mjs';
 
 const EVENT_NAMES = new Set([
   'session-started',
@@ -142,21 +143,22 @@ function buildEvent(kind, payload, config) {
   }[kind];
 
   let metadata = {};
+  const transcriptPath = resolveTranscriptPath(payload.session_id);
 
   if (kind === 'session-started') {
     metadata = compactMetadata({
       source: payload.source,
       cwd: payload.cwd,
-      transcript_path: payload.transcript_path,
+      transcript_path: transcriptPath,
       permission_mode: payload.permission_mode,
     });
   } else if (kind === 'session-ended') {
     metadata = compactMetadata({
       reason: payload.reason,
       cwd: payload.cwd,
-      transcript_path: payload.transcript_path,
+      transcript_path: transcriptPath,
       permission_mode: payload.permission_mode,
-      ...getTranscriptTokenUsage(payload.transcript_path),
+      ...getTranscriptTokenUsage(transcriptPath),
     });
   } else if (kind === 'prompt-submitted') {
     metadata = compactMetadata({
@@ -202,14 +204,14 @@ function buildEvent(kind, payload, config) {
     metadata = compactMetadata({
       cwd: payload.cwd,
       permission_mode: payload.permission_mode,
-      ...getTranscriptTokenUsage(payload.transcript_path),
+      ...getTranscriptTokenUsage(transcriptPath),
     });
   } else if (kind === 'turn-failed') {
     metadata = compactMetadata({
       error_type: payload.error_type || payload.reason,
       cwd: payload.cwd,
       permission_mode: payload.permission_mode,
-      ...getTranscriptTokenUsage(payload.transcript_path),
+      ...getTranscriptTokenUsage(transcriptPath),
     });
   }
 

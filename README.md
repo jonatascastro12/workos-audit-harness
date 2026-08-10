@@ -1,6 +1,12 @@
 # workos-audit-harness
 
-Ship WorkOS audit logs from your coding agents.
+Audit logging for AI coding agents: one event vocabulary, four working integrations, and an honest account of where each place you can emit from tops out.
+
+**If you build an agent harness, emit audit events from your own backend.** Your servers already see the session, the model, and every tool call the agent makes — and a customer's developer cannot rewrite them there. That is the only place an event's *content* can be attested, and it's the architecture we recommend. Start with the guide [Add enterprise-grade audit logs to your AI harness](packages/site/app/blog/audit-logs-for-ai-harnesses/page.tsx) and the shared event taxonomy in [`packages/audit-core`](packages/audit-core/src/harness-audit-schemas.mjs).
+
+**If you operate a fleet and your vendors haven't done that yet,** instrument the endpoint instead. The plugins here emit from Claude Code, Codex, OpenClaw, and pi today, with no vendor cooperation required. Events are authenticated per device and attributed server-side, but their content is composed on a machine the user administers, so it can be fabricated or withheld — see the [trust model](packages/proxy/README.md#trust-model) before building on the result.
+
+The two compose. A vendor-emitted spine (session, turn, and tool-call ids from the backend) correlated with endpoint-emitted enrichment (repo, branch, `cwd`, device, local approvals) gives you both halves: the backend sees the conversation, the endpoint sees the machine, and claims from one that don't reconcile against the other are detectably false.
 
 This repo contains four agent integrations, a fleet-deployment proxy and a chat console over the resulting audit trail, sharing one CLI harness and one set of audit schemas:
 
@@ -76,6 +82,8 @@ Alternatively set `WORKOS_API_KEY` and `WORKOS_ORGANIZATION_ID` env vars.
 For rolling out to a whole fleet, don't put API keys on laptops at all — deploy the [ingestion proxy](packages/proxy) to your Cloudflare account and push its URL to every device via your MDM (a machine-wide config file at `/Library/Application Support/workos-audit/config.json` on macOS). Laptops authenticate with a device certificate over mTLS; the proxy holds the key and attributes events server-side. The mTLS client path is currently **macOS-only** (it relies on the keychain and Secure Transport curl); other platforms fall back to API-key/CLI transport. See [packages/proxy/README.md](packages/proxy/README.md).
 
 To force-install the Claude Code plugin itself on every device (managed settings via the Claude.ai admin console or MDM), see [Enforce the plugin fleet-wide](packages/claude-plugin/README.md#enforce-the-plugin-fleet-wide-managed-settings).
+
+Before building on the resulting log, read the proxy's [trust model](packages/proxy/README.md#trust-model). Events are device-attested claims about harness activity: the proxy proves which authenticated device sent an event and stamps the actor server-side, but the event body is asserted by a machine its user administers, so it can be fabricated or withheld. Treat event content as untrusted input downstream.
 
 ## Self-check from your shell
 
