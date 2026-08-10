@@ -132,7 +132,7 @@ WorkOS's own deployment of this console lives in the private
 pinned commit of this repo with an internal wrangler config overlaid, so
 nothing WorkOS-specific (account ids, resource names, secret stores) needs to
 exist here. External adopters deploy the vendor-neutral `wrangler.toml` — see
-[Deploy to your own Cloudflare account](#deploy-to-your-own-cloudflare-account).
+[Self-hosting](#self-hosting).
 
 One consequence matters for contributors: **which wrangler config ships is
 decided at BUILD time, not deploy time.** The Cloudflare vite plugin resolves
