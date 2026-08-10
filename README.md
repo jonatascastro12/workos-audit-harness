@@ -132,6 +132,13 @@ npm workspaces handles dependency installation; there is no separate build step.
 
 It previously lived in its own repo (`workos/workos-audit-chat`, now archived) because the `scaffold` CI pipeline deploys repo-per-app. It was folded in here with its history preserved, so everything that reads or writes this audit trail versions together.
 
+## Contributing
+
+Contributions are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md) for how to
+get set up, what CI checks, and the plugin version-bump rules. Security issues
+go to [security@workos.com](mailto:security@workos.com) per
+[SECURITY.md](SECURITY.md), never to the public issue tracker.
+
 ## License
 
 MIT — see [LICENSE](LICENSE).

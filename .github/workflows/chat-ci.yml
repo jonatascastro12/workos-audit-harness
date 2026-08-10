@@ -1,0 +1,53 @@
+# Vendor-neutral CI for packages/chat. Needs no secrets and builds against the
+# neutral wrangler.toml, so it runs green on any fork.
+#
+# packages/chat is deliberately NOT an npm workspace member: it keeps its own
+# package-lock.json (vendored WorkOS design system + React Router toolchain),
+# so every step runs with packages/chat as the working directory and installs
+# from that lockfile — root ci.yml does not cover it.
+name: Chat CI
+
+on:
+  pull_request:
+    paths:
+      - "packages/chat/**"
+      - ".github/workflows/chat-ci.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    working-directory: packages/chat
+
+jobs:
+  verify:
+    name: Lint, migrate, build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: packages/chat/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run linter
+        run: npm run lint
+
+      # --local applies the migrations to a throwaway miniflare sqlite, so this
+      # only asserts the SQL in migrations/ still applies cleanly.
+      - name: Validate migrations
+        run: npm run db:migrate:local
+
+      # The neutral build: bakes wrangler.toml. Proves the app compiles; the
+      # artifact is discarded.
+      - name: Build (vendor-neutral config)
+        run: npm run build
+        env:
+          NODE_ENV: production
