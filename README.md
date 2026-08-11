@@ -27,6 +27,16 @@ This repo contains four agent integrations, a fleet-deployment proxy and a chat 
 
 ## Install
 
+### Quick install (all agents at once)
+
+```bash
+npx github:workos/workos-audit-harness
+```
+
+Detects which supported agents are on your machine (pre-selected in the picker), and installs the audit plugin for each one you confirm — no per-agent copy-paste. Non-interactive: `--yes` installs for everything detected, `--agents claude,codex` picks explicitly, `--list` just shows what's detected. From a clone, the same thing is `npm run quick-install`.
+
+Prefer manual setup, or need the details for one agent? The per-agent sections below are what the installer automates.
+
 ### Claude Code
 
 ```text

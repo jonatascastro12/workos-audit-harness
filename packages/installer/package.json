@@ -1,0 +1,14 @@
+{
+  "name": "@workos-inc/audit-quick-install",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Interactive quick-install: detects your coding agents (Claude Code, Codex, OpenClaw, pi) and installs the WorkOS audit plugin for each.",
+  "license": "MIT",
+  "bin": {
+    "workos-audit-install": "./bin.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

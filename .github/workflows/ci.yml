@@ -75,6 +75,11 @@ jobs:
       - name: Typecheck the proxy
         run: npm run verify -w @workos-inc/audit-proxy
 
+      # The quick installer is zero-dependency and must at least parse and
+      # detect — it is the first thing a brand-new adopter runs.
+      - name: Quick installer smoke test
+        run: node packages/installer/bin.mjs --list && node packages/installer/bin.mjs --help
+
   bundle:
     name: Plugin bundles build
     runs-on: ubuntu-latest
