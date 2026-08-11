@@ -32,20 +32,31 @@ const red = (s) => c(31, s);
 const cyan = (s) => c(36, s);
 const yellow = (s) => c(33, s);
 
+// On Windows, npm-installed CLIs (npm, claude, codex, openclaw) are .cmd/.ps1
+// shims that Node refuses to spawn without a shell (ENOENT since Node
+// 18.20/20.12). Shell mode re-parses the command line, so quote args there.
+const isWin = process.platform === "win32";
+const winQuote = (a) => (/[\s"^&|<>()%!]/.test(a) ? `"${a.replace(/"/g, '\\"')}"` : a);
+
+function spawn2(cmd, args, opts = {}) {
+  return isWin
+    ? spawnSync(cmd, args.map(winQuote), { shell: true, ...opts })
+    : spawnSync(cmd, args, opts);
+}
+
 function run(cmd, args, opts = {}) {
-  return spawnSync(cmd, args, { encoding: "utf8", ...opts });
+  return spawn2(cmd, args, { encoding: "utf8", ...opts });
 }
 
 function has(binary) {
-  const probe = run(process.platform === "win32" ? "where" : "which", [binary]);
+  const probe = run(isWin ? "where" : "which", [binary]);
   return probe.status === 0;
 }
 
-// Runs a step with live output. Returns { ok, output } — output only captured
-// when quiet, because interactive npm installs are worth seeing.
+// Runs a step with live output — interactive npm installs are worth seeing.
 function step(label, cmd, args, opts = {}) {
   process.stdout.write(`  ${dim("$")} ${cmd} ${args.join(" ")}\n`);
-  const res = spawnSync(cmd, args, { stdio: "inherit", ...opts });
+  const res = spawn2(cmd, args, { stdio: "inherit", ...opts });
   const ok = res.status === 0;
   process.stdout.write(`  ${ok ? green("✔") : red("✖")} ${label}\n`);
   return ok;
@@ -156,10 +167,12 @@ const AGENTS = [
       const root = checkout(dir);
       if (!root) return { ok: false };
       const plugin = path.join(root, "packages", "openclaw-plugin");
+      // Install at the WORKSPACE ROOT, not the member dir: the bundle inlines
+      // @workos-inc/audit-core, which only resolves through the root
+      // workspace symlink — a standalone member install can't provide it.
       const ok =
-        step("npm install (openclaw-plugin)", "npm", ["install", "--no-audit", "--no-fund"], {
-          cwd: plugin,
-          env: { ...process.env, WORKOS_AUDIT_HARNESS_SKIP_DOWNLOAD: "1" },
+        step("npm install (workspace root)", "npm", ["install", "--no-audit", "--no-fund"], {
+          cwd: root,
         }) &&
         step("bundle plugin", "npm", ["run", "bundle"], { cwd: plugin }) &&
         stepTolerant("openclaw plugins install", "openclaw", ["plugins", "install", plugin], /already/i) &&
@@ -177,7 +190,6 @@ const AGENTS = [
       if (!root) return { ok: false };
       const ok = step("npm install (workspace root)", "npm", ["install", "--no-audit", "--no-fund"], {
         cwd: root,
-        env: { ...process.env, WORKOS_AUDIT_HARNESS_SKIP_DOWNLOAD: "1" },
       });
       return {
         ok,
@@ -248,8 +260,21 @@ async function numberedSelect(items) {
     console.log(`  ${i + 1}. ${it.label} ${note}`);
   });
   const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
-  const answer = await new Promise((res) => rl.question("> ", res));
+  const answer = await new Promise((res) => {
+    // stdin can already be at EOF (piped/redirected input): readline then
+    // emits `close` without ever calling the question callback, which would
+    // leave this promise pending forever and the process exiting 0 having
+    // installed nothing.
+    rl.on("close", () => res(null));
+    rl.question("> ", res);
+  });
   rl.close();
+  if (answer === null) {
+    // EOF is not consent — don't install the detected set off an empty pipe.
+    console.error(red("\nNo input available. Use --yes to install for detected agents, or --agents <ids>."));
+    process.exitCode = 2;
+    return [];
+  }
   const picks = answer
     .split(",")
     .map((s) => parseInt(s.trim(), 10))
