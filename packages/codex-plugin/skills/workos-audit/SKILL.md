@@ -12,7 +12,7 @@ Do not ask the user to paste a WorkOS API key into chat. Prefer one of these set
 1. WorkOS CLI auth before starting Codex:
 
 ```bash
-npx -y workos@latest auth login
+npx -y workos@0.21.0 auth login
 # Optional Codex-specific overrides:
 export CODEX_WORKOS_AUDIT_ACTION_PREFIX="codex"
 codex
