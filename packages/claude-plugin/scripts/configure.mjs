@@ -3,7 +3,9 @@ import {
   DEFAULT_API_BASE_URL,
   createSdk,
   getEffectiveApiKey,
+  provisionUnclaimedEnvironment,
   summarizeWorkosCliAuth,
+  workosCliInvocation,
 } from '@workos-inc/audit-core/workos-client';
 import { getDeviceCertLabel } from '@workos-inc/audit-core/device-cert';
 import { printConfigStatus } from '@workos-inc/audit-core/print-config-status';
@@ -232,6 +234,14 @@ async function configure() {
     name: 'Enter an explicit WorkOS API key (production or staging)',
     value: 'apiKey',
   });
+  // Zero-account path: only offered when nothing is configured yet, so an
+  // unclaimed environment can never displace working credentials.
+  if (!cliAuth.loggedIn && !current.apiKey) {
+    credentialChoices.push({
+      name: 'No WorkOS account yet — provision a temporary environment (claim it later)',
+      value: 'provision',
+    });
+  }
   credentialChoices.push({
     name: 'Skip — use WORKOS_API_KEY at runtime',
     value: 'env',
@@ -252,6 +262,29 @@ async function configure() {
     apiKey = await promptApiKey(current.apiKey);
   } else if (credentialKey === 'cli') {
     apiKey = undefined;
+  } else if (credentialKey === 'provision') {
+    const proceed = await confirm({
+      message: 'Create a new unclaimed WorkOS environment now? (real credentials, no account; it has no owner until you claim it)',
+      default: true,
+    });
+    if (proceed) {
+      console.log('Provisioning via the WorkOS CLI…');
+      try {
+        const environment = provisionUnclaimedEnvironment();
+        // The claim token is deliberately absent here — it stays in the
+        // WorkOS CLI's own config store, never in this wizard's output.
+        console.log(`\nProvisioned environment "${environment.name}" (client ID ${environment.clientId}).`);
+        console.log('It is UNCLAIMED: it has no owner, and its claim token lives only in the');
+        console.log(`WorkOS CLI config on this machine. Keep it by running: ${workosCliInvocation()} env claim`);
+        apiKey = undefined; // resolved through the WorkOS CLI active environment
+      } catch (error) {
+        console.log(`\nProvisioning failed: ${error?.message || error}`);
+        console.log(`You can sign in instead (${workosCliInvocation()} auth login) or set WORKOS_API_KEY at runtime.`);
+        apiKey = undefined;
+      }
+    } else {
+      apiKey = undefined;
+    }
   }
 
   // 2. Organization.

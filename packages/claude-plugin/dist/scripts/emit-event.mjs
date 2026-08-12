@@ -8568,6 +8568,11 @@ function loadKeyringEntry() {
 var DEFAULT_API_BASE_URL = "https://api.workos.com";
 var DEFAULT_ORGANIZATION_NAME = "Audit Log Harness";
 var USER_AGENT2 = "workos-audit-harness/1";
+var WORKOS_CLI_VERSION = "0.21.0";
+function getWorkosCliSpec() {
+  const override = trimToUndefined(process.env.WORKOS_AUDIT_HARNESS_WORKOS_VERSION);
+  return `workos@${override || WORKOS_CLI_VERSION}`;
+}
 function parseJson2(text, fallback = {}) {
   if (!text || !text.trim())
     return fallback;
@@ -8585,7 +8590,7 @@ function getWorkosCommandPrefix() {
     if (found)
       return [found];
   } catch {}
-  return ["npx", "--yes", "workos@latest"];
+  return ["npx", "--yes", getWorkosCliSpec()];
 }
 function runWorkos(args, options = {}) {
   const [bin, ...prefixArgs] = getWorkosCommandPrefix();

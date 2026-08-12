@@ -118,7 +118,7 @@ Run that in your terminal. The wizard is fully deterministic — no LLM in the l
 
 The wizard writes `~/.claude/workos-audit/config.json` with mode `0600`. Restart Claude Code after it exits so hooks and MCP servers reload.
 
-To verify what the running MCP server sees, ask Claude to call `workos_audit_status`. To self-check outside Claude, run `npx -y workos@latest auth status --mode agent`. From a clone of this repo, `npm run audit-harness -- status` shows the same view plus harness-config fields.
+To verify what the running MCP server sees, ask Claude to call `workos_audit_status`. To self-check outside Claude, run `npx -y workos@0.21.0 auth status --mode agent`. From a clone of this repo, `npm run audit-harness -- status` shows the same view plus harness-config fields.
 
 ### Cloud Claude (no terminal)
 

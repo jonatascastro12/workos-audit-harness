@@ -22,6 +22,23 @@ export const DEFAULT_API_BASE_URL = 'https://api.workos.com';
 export const DEFAULT_ORGANIZATION_NAME = 'Audit Log Harness';
 export const USER_AGENT = 'workos-audit-harness/1';
 
+// Pinned WorkOS CLI version. The harness leans on the CLI for auth and for
+// unclaimed-environment provisioning, whose `/x/` backend contract carries no
+// compatibility promise — `@latest` would let that contract drift under us at
+// a stranger's first run. Keep in sync with WORKOS_CLI_SPEC in
+// packages/installer/bin.mjs.
+export const WORKOS_CLI_VERSION = '0.21.0';
+
+export function getWorkosCliSpec() {
+  const override = trimToUndefined(process.env.WORKOS_AUDIT_HARNESS_WORKOS_VERSION);
+  return `workos@${override || WORKOS_CLI_VERSION}`;
+}
+
+// The invocation shown to humans in remediation messages.
+export function workosCliInvocation() {
+  return `npx -y ${getWorkosCliSpec()}`;
+}
+
 export function parseJson(text, fallback = {}) {
   if (!text || !text.trim()) return fallback;
   return JSON.parse(text);
@@ -39,7 +56,7 @@ export function getWorkosCommandPrefix() {
   } catch {
     // Fall through to npx. npx installs/downloads the WorkOS CLI package when absent.
   }
-  return ['npx', '--yes', 'workos@latest'];
+  return ['npx', '--yes', getWorkosCliSpec()];
 }
 
 export function runWorkos(args, options = {}) {
@@ -83,13 +100,22 @@ export function getWorkosCliActiveEnvironment() {
   return undefined;
 }
 
+// An unclaimed environment was minted without an account (`workos env
+// provision`) and has no owner until `workos env claim` links it to one.
+// Surfacing this everywhere credentials are reported is what keeps an
+// anonymous environment from quietly becoming someone's production audit log
+// destination.
+export function isUnclaimedEnvironment(env) {
+  return Boolean(env && (env.type === 'unclaimed' || env.claimToken));
+}
+
 export function summarizeWorkosCliAuth() {
   const cliConfig = readWorkosCliConfig();
   if (!cliConfig) {
     return {
       loggedIn: false,
       activeEnvironment: null,
-      remediation: 'Run `npx -y workos@latest auth login` to sign in to the WorkOS CLI.',
+      remediation: `Run \`${workosCliInvocation()} auth login\` to sign in to the WorkOS CLI.`,
     };
   }
   const activeName = cliConfig.activeEnvironment || null;
@@ -99,18 +125,78 @@ export function summarizeWorkosCliAuth() {
     return {
       loggedIn: false,
       activeEnvironment: activeName,
-      remediation: 'A WorkOS CLI config exists but no active environment has an API key. Run `npx -y workos@latest auth login`.',
+      remediation: `A WorkOS CLI config exists but no active environment has an API key. Run \`${workosCliInvocation()} auth login\`.`,
     };
   }
+  const unclaimed = isUnclaimedEnvironment(activeEnv);
   return {
     loggedIn: true,
     activeEnvironment: activeName,
     environments: Object.keys(cliConfig.environments || {}),
+    activeEnvironmentUnclaimed: unclaimed,
+    ...(unclaimed && {
+      remediation: `The active WorkOS environment is unclaimed (no owner). Run \`${workosCliInvocation()} env claim\` to link it to your account and keep its data.`,
+    }),
   };
 }
 
 export function getEffectiveApiKey(config) {
   return config.apiKey || getWorkosCliActiveEnvironment()?.apiKey;
+}
+
+// Parse the `workos env provision --json` success envelope:
+//   {"status":"ok","message":"Environment provisioned","data":{name,type,
+//    active,apiKey,clientId,claimToken,authkitDomain}}
+// Returns ONLY non-secret metadata. The claim token — a bearer credential
+// that can take over the environment — and the API key stay out of the
+// return value on purpose: the CLI has already persisted both in its own
+// config store (keyring), and the key is picked up through the normal
+// resolution path (getWorkosCliActiveEnvironment). Errors never echo the
+// output for the same reason.
+export function parseProvisionOutput(stdout) {
+  let parsed;
+  try {
+    parsed = JSON.parse(stdout);
+  } catch {
+    throw new Error('Unexpected output from `workos env provision --json`.');
+  }
+  const data = parsed?.data;
+  if (parsed?.status !== 'ok' || !data?.apiKey || !data?.clientId) {
+    throw new Error('`workos env provision` did not return credentials.');
+  }
+  return {
+    name: data.name,
+    clientId: data.clientId,
+    authkitDomain: data.authkitDomain,
+  };
+}
+
+// Provision a brand-new unclaimed WorkOS environment — the zero-account path.
+// Shells out to the pinned WorkOS CLI so the CLI stays the single owner of
+// the experimental /x/one-shot-environments contract; the harness never
+// speaks to that endpoint itself. Only ever call this from an explicit,
+// user-initiated flow (setup wizard choice, `provision` command): it creates
+// a real environment server-side, so it must never run implicitly from
+// hooks, event emission, or CI.
+export function provisionUnclaimedEnvironment() {
+  let stdout;
+  try {
+    stdout = runWorkos(['env', 'provision', '--json', '--mode', 'agent']);
+  } catch (error) {
+    const stderr = error.stderr?.toString?.() || '';
+    let code = 'provision_failed';
+    try {
+      code = JSON.parse(stderr).code || code;
+    } catch {
+      // Non-JSON stderr (old CLI without `env provision`, npx failure).
+    }
+    const failure = new Error(code === 'rate_limited'
+      ? 'WorkOS rate-limited environment provisioning. Try again later, or sign in with an existing account instead.'
+      : `Could not provision a WorkOS environment (requires WorkOS CLI >= ${WORKOS_CLI_VERSION}). Sign in instead with \`${workosCliInvocation()} auth login\`.`);
+    failure.code = code;
+    throw failure;
+  }
+  return parseProvisionOutput(stdout);
 }
 
 export function createSdk(config) {
