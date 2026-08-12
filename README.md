@@ -315,6 +315,10 @@ This is the most consequential decision in the whole integration. There are two 
 
 The fix is to **compose the event on the server from what your backend already observed**, rather than forwarding what the client reported. You are running the agent loop: your infrastructure issues the tool calls, selects the model, and counts the tokens. Emit from that, and the event becomes something the user cannot fabricate or suppress. This is the single biggest advantage you have as the harness vendor, and it is unavailable to anyone instrumenting your product from the outside.
 
+<img src="docs/assets/audit-harness-backend-tier.png" width="860" alt="A customer's developer runs your harness on their machine and sends prompts to your harness backend, which brokers every model call, runs or dispatches the tools, and owns the session and turn ids. Audit events are emitted server-side to WorkOS Audit Logs, scoped to the customer's own organization; model calls are brokered to the model provider." />
+
+*Same event vocabulary as the [endpoint tier](packages/proxy/README.md), so the two halves reconcile against each other.*
+
 Some facts genuinely only exist on the endpoint — the working directory, the git repository and branch, whether a human approved a prompt locally. Collect those if they are useful, but keep them in a clearly separate part of the event, and treat them as unverified. A good rule: anything the server observed is a fact, anything the client reported is a claim, and the two should never be indistinguishable to whoever reads the log later.
 
 For internal tools or local-only harnesses with no backend, you can use an environment variable or secret manager directly in the harness process. Treat the key like any other service credential: do not commit, do not print, do not expose to model context. Just be honest in your documentation that events from that deployment are endpoint claims.
