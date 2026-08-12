@@ -75,6 +75,19 @@ jobs:
       - name: Typecheck the proxy
         run: npm run verify -w @workos-inc/audit-proxy
 
+      # The quick installer is zero-dependency and must at least parse and
+      # detect — it is the first thing a brand-new adopter runs. The tarball
+      # leg exercises the same pack+bin-link path `npx github:...` uses, so a
+      # files/.npmignore mistake or broken bin mapping fails here, not on a
+      # user's machine.
+      - name: Quick installer smoke test
+        run: |
+          set -euo pipefail
+          node packages/installer/bin.mjs --list
+          node packages/installer/bin.mjs --help
+          npm pack --pack-destination "$RUNNER_TEMP" > /dev/null
+          npx --yes --package "$RUNNER_TEMP"/workos-audit-harness-*.tgz workos-audit-install --list
+
   bundle:
     name: Plugin bundles build
     runs-on: ubuntu-latest
