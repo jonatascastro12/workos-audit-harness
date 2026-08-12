@@ -38,6 +38,7 @@
     "workos-auth-login": "node bin/workos-audit-harness.mjs auth-login",
     "create:harness-schemas": "node bin/workos-audit-harness.mjs seed-generic-schemas",
     "build:cli": "node scripts/build-cli.mjs",
+    "test": "node --test test/*.test.mjs",
     "postinstall": "node scripts/postinstall.mjs"
   },
   "dependencies": {

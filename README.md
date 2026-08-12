@@ -91,6 +91,23 @@ This runs the WorkOS CLI login flow. If no organization is set, an `Audit Log Ha
 
 Alternatively set `WORKOS_API_KEY` and `WORKOS_ORGANIZATION_ID` env vars.
 
+### No WorkOS account yet? (zero-account quickstart)
+
+You can run the harness cold, before signing up. Provision an **unclaimed environment** — real credentials minted without an account:
+
+```bash
+npm run audit-harness -- provision      # or: npx -y workos@0.21.0 env provision
+```
+
+The WorkOS CLI stores the credentials (including the claim token) in its own config store, and the harness picks the environment up automatically, exactly like a logged-in CLI environment. The Claude plugin's `/workos-audit-setup` wizard offers the same thing interactively when it finds no credentials.
+
+Things to know about unclaimed environments:
+
+- **Nobody owns one until it is claimed.** Link it to a real WorkOS account with `npx -y workos@0.21.0 env claim` — the claim token lives only in the local WorkOS CLI config, so losing that machine (or removing the env) permanently orphans the environment and its data.
+- **They never override real credentials.** `WORKOS_API_KEY`, harness config, and MDM-managed keys all outrank the CLI's active environment, and `provision` refuses to run when any credential already exists (`--force` provisions an additional env anyway).
+- **Provisioning is always explicit.** Only the `provision` command and the setup wizard mint environments — hooks, event emission, and CI paths never do.
+- `status` reports `unclaimedEnvironment: true` plus a claim reminder while events target one.
+
 ### Fleet rollout (no key on laptops)
 
 For rolling out to a whole fleet, don't put API keys on laptops at all — deploy the [ingestion proxy](packages/proxy) to your Cloudflare account and push its URL to every device via your MDM (a machine-wide config file at `/Library/Application Support/workos-audit/config.json` on macOS). Laptops authenticate with a device certificate over mTLS; the proxy holds the key and attributes events server-side. The mTLS client path is currently **macOS-only** (it relies on the keychain and Secure Transport curl); other platforms fall back to API-key/CLI transport. See [packages/proxy/README.md](packages/proxy/README.md).
@@ -106,11 +123,12 @@ The `workos-audit-harness` CLI in `packages/audit-core` is the shared core for a
 ```bash
 npm run audit-harness -- status              # show api-key / WorkOS CLI credential state
 npm run audit-harness -- auth-login          # delegate to `workos auth login`
+npm run audit-harness -- provision           # mint an unclaimed environment (no account needed)
 npm run audit-harness -- ensure-organization # find or create the harness org
 npm run audit-harness -- query --help        # export & summarize audit logs
 ```
 
-If you only need the WorkOS CLI's own view of your auth (no harness config), run `npx -y workos@latest auth status --mode agent` from any shell — this is what the plugin's `/workos-audit-setup` reflects under `workosCli.loggedIn`.
+If you only need the WorkOS CLI's own view of your auth (no harness config), run `npx -y workos@0.21.0 auth status --mode agent` from any shell — this is what the plugin's `/workos-audit-setup` reflects under `workosCli.loggedIn`.
 
 ## Seed audit schemas
 

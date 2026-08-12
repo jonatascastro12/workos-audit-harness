@@ -5743,6 +5743,7 @@ var dist_default7 = createPrompt((config, done) => {
 // ../audit-core/src/workos-client.mjs
 import os from "node:os";
 import path2 from "node:path";
+import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { createRequire as createRequire2 } from "node:module";
 
@@ -10439,6 +10440,37 @@ function loadKeyringEntry() {
   return cachedKeyringEntry;
 }
 var DEFAULT_API_BASE_URL = "https://api.workos.com";
+var WORKOS_CLI_VERSION = "0.21.0";
+function getWorkosCliSpec() {
+  const override = trimToUndefined(process.env.WORKOS_AUDIT_HARNESS_WORKOS_VERSION);
+  return `workos@${override || WORKOS_CLI_VERSION}`;
+}
+function workosCliInvocation() {
+  return `npx -y ${getWorkosCliSpec()}`;
+}
+function getWorkosCommandPrefix() {
+  const configured = trimToUndefined(process.env.WORKOS_AUDIT_HARNESS_WORKOS_BIN);
+  if (configured)
+    return [configured];
+  try {
+    const found = execFileSync("bash", ["-lc", "command -v workos"], {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"]
+    }).trim();
+    if (found)
+      return [found];
+  } catch {}
+  return ["npx", "--yes", getWorkosCliSpec()];
+}
+function runWorkos(args, options = {}) {
+  const [bin, ...prefixArgs] = getWorkosCommandPrefix();
+  return execFileSync(bin, [...prefixArgs, ...args], {
+    encoding: "utf8",
+    stdio: options.stdio || ["ignore", "pipe", "pipe"],
+    input: options.input,
+    env: { ...process.env, NO_COLOR: "1" }
+  });
+}
 function readWorkosCliConfig() {
   const Entry = loadKeyringEntry();
   if (Entry) {
@@ -10466,13 +10498,16 @@ function getWorkosCliActiveEnvironment() {
     return { apiKey: cliConfig.workosApiKey };
   return;
 }
+function isUnclaimedEnvironment(env) {
+  return Boolean(env && (env.type === "unclaimed" || env.claimToken));
+}
 function summarizeWorkosCliAuth() {
   const cliConfig = readWorkosCliConfig();
   if (!cliConfig) {
     return {
       loggedIn: false,
       activeEnvironment: null,
-      remediation: "Run `npx -y workos@latest auth login` to sign in to the WorkOS CLI."
+      remediation: `Run \`${workosCliInvocation()} auth login\` to sign in to the WorkOS CLI.`
     };
   }
   const activeName = cliConfig.activeEnvironment || null;
@@ -10482,17 +10517,55 @@ function summarizeWorkosCliAuth() {
     return {
       loggedIn: false,
       activeEnvironment: activeName,
-      remediation: "A WorkOS CLI config exists but no active environment has an API key. Run `npx -y workos@latest auth login`."
+      remediation: `A WorkOS CLI config exists but no active environment has an API key. Run \`${workosCliInvocation()} auth login\`.`
     };
   }
+  const unclaimed = isUnclaimedEnvironment(activeEnv);
   return {
     loggedIn: true,
     activeEnvironment: activeName,
-    environments: Object.keys(cliConfig.environments || {})
+    environments: Object.keys(cliConfig.environments || {}),
+    activeEnvironmentUnclaimed: unclaimed,
+    ...unclaimed && {
+      remediation: `The active WorkOS environment is unclaimed (no owner). Run \`${workosCliInvocation()} env claim\` to link it to your account and keep its data.`
+    }
   };
 }
 function getEffectiveApiKey(config) {
   return config.apiKey || getWorkosCliActiveEnvironment()?.apiKey;
+}
+function parseProvisionOutput(stdout) {
+  let parsed;
+  try {
+    parsed = JSON.parse(stdout);
+  } catch {
+    throw new Error("Unexpected output from `workos env provision --json`.");
+  }
+  const data = parsed?.data;
+  if (parsed?.status !== "ok" || !data?.apiKey || !data?.clientId) {
+    throw new Error("`workos env provision` did not return credentials.");
+  }
+  return {
+    name: data.name,
+    clientId: data.clientId,
+    authkitDomain: data.authkitDomain
+  };
+}
+function provisionUnclaimedEnvironment() {
+  let stdout;
+  try {
+    stdout = runWorkos(["env", "provision", "--json", "--mode", "agent"]);
+  } catch (error) {
+    const stderr = error.stderr?.toString?.() || "";
+    let code = "provision_failed";
+    try {
+      code = JSON.parse(stderr).code || code;
+    } catch {}
+    const failure = new Error(code === "rate_limited" ? "WorkOS rate-limited environment provisioning. Try again later, or sign in with an existing account instead." : `Could not provision a WorkOS environment (requires WorkOS CLI >= ${WORKOS_CLI_VERSION}). Sign in instead with \`${workosCliInvocation()} auth login\`.`);
+    failure.code = code;
+    throw failure;
+  }
+  return parseProvisionOutput(stdout);
 }
 function createSdk(config) {
   const apiKey = getEffectiveApiKey(config);
@@ -10507,14 +10580,14 @@ function createSdk(config) {
 }
 
 // ../audit-core/src/device-cert.mjs
-import { execFileSync } from "node:child_process";
+import { execFileSync as execFileSync2 } from "node:child_process";
 var LABEL_RE = /"(OktaManagementAttestation for [^"]+)"/;
 var cached;
 function getDeviceCertLabel() {
   if (cached !== undefined)
     return cached;
   try {
-    const out = execFileSync("security", ["find-identity"], {
+    const out = execFileSync2("security", ["find-identity"], {
       encoding: "utf8",
       stdio: ["ignore", "pipe", "ignore"]
     });
@@ -11150,6 +11223,12 @@ async function configure() {
     name: "Enter an explicit WorkOS API key (production or staging)",
     value: "apiKey"
   });
+  if (!cliAuth.loggedIn && !current.apiKey) {
+    credentialChoices.push({
+      name: "No WorkOS account yet — provision a temporary environment (claim it later)",
+      value: "provision"
+    });
+  }
   credentialChoices.push({
     name: "Skip — use WORKOS_API_KEY at runtime",
     value: "env"
@@ -11169,6 +11248,29 @@ async function configure() {
     apiKey = await promptApiKey(current.apiKey);
   } else if (credentialKey === "cli") {
     apiKey = undefined;
+  } else if (credentialKey === "provision") {
+    const proceed = await dist_default4({
+      message: "Create a new unclaimed WorkOS environment now? (real credentials, no account; it has no owner until you claim it)",
+      default: true
+    });
+    if (proceed) {
+      console.log("Provisioning via the WorkOS CLI…");
+      try {
+        const environment = provisionUnclaimedEnvironment();
+        console.log(`
+Provisioned environment "${environment.name}" (client ID ${environment.clientId}).`);
+        console.log("It is UNCLAIMED: it has no owner, and its claim token lives only in the");
+        console.log(`WorkOS CLI config on this machine. Keep it by running: ${workosCliInvocation()} env claim`);
+        apiKey = undefined;
+      } catch (error) {
+        console.log(`
+Provisioning failed: ${error?.message || error}`);
+        console.log(`You can sign in instead (${workosCliInvocation()} auth login) or set WORKOS_API_KEY at runtime.`);
+        apiKey = undefined;
+      }
+    } else {
+      apiKey = undefined;
+    }
   }
   const apiKeyForListing = credentialKey === "cli" ? undefined : apiKey;
   const organizationId = await pickOrganization(apiKeyForListing, current.organizationId);
