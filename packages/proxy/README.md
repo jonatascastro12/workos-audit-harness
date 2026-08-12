@@ -16,21 +16,7 @@ Given that constraint, the problem is credentials. WorkOS API keys are full-acce
 
 A compromised laptop can do exactly one thing: append rate-limited audit events as itself. It can still lie about *what* those events say — see [Trust model](#trust-model).
 
-```
-┌──────────────────────┐   mTLS (device cert)    ┌─────────────────────────┐
-│ Laptop               │ ──────────────────────▶ │ Cloudflare edge (mTLS)  │
-│ coding-agent plugin  │   POST /api/events      │ verifies cert → CA      │
-└──────────────────────┘                         └───────────┬─────────────┘
-                                                             ▼
-                                                 ┌─────────────────────────┐
-                                                 │ This Worker             │
-                                                 │ serial → user (D1/MDM)  │
-                                                 │ stamp actor + org + IP  │
-                                                 └───────────┬─────────────┘
-                                                             │ Bearer sk_ (Worker secret)
-                                                             ▼
-                                                 api.workos.com/audit_logs/events
-```
+<img src="../../docs/assets/audit-proxy-architecture.png" width="860" alt="A laptop running a coding-agent plugin authenticates over mTLS with a device cert to the Cloudflare edge, which verifies the certificate against your CA and forwards a signed JWT to the audit proxy Worker. The Worker resolves the device serial to a person via MDM (cached 24h in D1), stamps actor, org and IP, drops client-sent identity, and calls WorkOS Audit Logs with the sk_ key that lives only in the Worker as a secret." />
 
 The clients in this repo ([claude-plugin](../claude-plugin), [codex-plugin](../codex-plugin), [openclaw-plugin](../openclaw-plugin), [pi-extension](../pi-extension)) already speak this protocol: they discover the device cert in the macOS keychain and POST through it via `curl --cert <label>` on the Secure Transport backend.
 
