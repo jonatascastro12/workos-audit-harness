@@ -20,6 +20,10 @@ import readline from "node:readline";
 const REPO = "workos/workos-audit-harness";
 const REPO_URL = `https://github.com/${REPO}.git`;
 const DEFAULT_CHECKOUT = path.join(homedir(), ".workos-audit", "workos-audit-harness");
+// Pinned WorkOS CLI — this file is dependency-free, so it cannot import the
+// constant. Keep in sync with WORKOS_CLI_VERSION in
+// packages/audit-core/src/workos-client.mjs.
+const WORKOS_CLI_SPEC = "workos@0.21.0";
 
 // ---------------------------------------------------------------------------
 // tiny output helpers (no chalk — keep this dependency-free)
@@ -373,9 +377,13 @@ async function main() {
   }
   console.log(`
 ${bold("Credentials")} ${dim("(shared by every integration)")}
-  Easiest: ${cyan("npx -y workos@latest auth login")} — or set WORKOS_API_KEY and
+  Easiest: ${cyan(`npx -y ${WORKOS_CLI_SPEC} auth login`)} — or set WORKOS_API_KEY and
   WORKOS_ORGANIZATION_ID. If no organization is set, the harness finds or
-  creates one named “Audit Log Harness”. Fleet rollout without laptop keys:
+  creates one named “Audit Log Harness”.
+  No WorkOS account yet? ${cyan(`npx -y ${WORKOS_CLI_SPEC} env provision`)} mints a
+  temporary unclaimed environment the harness picks up automatically — link
+  it to a real account later with ${cyan(`npx -y ${WORKOS_CLI_SPEC} env claim`)}.
+  Fleet rollout without laptop keys:
   https://github.com/${REPO}#fleet-rollout-no-key-on-laptops
 `);
   if (results.some((r) => !r.ok)) process.exitCode = 1;

@@ -1,5 +1,6 @@
 import { parseArgs } from './args.mjs';
 import { run as runAuthLogin } from './commands/auth-login.mjs';
+import { run as runProvision } from './commands/provision.mjs';
 import { run as runStatus } from './commands/status.mjs';
 import { run as runEnsureOrganization } from './commands/ensure-organization.mjs';
 import { run as runEmitEvent } from './commands/emit-event.mjs';
@@ -9,6 +10,7 @@ import { run as runSeedGenericSchemas } from './commands/seed-generic-schemas.mj
 
 const COMMANDS = {
   'auth-login': runAuthLogin,
+  provision: runProvision,
   status: runStatus,
   'ensure-organization': runEnsureOrganization,
   'emit-event': runEmitEvent,
@@ -21,7 +23,8 @@ function usage() {
   return `Usage: workos-audit-harness <command> [options]
 
 Commands:
-  auth-login                 Run \`workos auth login\` (uses npx workos@latest when missing)
+  auth-login                 Run \`workos auth login\` (uses the pinned npx workos when missing)
+  provision                  Mint an unclaimed WorkOS environment (no account needed; claim later)
   status                     Show API key / WorkOS CLI credential status
   ensure-organization        Find or create the harness organization and print its id
   emit-event                 Read an audit event JSON from stdin/--file and emit it

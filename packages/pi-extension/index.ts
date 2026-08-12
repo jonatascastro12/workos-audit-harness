@@ -10,7 +10,7 @@ import { Type } from "typebox";
 import { emitEvent as auditCoreEmitEvent, emitEvents } from "@workos-inc/audit-core/emit-event";
 import { createEventBatcher } from "@workos-inc/audit-core/event-batcher";
 import { queryAuditLogs as auditCoreQuery } from "@workos-inc/audit-core/audit-query";
-import { ensureOrganization as auditCoreEnsureOrg } from "@workos-inc/audit-core/workos-client";
+import { ensureOrganization as auditCoreEnsureOrg, getWorkosCommandPrefix } from "@workos-inc/audit-core/workos-client";
 import { createSchema as auditCoreCreateSchema } from "@workos-inc/audit-core/schema";
 import { getHarnessAuditSchemaDefinitions } from "@workos-inc/audit-core/harness-schemas";
 import { readManagedConfig } from "@workos-inc/audit-core/config";
@@ -896,7 +896,8 @@ export default function workosAuditLogsExtension(pi: ExtensionAPI): void {
       const message = "Starting WorkOS browser auth. If the browser does not open, follow the URL/code printed in the terminal.";
       if (ctx.hasUI) ctx.ui.notify(message, "info");
       console.log(message);
-      execFileSync("npx", ["--yes", "workos@latest", "auth", "login"], { stdio: "inherit" });
+      const [workosBin, ...workosArgs] = getWorkosCommandPrefix();
+      execFileSync(workosBin, [...workosArgs, "auth", "login"], { stdio: "inherit" });
       refreshStatus(ctx);
     },
   });

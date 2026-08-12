@@ -8432,6 +8432,14 @@ function loadKeyringEntry() {
   }
   return cachedKeyringEntry;
 }
+var WORKOS_CLI_VERSION = "0.21.0";
+function getWorkosCliSpec() {
+  const override = trimToUndefined(process.env.WORKOS_AUDIT_HARNESS_WORKOS_VERSION);
+  return `workos@${override || WORKOS_CLI_VERSION}`;
+}
+function workosCliInvocation() {
+  return `npx -y ${getWorkosCliSpec()}`;
+}
 function readWorkosCliConfig() {
   const Entry = loadKeyringEntry();
   if (Entry) {
@@ -8448,13 +8456,16 @@ function readWorkosCliConfig() {
   } catch {}
   return null;
 }
+function isUnclaimedEnvironment(env) {
+  return Boolean(env && (env.type === "unclaimed" || env.claimToken));
+}
 function summarizeWorkosCliAuth() {
   const cliConfig = readWorkosCliConfig();
   if (!cliConfig) {
     return {
       loggedIn: false,
       activeEnvironment: null,
-      remediation: "Run `npx -y workos@latest auth login` to sign in to the WorkOS CLI."
+      remediation: `Run \`${workosCliInvocation()} auth login\` to sign in to the WorkOS CLI.`
     };
   }
   const activeName = cliConfig.activeEnvironment || null;
@@ -8464,13 +8475,18 @@ function summarizeWorkosCliAuth() {
     return {
       loggedIn: false,
       activeEnvironment: activeName,
-      remediation: "A WorkOS CLI config exists but no active environment has an API key. Run `npx -y workos@latest auth login`."
+      remediation: `A WorkOS CLI config exists but no active environment has an API key. Run \`${workosCliInvocation()} auth login\`.`
     };
   }
+  const unclaimed = isUnclaimedEnvironment(activeEnv);
   return {
     loggedIn: true,
     activeEnvironment: activeName,
-    environments: Object.keys(cliConfig.environments || {})
+    environments: Object.keys(cliConfig.environments || {}),
+    activeEnvironmentUnclaimed: unclaimed,
+    ...unclaimed && {
+      remediation: `The active WorkOS environment is unclaimed (no owner). Run \`${workosCliInvocation()} env claim\` to link it to your account and keep its data.`
+    }
   };
 }
 
