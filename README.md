@@ -1,14 +1,14 @@
 # workos-audit-harness
 
 <p align="center">
-  <img src="docs/assets/audit-harness-eye.gif" width="440" alt="Audit Harness — every agent, one audit trail" />
+  <img src="docs/assets/audit-harness-eye.gif" width="440" alt="Audit Harness: every agent, one audit trail" />
 </p>
 
 Audit logging for AI coding agents: one event vocabulary, four working integrations, and an honest account of where each place you can emit from tops out.
 
-**If you build an agent harness, emit audit events from your own backend.** Your servers already see the session, the model, and every tool call the agent makes — and a customer's developer cannot rewrite them there. That is the only place an event's *content* can be attested, and it's the architecture we recommend. Start with the guide [Add enterprise-grade audit logs to your AI harness](#add-enterprise-grade-audit-logs-to-your-ai-harness) below and the shared event taxonomy in [`packages/audit-core`](packages/audit-core/src/harness-audit-schemas.mjs).
+**If you build an agent harness, emit audit events from your own backend.** Your servers already see the session, the model, and every tool call the agent makes, and a customer's developer cannot rewrite them there. That is the only place an event's *content* can be attested, and it's the architecture we recommend. Start with the guide [Add enterprise-grade audit logs to your AI harness](#add-enterprise-grade-audit-logs-to-your-ai-harness) below and the shared event taxonomy in [`packages/audit-core`](packages/audit-core/src/harness-audit-schemas.mjs).
 
-**If you operate a fleet and your vendors haven't done that yet,** instrument the endpoint instead. The plugins here emit from Claude Code, Codex, OpenClaw, and pi today, with no vendor cooperation required. Events are authenticated per device and attributed server-side, but their content is composed on a machine the user administers, so it can be fabricated or withheld — see the [trust model](packages/proxy/README.md#trust-model) before building on the result.
+**If you operate a fleet and your vendors haven't done that yet,** instrument the endpoint instead. The plugins here emit from Claude Code, Codex, OpenClaw, and pi today, with no vendor cooperation required. Events are authenticated per device and attributed server-side, but their content is composed on a machine the user administers, so it can be fabricated or withheld; see the [trust model](packages/proxy/README.md#trust-model) before building on the result.
 
 The two compose. A vendor-emitted spine (session, turn, and tool-call ids from the backend) correlated with endpoint-emitted enrichment (repo, branch, `cwd`, device, local approvals) gives you both halves: the backend sees the conversation, the endpoint sees the machine, and claims from one that don't reconcile against the other are detectably false.
 
@@ -23,7 +23,7 @@ This repo contains four agent integrations, a fleet-deployment proxy and a chat 
 | [`packages/pi-extension`](packages/pi-extension) | Extension for [pi-coding-agent](https://github.com/mariozechner/pi) and the `workos-audit-harness` CLI. |
 | [`packages/proxy`](packages/proxy) | Cloudflare Worker ingestion proxy: laptops authenticate with a device cert over mTLS instead of carrying a WorkOS API key. Deployable to any Cloudflare account. |
 | [`packages/chat`](packages/chat) | AuthKit-gated AI chat console over the audit trail: ask "who ran bash commands yesterday?" and the model answers from the Audit Logs Export API. |
-| [`packages/site`](packages/site) | Marketing & docs site (Next.js 15 + Tailwind v4) — also hosts the `workos-audit-recipe` SKILL.md. |
+| [`packages/site`](packages/site) | Marketing & docs site (Next.js 15 + Tailwind v4). It also hosts the `workos-audit-recipe` SKILL.md. |
 
 ## Install
 
@@ -33,7 +33,7 @@ This repo contains four agent integrations, a fleet-deployment proxy and a chat 
 npx github:workos/workos-audit-harness
 ```
 
-Detects which supported agents are on your machine (pre-selected in the picker), and installs the audit plugin for each one you confirm — no per-agent copy-paste. Non-interactive: `--yes` installs for everything detected, `--agents claude,codex` picks explicitly, `--list` just shows what's detected. From a clone, the same thing is `npm run quick-install`.
+The installer detects which supported agents are on your machine (pre-selected in the picker) and installs the audit plugin for each one you confirm, so you don't repeat the setup per agent. Non-interactive: `--yes` installs for everything detected, `--agents claude,codex` picks explicitly, `--list` just shows what's detected. From a clone, the same thing is `npm run quick-install`.
 
 Prefer manual setup, or need the details for one agent? The per-agent sections below are what the installer automates.
 
@@ -93,7 +93,7 @@ Alternatively set `WORKOS_API_KEY` and `WORKOS_ORGANIZATION_ID` env vars.
 
 ### No WorkOS account yet? (zero-account quickstart)
 
-You can run the harness cold, before signing up. Provision an **unclaimed environment** — real credentials minted without an account:
+You can run the harness cold, before signing up. Provision an **unclaimed environment**, real credentials minted without an account:
 
 ```bash
 npm run audit-harness -- provision      # or: npx -y workos@0.21.0 env provision
@@ -103,14 +103,14 @@ The WorkOS CLI stores the credentials (including the claim token) in its own con
 
 Things to know about unclaimed environments:
 
-- **Nobody owns one until it is claimed.** Link it to a real WorkOS account with `npx -y workos@0.21.0 env claim` — the claim token lives only in the local WorkOS CLI config, so losing that machine (or removing the env) permanently orphans the environment and its data.
+- **Nobody owns one until it is claimed.** Link it to a real WorkOS account with `npx -y workos@0.21.0 env claim`. The claim token lives only in the local WorkOS CLI config, so losing that machine (or removing the env) permanently orphans the environment and its data.
 - **They never override real credentials.** `WORKOS_API_KEY`, harness config, and MDM-managed keys all outrank the CLI's active environment, and `provision` refuses to run when any credential already exists (`--force` provisions an additional env anyway).
-- **Provisioning is always explicit.** Only the `provision` command and the setup wizard mint environments — hooks, event emission, and CI paths never do.
+- **Provisioning is always explicit.** Only the `provision` command and the setup wizard mint environments; hooks, event emission, and CI paths never do.
 - `status` reports `unclaimedEnvironment: true` plus a claim reminder while events target one.
 
 ### Fleet rollout (no key on laptops)
 
-For rolling out to a whole fleet, don't put API keys on laptops at all — deploy the [ingestion proxy](packages/proxy) to your Cloudflare account and push its URL to every device via your MDM (a machine-wide config file at `/Library/Application Support/workos-audit/config.json` on macOS). Laptops authenticate with a device certificate over mTLS; the proxy holds the key and attributes events server-side. The mTLS client path is currently **macOS-only** (it relies on the keychain and Secure Transport curl); other platforms fall back to API-key/CLI transport. See [packages/proxy/README.md](packages/proxy/README.md).
+For rolling out to a whole fleet, don't put API keys on laptops at all. Instead, deploy the [ingestion proxy](packages/proxy) to your Cloudflare account and push its URL to every device via your MDM (a machine-wide config file at `/Library/Application Support/workos-audit/config.json` on macOS). Laptops authenticate with a device certificate over mTLS; the proxy holds the key and attributes events server-side. The mTLS client path is currently **macOS-only** (it relies on the keychain and Secure Transport curl); other platforms fall back to API-key/CLI transport. See [packages/proxy/README.md](packages/proxy/README.md).
 
 To force-install the Claude Code plugin itself on every device (managed settings via the Claude.ai admin console or MDM), see [Enforce the plugin fleet-wide](packages/claude-plugin/README.md#enforce-the-plugin-fleet-wide-managed-settings).
 
@@ -128,7 +128,7 @@ npm run audit-harness -- ensure-organization # find or create the harness org
 npm run audit-harness -- query --help        # export & summarize audit logs
 ```
 
-If you only need the WorkOS CLI's own view of your auth (no harness config), run `npx -y workos@0.21.0 auth status --mode agent` from any shell — this is what the plugin's `/workos-audit-setup` reflects under `workosCli.loggedIn`.
+If you only need the WorkOS CLI's own view of your auth (no harness config), run `npx -y workos@0.21.0 auth status --mode agent` from any shell. This is what the plugin's `/workos-audit-setup` reflects under `workosCli.loggedIn`.
 
 ## Seed audit schemas
 
@@ -164,11 +164,11 @@ npm run create:openclaw-schemas
 └── package.json                          # npm workspaces root
 ```
 
-npm workspaces handles dependency installation; there is no separate build step. Each package has its own `package.json` and is independently usable. The one exception is `packages/chat`, which is deliberately **not** a workspace member — it keeps its own `package-lock.json` (vendored WorkOS design system + React Router toolchain), so run `npm ci` inside that directory rather than from the root.
+npm workspaces handles dependency installation; there is no separate build step. Each package has its own `package.json` and is independently usable. The one exception is `packages/chat`, which is deliberately **not** a workspace member: it keeps its own `package-lock.json` (vendored WorkOS design system + React Router toolchain), so run `npm ci` inside that directory rather than from the root.
 
 ## Audit chat console
 
-[`packages/chat`](packages/chat) is an AuthKit-gated AI chat console over the audit trail this harness produces — ask "who ran bash commands yesterday?" and the model answers from the WorkOS Audit Logs Export API. It reuses the proxy's tenant secrets, so it reads the same WorkOS environment the proxy ingests into, and it deploys to Cloudflare Workers alongside the proxy.
+[`packages/chat`](packages/chat) is an AuthKit-gated AI chat console over the audit trail this harness produces: ask "who ran bash commands yesterday?" and the model answers from the WorkOS Audit Logs Export API. It reuses the proxy's tenant secrets, so it reads the same WorkOS environment the proxy ingests into, and it deploys to Cloudflare Workers alongside the proxy.
 
 It previously lived in its own repo (`workos/workos-audit-chat`, now archived) because the `scaffold` CI pipeline deploys repo-per-app. It was folded in here with its history preserved, so everything that reads or writes this audit trail versions together.
 
@@ -186,17 +186,17 @@ An audit log is a structured record of something meaningful that happened in you
 
 > Jonatas signed in to Linear.
 
-In audit log terms: actor `user:jonatas`, action `user.signed_in`, target `application:linear`, occurred at `2026-05-12T10:15:00Z`, plus context. For an AI harness the same pattern applies — "the agent called the `bash` tool in session `sess_123`" — the shape is still actor, action, target, timestamp, and metadata. The difference is that the targets are harness-native objects: sessions, prompts, tools, commands, files, models, approvals, and exports.
+In audit log terms: actor `user:jonatas`, action `user.signed_in`, target `application:linear`, occurred at `2026-05-12T10:15:00Z`, plus context. For an AI harness the same pattern applies: "the agent called the `bash` tool in session `sess_123`" still has the shape of actor, action, target, timestamp, and metadata. The difference is that the targets are harness-native objects: sessions, prompts, tools, commands, files, models, approvals, and exports.
 
 ### Why AI harnesses are a natural fit
 
-A typical SaaS application has explicit controller actions — "create project", "delete user". An AI harness has a more dynamic lifecycle, but it is still full of auditable moments: a user submits a prompt, the harness starts an agent run, the model chooses tools, the harness executes them, the agent writes files or runs commands, the user approves or denies an action, the agent completes or fails, and the customer exports logs later to investigate.
+A typical SaaS application has explicit controller actions like "create project" and "delete user". An AI harness has a more dynamic lifecycle, but it is still full of auditable moments: a user submits a prompt, the harness starts an agent run, the model chooses tools, the harness executes them, the agent writes files or runs commands, the user approves or denies an action, the agent completes or fails, and the customer exports logs later to investigate.
 
-Most harnesses already expose hooks for these moments — `onPrompt`, `beforeAgentStart`, `onToolCall`, `onToolResult`, `onSessionEnd`, `PreToolUse`, `PostToolUse`. The integration point already exists. The task is to decide which hooks are audit-worthy, define schemas for them, and emit Audit Log events when they happen.
+Most harnesses already expose hooks for these moments: `onPrompt`, `beforeAgentStart`, `onToolCall`, `onToolResult`, `onSessionEnd`, `PreToolUse`, `PostToolUse`. The integration point already exists. The task is to decide which hooks are audit-worthy, define schemas for them, and emit Audit Log events when they happen.
 
-### Step 1 — Decide which lifecycle events are worth auditing
+### Step 1: Decide which lifecycle events are worth auditing
 
-Not every hook belongs in an audit log. Audit logs should capture events that are meaningful for security, compliance, customer support, or incident investigation — not every streamed token, UI render, retry loop, or heartbeat. A good starting set:
+Not every hook belongs in an audit log. Audit logs should capture events that are meaningful for security, compliance, customer support, or incident investigation, not every streamed token, UI render, retry loop, or heartbeat. A good starting set:
 
 | Harness event | Action | Why it matters |
 |---|---|---|
@@ -216,7 +216,7 @@ Not every hook belongs in an audit log. Audit logs should capture events that ar
 
 Just as important: decide what *not* to log. Raw prompts and tool outputs can contain secrets, customer data, or source code. A safer default is metadata: prompt length, a SHA-256 hash, an optional truncated preview, tool name, input/output byte size, command hash, duration, and success/failure. That gives investigators evidence without turning your audit logs into a second data lake of sensitive content.
 
-### Step 2 — Model actors, actions, and targets
+### Step 2: Model actors, actions, and targets
 
 WorkOS Audit Logs events are organization-scoped. In a B2B SaaS product the WorkOS organization usually maps to your customer. A harness event looks like this conceptually:
 
@@ -245,9 +245,9 @@ WorkOS Audit Logs events are organization-scoped. In a B2B SaaS product the Work
 
 The **actor** is usually the end user, admin, service account, or system process. The **action** is a stable string such as `agent.tool.called`. The **targets** are the affected resources: session, tool, command, model, file, project, or export. The **metadata** contains typed, action-specific details.
 
-### Step 3 — Create schemas first
+### Step 3: Create schemas first
 
-WorkOS Audit Logs validates incoming events against schemas. That is a feature: it prevents your audit trail from becoming inconsistent over time. It also means you should create schemas before you start sending events — an event that does not match a schema is rejected with a validation error.
+WorkOS Audit Logs validates incoming events against schemas. That is a feature: it prevents your audit trail from becoming inconsistent over time. It also means you should create schemas before you start sending events. An event that does not match a schema is rejected with a validation error.
 
 ```typescript
 import { WorkOS } from '@workos-inc/node';
@@ -272,9 +272,9 @@ await workos.auditLogs.createSchema({
 });
 ```
 
-This repo defines its schemas as code and seeds them into WorkOS (see [`packages/audit-core/src/harness-audit-schemas.mjs`](packages/audit-core/src/harness-audit-schemas.mjs) and `npm run create:harness-schemas`). Generating schema definitions from your harness's hook list is a great task for an LLM agent — then review the proposed action names, targets, and metadata before seeding.
+This repo defines its schemas as code and seeds them into WorkOS (see [`packages/audit-core/src/harness-audit-schemas.mjs`](packages/audit-core/src/harness-audit-schemas.mjs) and `npm run create:harness-schemas`). Generating schema definitions from your harness's hook list is a great task for an LLM agent; review the proposed action names, targets, and metadata before seeding.
 
-### Step 4 — Emit events from harness hooks
+### Step 4: Emit events from harness hooks
 
 Once schemas exist, wire the harness lifecycle hooks:
 
@@ -301,15 +301,15 @@ await workos.auditLogs.createEvent(process.env.WORKOS_ORGANIZATION_ID!, {
 });
 ```
 
-Centralize this in a small `emitEvent` helper so individual hooks become one-line mappings from harness event to audit event — see [`packages/pi-extension`](packages/pi-extension) for a complete working example. The same pattern applies to prompts, model changes, session starts, session shutdown, tool results, and user-triggered shell commands.
+Centralize this in a small `emitEvent` helper so individual hooks become one-line mappings from harness event to audit event. See [`packages/pi-extension`](packages/pi-extension) for a complete working example. The same pattern applies to prompts, model changes, session starts, session shutdown, tool results, and user-triggered shell commands.
 
-### Step 5 — Emit from your server, not from the endpoint
+### Step 5: Emit from your server, not from the endpoint
 
 This is the most consequential decision in the whole integration. There are two reasons to emit server-side. The first is well known; the second determines whether your audit log is evidence or merely testimony.
 
 **Secrets.** WorkOS API calls require an API key, and keys do not belong on machines you do not control. So: the browser or local harness triggers a lifecycle event; your backend authenticates the user and resolves the WorkOS organization ID; your backend emits the event using a server-side API key.
 
-**Integrity.** An audit event composed on a machine its user administers is a *claim*, not a fact. Whoever owns that machine can hand-craft events that never happened, and can stop real ones from being sent at all. No amount of client-side hardening fixes this — not device certificates, not code signing, not a hardware-backed key. Those authenticate *who is sending*; none of them can attest that the content is true, because the content is composed where the attacker already has write access.
+**Integrity.** An audit event composed on a machine its user administers is a *claim*, not a fact. Whoever owns that machine can hand-craft events that never happened, and can stop real ones from being sent at all. No amount of client-side hardening fixes this. Device certificates, code signing, and hardware-backed keys all authenticate *who is sending*; none of them can attest that the content is true, because the content is composed where the attacker already has write access.
 
 > Relaying client-supplied events through your backend solves the key problem and leaves the integrity problem untouched.
 
@@ -319,24 +319,24 @@ The fix is to **compose the event on the server from what your backend already o
 
 *Same event vocabulary as the [endpoint tier](packages/proxy/README.md), so the two halves reconcile against each other.*
 
-Some facts genuinely only exist on the endpoint — the working directory, the git repository and branch, whether a human approved a prompt locally. Collect those if they are useful, but keep them in a clearly separate part of the event, and treat them as unverified. A good rule: anything the server observed is a fact, anything the client reported is a claim, and the two should never be indistinguishable to whoever reads the log later.
+Some facts genuinely only exist on the endpoint: the working directory, the git repository and branch, whether a human approved a prompt locally. Collect those if they are useful, but keep them in a clearly separate part of the event, and treat them as unverified. A good rule: anything the server observed is a fact, anything the client reported is a claim, and the two should never be indistinguishable to whoever reads the log later.
 
 For internal tools or local-only harnesses with no backend, you can use an environment variable or secret manager directly in the harness process. Treat the key like any other service credential: do not commit, do not print, do not expose to model context. Just be honest in your documentation that events from that deployment are endpoint claims.
 
-### Step 6 — Map every event to the right customer
+### Step 6: Map every event to the right customer
 
-Emitting server-side raises a question that never comes up when a laptop talks straight to the API: your backend serves every customer, so each event has to carry the correct organization — and getting that wrong is worse than not logging at all. An event delivered to the wrong tenant is a data leak, and one delivered to no tenant is invisible.
+Emitting server-side raises a question that never comes up when a laptop talks straight to the API: your backend serves every customer, so each event has to carry the correct organization, and getting that wrong is worse than not logging at all. An event delivered to the wrong tenant is a data leak, and one delivered to no tenant is invisible.
 
-Resolve the organization from the authenticated session, server-side, on every event. Never accept it from the client, and never infer it from something the user can change — an email domain, a workspace name, a header.
+Resolve the organization from the authenticated session, server-side, on every event. Never accept it from the client, and never infer it from something the user can change, such as an email domain, a workspace name, or a header.
 
 - **One organization per customer.** The mapping usually already exists in whatever you use for SSO or provisioning. Reuse it rather than inventing a second source of truth that can drift.
 - **Users who belong to several organizations.** Common with contractors and agencies. Scope the event to the organization whose resources the session actually touched, not to a default the user picked at login.
 - **Activity with no customer.** Personal or free-tier usage, internal testing, and your own staff. Decide deliberately where those go; routing them into a customer's log because it was the nearest match is the mistake to avoid.
 - **Fail closed.** If the organization cannot be resolved, drop the event to your own error tracking and alert. Do not guess, and do not fall back to a catch-all organization.
 
-If your customers connect their own WorkOS environment rather than living in yours, this becomes a connected-app problem: you are writing into a tenant that grants you access, so you also inherit their retention and residency expectations — a data-handling decision as much as an engineering one.
+If your customers connect their own WorkOS environment rather than living in yours, this becomes a connected-app problem: you are writing into a tenant that grants you access, so you also inherit their retention and residency expectations, which makes this a data-handling decision as much as an engineering one.
 
-### Step 7 — Let the agent query the audit trail
+### Step 7: Let the agent query the audit trail
 
 Audit logs become even more useful when your harness can answer questions about them: "Who ran `rm -rf` last week?", "Which sessions used the `bash` tool yesterday?", "Who changed the model before the incident?". WorkOS supports creating audit log exports for an organization and date range:
 
@@ -370,22 +370,22 @@ The plugins in this repo expose exactly this flow as a `workos_audit_query` MCP 
 - Raw prompts, tool inputs, tool outputs, and command output are not logged unless explicitly intended.
 - Sensitive fields are hashed, truncated, or omitted.
 - The WorkOS API key is stored server-side or in a trusted secret manager.
-- Events are composed server-side from what your backend observed — not relayed from client-supplied payloads.
+- Events are composed server-side from what your backend observed, not relayed from client-supplied payloads.
 - Any endpoint-supplied context is separated from server-observed facts and documented as unverified.
 - Event ingestion failures do not break the agent experience.
-- High-value actions — commands, approvals, file writes, exports, model changes — are covered.
+- High-value actions (commands, approvals, file writes, exports, model changes) are covered.
 - Audit export access is itself audited.
 - The harness can query logs with filters and cite evidence from exported rows.
 
-The result is a much stronger enterprise story for any AI product: customers can see what happened, who did it, what was affected, and when — with structured evidence they can export, review, and **trust**. That last word is the one worth earning: an audit trail is only worth as much as the weakest claim in it, and where you emit from decides that. Because you run the agent loop, you can emit events your customers' own developers cannot forge or silently switch off — a guarantee nobody instrumenting your product from the outside can offer them.
+The result is a much stronger enterprise story for any AI product: customers can see what happened, who did it, what was affected, and when, with structured evidence they can export, review, and trust. That trust has to be earned: an audit trail is only worth as much as the weakest claim in it, and where you emit from decides that. Because you run the agent loop, you can emit events your customers' own developers cannot forge or silently switch off, a guarantee nobody instrumenting your product from the outside can offer them.
 
 ## Contributing
 
-Contributions are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md) for how to
+Contributions are welcome; see [CONTRIBUTING.md](CONTRIBUTING.md) for how to
 get set up, what CI checks, and the plugin version-bump rules. Security issues
 go to [security@workos.com](mailto:security@workos.com) per
 [SECURITY.md](SECURITY.md), never to the public issue tracker.
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+MIT; see [LICENSE](LICENSE).
