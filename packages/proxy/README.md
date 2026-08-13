@@ -242,7 +242,3 @@ curl -s http://localhost:8787/api/events -X POST -H 'Content-Type: application/j
 |---|---|---|
 | `POST /api/events` | mTLS device cert | Ingest one audit event; returns `202` on success. |
 | `GET /healthz` (or `/`) | none | Liveness probe used by the plugins' setup preflight. |
-
-## Design notes
-
-The original internal spec — including the empirical findings about the Okta attestation cert, macOS keychain/`curl` behavior, and the Access JWT vs. `cf.tlsClientAuth` trade-off — lives in [docs/spec.md](docs/spec.md).
