@@ -47,7 +47,7 @@ client).
                                                                               │ cf.tlsClientAuth
                                                                               ▼
                                                                  ┌──────────────────────────┐
-                                                                 │ Cloudflare Worker (scaffold app)│
+                                                                 │ Cloudflare Worker (proxy)  │
                                                                  │  /api/events handler       │
                                                                  │  - re-verify cert/issuer   │
                                                                  │  - parse serial from CN    │
@@ -166,23 +166,18 @@ Current behavior: `fetch()` to `api.workos.com` with `Authorization: Bearer <key
 
 ---
 
-## 5. Proxy implementation (Cloudflare Worker the scaffold)
+## 5. Proxy implementation (Cloudflare Worker)
 
-The proxy is a WorkOS internal app scaffolded by `scaffold app create`. `scaffold`
-produces a Cloudflare Worker full-stack app (React frontend + file-based
-`/api/*` routes), and provisions: a **D1 (SQLite) database**, an **R2 bucket**,
+The proxy is scaffolded as a Cloudflare Worker full-stack app (React frontend +
+file-based `/api/*` routes), provisioned with: a **D1 (SQLite) database**, an **R2 bucket**,
 a **Durable Object** for state, **Doppler**-managed secrets (synced to GitHub
 Actions secrets → Cloudflare), **GitHub Actions deploy** (workflow `Deploy`,
 `workflow_dispatch`), and **Cloudflare Access (Zero Trust) SSO** in front.
 
 ### 5.1 Scaffold
 
-```bash
-scaffold app create workos-audit-proxy
-```
-
-This creates the repo, Worker, D1, R2, Doppler config, GH Actions deploy, and a
-default Cloudflare Access SSO app on the hostname.
+The scaffold creates the repo, Worker, D1, R2, Doppler config, GH Actions
+deploy, and a default Cloudflare Access SSO app on the hostname.
 
 ### 5.2 Ingest route — `POST /api/events`
 
@@ -260,13 +255,13 @@ truth selection is an open item (§7).
 ### 5.4 Secrets (Doppler → Worker)
 
 - `WORKOS_API_KEY` — the real full-access `sk_`. Store as a **Doppler secret**;
-  `scaffold`/GH Actions syncs it into the Worker env. **Never** in the repo,
+  the GH Actions deploy syncs it into the Worker env. **Never** in the repo,
   `wrangler.toml`, or on any laptop.
 - `WORKOS_ORG_ID` — Doppler config var.
 
 ### 5.5 Ingress — Cloudflare Zero Trust mTLS on the ingest path
 
-`scaffold` puts the whole app behind Access SSO by default. That would block headless
+The scaffold puts the whole app behind Access SSO by default. That would block headless
 `curl`. Carve the ingest path into its own mTLS-gated Access app — the dashboard
 keeps SSO, the ingest path uses the device cert.
 
@@ -290,10 +285,8 @@ Steps (Cloudflare Zero Trust dashboard / API):
 4. The Worker still re-checks `cf.tlsClientAuth` (§5.2 steps 1–3) — Access
    terminates TLS, so the Worker reads the validated cert fields from `cf`.
 
-> `scaffold` has no built-in capability for mTLS (its only add-on is
-> `scaffold app add slack`, which creates an Access *bypass* for `/api/slack`). The
-> mTLS setup above is a manual one-time Cloudflare step. Consider proposing a
-> `scaffold app add mtls` capability as a follow-up.
+> The scaffold has no built-in capability for mTLS; the setup above is a
+> manual one-time Cloudflare step.
 
 ### 5.6 Hardening
 
@@ -311,7 +304,7 @@ Steps (Cloudflare Zero Trust dashboard / API):
 
 ### 5.8 Dashboard (bonus, optional for v1)
 
-The `scaffold` React frontend (behind normal Access SSO) can show ingest
+The scaffolded React frontend (behind normal Access SSO) can show ingest
 volume / per-user activity — a ready-made dogfooding proof-point for Claude Day.
 
 ---
