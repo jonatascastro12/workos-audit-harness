@@ -3877,6 +3877,9 @@ function createToolTimingStore({ baseEnvNames, fallbackDirName, timingKeyExtras 
 // ../audit-core/src/cli/emit-event.mjs
 import { randomUUID } from "node:crypto";
 import { spawn } from "node:child_process";
+import { mkdtempSync, writeFileSync as writeFileSync2, rmSync as rmSync2 } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 // ../audit-core/src/workos-client.mjs
 import os2 from "node:os";
@@ -8710,13 +8713,34 @@ var CONNECT_TIMEOUT_SECONDS = 5;
 var MAX_TIME_SECONDS = 10;
 function runCurl(args, input) {
   return new Promise((resolve) => {
+    let payloadDir;
+    let payloadArgs = args;
+    if (input !== undefined) {
+      try {
+        payloadDir = mkdtempSync(join(tmpdir(), "workos-audit-"));
+        const payloadPath = join(payloadDir, "payload.json");
+        writeFileSync2(payloadPath, input, { mode: 384 });
+        payloadArgs = args.map((arg) => arg === "@-" ? `@${payloadPath}` : arg);
+      } catch (error) {
+        if (payloadDir)
+          rmSync2(payloadDir, { recursive: true, force: true });
+        resolve({ code: null, stdout: "", stderr: String(error?.message || error) });
+        return;
+      }
+    }
+    const cleanup = () => {
+      if (payloadDir)
+        rmSync2(payloadDir, { recursive: true, force: true });
+      payloadDir = undefined;
+    };
     let child;
     try {
-      child = spawn("/usr/bin/curl", args, {
-        stdio: ["pipe", "pipe", "pipe"],
+      child = spawn("/usr/bin/curl", payloadArgs, {
+        stdio: ["ignore", "pipe", "pipe"],
         env: { ...process.env, CURL_SSL_BACKEND: "secure-transport" }
       });
     } catch (error) {
+      cleanup();
       resolve({ code: null, stdout: "", stderr: String(error?.message || error) });
       return;
     }
@@ -8731,11 +8755,13 @@ function runCurl(args, input) {
       stderr += chunk;
     });
     child.on("error", (error) => {
+      cleanup();
       resolve({ code: null, stdout, stderr: stderr || String(error?.message || error) });
     });
-    child.on("close", (code) => resolve({ code, stdout, stderr }));
-    child.stdin.on("error", () => {});
-    child.stdin.end(input);
+    child.on("close", (code) => {
+      cleanup();
+      resolve({ code, stdout, stderr });
+    });
   });
 }
 function toRestEvent(event) {
@@ -8866,7 +8892,7 @@ async function emitEvent(event, config) {
 // ../audit-core/src/config.mjs
 import os3 from "node:os";
 import path3 from "node:path";
-import { chmodSync, existsSync as existsSync3, mkdirSync as mkdirSync2, readFileSync as readFileSync3, rmSync as rmSync2, writeFileSync as writeFileSync2 } from "node:fs";
+import { chmodSync, existsSync as existsSync3, mkdirSync as mkdirSync2, readFileSync as readFileSync3, rmSync as rmSync3, writeFileSync as writeFileSync3 } from "node:fs";
 var CONFIG_KEYS = [
   "apiKey",
   "organizationId",
@@ -8977,13 +9003,13 @@ function createConfigLoader({
       }
     }
     mkdirSync2(path3.dirname(filePath), { recursive: true, mode: 448 });
-    writeFileSync2(filePath, `${JSON.stringify(sanitized, null, 2)}
+    writeFileSync3(filePath, `${JSON.stringify(sanitized, null, 2)}
 `, { mode: 384 });
     chmodSync(filePath, 384);
     return filePath;
   }
   function clearFileConfig() {
-    rmSync2(getConfigFilePath(), { force: true });
+    rmSync3(getConfigFilePath(), { force: true });
   }
   function lookupEnv(key) {
     const candidates = envKeyOrder[key] || [];
