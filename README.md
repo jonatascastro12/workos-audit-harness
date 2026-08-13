@@ -170,8 +170,6 @@ npm workspaces handles dependency installation; there is no separate build step.
 
 [`packages/chat`](packages/chat) is an AuthKit-gated AI chat console over the audit trail this harness produces: ask "who ran bash commands yesterday?" and the model answers from the WorkOS Audit Logs Export API. It reuses the proxy's tenant secrets, so it reads the same WorkOS environment the proxy ingests into, and it deploys to Cloudflare Workers alongside the proxy.
 
-It previously lived in its own repo (`workos/workos-audit-chat`, now archived) because the `scaffold` CI pipeline deploys repo-per-app. It was folded in here with its history preserved, so everything that reads or writes this audit trail versions together.
-
 ## Add enterprise-grade audit logs to your AI harness
 
 AI products increasingly look less like a single API call and more like a *harness*: a runtime that accepts user input, chooses a model, invokes tools, runs shell commands, reads and writes files, asks for approval, and produces an answer over multiple turns.
