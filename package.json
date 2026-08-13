@@ -4,12 +4,14 @@
   "private": true,
   "type": "module",
   "license": "MIT",
-  "description": "WorkOS audit logging for Claude Code, Codex, OpenClaw, and the pi-coding-agent.",
+  "description": "WorkOS audit logging for Claude Code, Codex, OpenClaw, OpenCode, Hermes Agent, and the pi-coding-agent.",
   "workspaces": [
     "packages/audit-core",
     "packages/claude-plugin",
     "packages/codex-plugin",
+    "packages/hermes-plugin",
     "packages/openclaw-plugin",
+    "packages/opencode-plugin",
     "packages/pi-extension",
     "packages/proxy",
     "packages/site",
@@ -33,6 +35,10 @@
     "remove:codex-schemas": "npm run remove:schemas -w @workos-inc/codex-audit-plugin",
     "create:openclaw-schemas": "npm run create:schemas -w @workos-inc/openclaw-audit-plugin",
     "remove:openclaw-schemas": "npm run remove:schemas -w @workos-inc/openclaw-audit-plugin",
+    "create:opencode-schemas": "npm run create:schemas -w @workos-inc/opencode-audit-plugin",
+    "remove:opencode-schemas": "npm run remove:schemas -w @workos-inc/opencode-audit-plugin",
+    "create:hermes-schemas": "npm run create:schemas -w @workos-inc/hermes-audit-plugin",
+    "remove:hermes-schemas": "npm run remove:schemas -w @workos-inc/hermes-audit-plugin",
     "quick-install": "node packages/installer/bin.mjs"
   },
   "overrides": {

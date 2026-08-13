@@ -56,6 +56,27 @@ const CHECKS = [
     ],
   },
   {
+    plugin: 'opencode-plugin',
+    dir: 'packages/opencode-plugin',
+    // OpenCode has no plugin manifest file, so package.json is the single
+    // source — same shape as pi below.
+    sources: [{ file: 'packages/opencode-plugin/package.json', pick: (json) => json.version }],
+  },
+  {
+    plugin: 'hermes-plugin',
+    dir: 'packages/hermes-plugin',
+    sources: [
+      { file: 'packages/hermes-plugin/package.json', pick: (json) => json.version },
+      {
+        // plugin.yaml is YAML, not JSON — `raw: true` hands pick() the file
+        // text instead of a parsed object.
+        file: 'packages/hermes-plugin/plugin.yaml',
+        raw: true,
+        pick: (text) => text.match(/^version:\s*["']?(\d+\.\d+\.\d+)["']?$/m)?.[1],
+      },
+    ],
+  },
+  {
     plugin: 'pi-extension',
     dir: 'packages/pi-extension',
     // Single manifest, so check 1 is a tautology for pi — it cannot disagree
@@ -74,6 +95,11 @@ function readJson(rel) {
   return JSON.parse(readFileSync(path.join(ROOT, rel), 'utf8'));
 }
 
+function readSource(source) {
+  const text = readFileSync(path.join(ROOT, source.file), 'utf8');
+  return source.raw ? text : JSON.parse(text);
+}
+
 function git(args) {
   return execFileSync('git', args, { cwd: ROOT, encoding: 'utf8' }).trim();
 }
@@ -84,7 +110,7 @@ const failures = [];
 for (const { plugin, sources } of CHECKS) {
   const observed = sources.map((source) => ({
     label: source.label || source.file,
-    version: source.pick(readJson(source.file)),
+    version: source.pick(readSource(source)),
   }));
   const versions = new Set(observed.map((entry) => entry.version));
   const [only] = [...versions];

@@ -4,15 +4,15 @@
   <img src="docs/assets/audit-harness-eye.gif" width="440" alt="Audit Harness: every agent, one audit trail" />
 </p>
 
-Audit logging for AI coding agents: one event vocabulary, four working integrations, and an honest account of where each place you can emit from tops out.
+Audit logging for AI coding agents: one event vocabulary, six working integrations, and an honest account of where each place you can emit from tops out.
 
 **If you build an agent harness, emit audit events from your own backend.** Your servers already see the session, the model, and every tool call the agent makes, and a customer's developer cannot rewrite them there. That is the only place an event's *content* can be attested, and it's the architecture we recommend. Start with the guide [Add enterprise-grade audit logs to your AI harness](#add-enterprise-grade-audit-logs-to-your-ai-harness) below and the shared event taxonomy in [`packages/audit-core`](packages/audit-core/src/harness-audit-schemas.mjs).
 
-**If you operate a fleet and your vendors haven't done that yet,** instrument the endpoint instead. The plugins here emit from Claude Code, Codex, OpenClaw, and pi today, with no vendor cooperation required. Events are authenticated per device and attributed server-side, but their content is composed on a machine the user administers, so it can be fabricated or withheld; see the [trust model](packages/proxy/README.md#trust-model) before building on the result.
+**If you operate a fleet and your vendors haven't done that yet,** instrument the endpoint instead. The plugins here emit from Claude Code, Codex, OpenClaw, OpenCode, Hermes, and pi today, with no vendor cooperation required. Events are authenticated per device and attributed server-side, but their content is composed on a machine the user administers, so it can be fabricated or withheld; see the [trust model](packages/proxy/README.md#trust-model) before building on the result.
 
 The two compose. A vendor-emitted spine (session, turn, and tool-call ids from the backend) correlated with endpoint-emitted enrichment (repo, branch, `cwd`, device, local approvals) gives you both halves: the backend sees the conversation, the endpoint sees the machine, and claims from one that don't reconcile against the other are detectably false.
 
-This repo contains four agent integrations, a fleet-deployment proxy and a chat console over the resulting audit trail, sharing one CLI harness and one set of audit schemas:
+This repo contains six agent integrations, a fleet-deployment proxy and a chat console over the resulting audit trail, sharing one CLI harness and one set of audit schemas:
 
 | Package | What it does |
 |---|---|
@@ -20,6 +20,8 @@ This repo contains four agent integrations, a fleet-deployment proxy and a chat 
 | [`packages/claude-plugin`](packages/claude-plugin) | Claude Code plugin: emits session/prompt/tool/turn events to WorkOS and exposes a `workos_audit_query` MCP tool. |
 | [`packages/codex-plugin`](packages/codex-plugin) | Codex plugin: same lifecycle events + MCP audit query, with Codex's hook model. |
 | [`packages/openclaw-plugin`](packages/openclaw-plugin) | OpenClaw plugin: emits native session/message/agent/LLM/tool/turn events and exposes WorkOS audit query/status tools. |
+| [`packages/opencode-plugin`](packages/opencode-plugin) | OpenCode plugin: emits session/prompt/tool/permission/turn events via native hooks and exposes WorkOS audit query/status tools. |
+| [`packages/hermes-plugin`](packages/hermes-plugin) | Hermes Agent plugin: Python hooks shell out to bundled Node scripts to emit session/prompt/tool/approval/subagent/turn events, plus audit query/status tools. |
 | [`packages/pi-extension`](packages/pi-extension) | Extension for [pi-coding-agent](https://github.com/mariozechner/pi) and the `workos-audit-harness` CLI. |
 | [`packages/proxy`](packages/proxy) | Cloudflare Worker ingestion proxy: laptops authenticate with a device cert over mTLS instead of carrying a WorkOS API key. Deployable to any Cloudflare account. |
 | [`packages/chat`](packages/chat) | AuthKit-gated AI chat console over the audit trail: ask "who ran bash commands yesterday?" and the model answers from the Audit Logs Export API. |
@@ -68,6 +70,35 @@ openclaw plugins enable workos-audit
 ```
 
 Restart the OpenClaw gateway after installing or updating the plugin. See [packages/openclaw-plugin/README.md](packages/openclaw-plugin/README.md).
+
+### OpenCode
+
+```bash
+git clone https://github.com/workos/workos-audit-harness.git
+cd workos-audit-harness
+npm install
+npm run bundle -w @workos-inc/opencode-audit-plugin
+mkdir -p ~/.config/opencode/plugins
+cat > ~/.config/opencode/plugins/workos-audit.js <<JS
+export * from '$(pwd)/packages/opencode-plugin/dist/index.mjs';
+JS
+```
+
+OpenCode only scans `.ts`/`.js` files in its `plugins/` directory, so the one-line shim re-exports the bundled `.mjs` entry. If you set `XDG_CONFIG_HOME` (or `OPENCODE_CONFIG_DIR`), write the shim under `$XDG_CONFIG_HOME/opencode/plugins` (or `$OPENCODE_CONFIG_DIR/plugins`) instead of `~/.config/opencode/plugins`. Restart OpenCode after installing or updating the plugin. See [packages/opencode-plugin/README.md](packages/opencode-plugin/README.md).
+
+### Hermes Agent
+
+```bash
+git clone https://github.com/workos/workos-audit-harness.git
+cd workos-audit-harness
+npm install
+npm run bundle -w @workos-inc/hermes-audit-plugin
+mkdir -p ~/.hermes/plugins
+ln -s "$(pwd)/packages/hermes-plugin" ~/.hermes/plugins/workos-audit
+hermes plugins enable workos-audit
+```
+
+Restart Hermes after installing or updating the plugin. See [packages/hermes-plugin/README.md](packages/hermes-plugin/README.md).
 
 ### pi-coding-agent
 
@@ -132,7 +163,7 @@ If you only need the WorkOS CLI's own view of your auth (no harness config), run
 
 ## Seed audit schemas
 
-The generic harness schemas work across all three integrations:
+The generic harness schemas work across every integration:
 
 ```bash
 npm run create:harness-schemas -- --prefix=claude    # or codex, pi, ...
@@ -144,6 +175,8 @@ Per-integration legacy schemas are still available:
 npm run create:claude-schemas
 npm run create:codex-schemas
 npm run create:openclaw-schemas
+npm run create:opencode-schemas
+npm run create:hermes-schemas
 ```
 
 ## Repository layout
@@ -156,7 +189,9 @@ npm run create:openclaw-schemas
 │   ├── audit-core/                      # shared config/emit/query core + workos-audit-harness CLI
 │   ├── claude-plugin/
 │   ├── codex-plugin/
+│   ├── hermes-plugin/
 │   ├── openclaw-plugin/
+│   ├── opencode-plugin/
 │   ├── pi-extension/
 │   ├── proxy/                           # mTLS ingestion proxy (Cloudflare Worker + D1)
 │   ├── chat/                            # audit chat console (React Router 7, Cloudflare Workers + D1)

@@ -1,0 +1,20 @@
+name: workos-audit
+version: "0.1.0"
+description: Emit Hermes lifecycle events to WorkOS Audit Logs and query them with the workos_audit_status and workos_audit_query tools.
+author: WorkOS
+license: MIT
+homepage: https://github.com/workos/workos-audit-harness
+provides_tools:
+  - workos_audit_status
+  - workos_audit_query
+provides_hooks:
+  - on_session_start
+  - on_session_end
+  - on_session_finalize
+  - pre_llm_call
+  - pre_tool_call
+  - post_tool_call
+  - pre_approval_request
+  - post_approval_response
+  - subagent_start
+  - subagent_stop

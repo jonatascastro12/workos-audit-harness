@@ -1,0 +1,30 @@
+{
+  "name": "@workos-inc/opencode-audit-plugin",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "description": "OpenCode plugin: emit lifecycle events and query WorkOS audit logs.",
+  "main": "./dist/index.mjs",
+  "exports": {
+    ".": "./dist/index.mjs"
+  },
+  "scripts": {
+    "create:schemas": "node dist/scripts/create-opencode-schemas.mjs",
+    "remove:schemas": "node dist/scripts/remove-opencode-schemas.mjs",
+    "print:config-status": "node dist/scripts/print-config-status.mjs",
+    "bundle": "node ../../scripts/bundle-plugins.mjs opencode-plugin"
+  },
+  "files": [
+    "dist",
+    "skills",
+    "README.md"
+  ],
+  "engines": {
+    "opencode": ">=1.3.0"
+  },
+  "dependencies": {
+    "@napi-rs/keyring": "^1.3.0",
+    "zod": "^4.4.3"
+  }
+}
