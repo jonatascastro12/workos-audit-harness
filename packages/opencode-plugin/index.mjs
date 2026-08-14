@@ -1,6 +1,6 @@
 import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
-import { appendFileSync, writeFileSync } from 'node:fs';
+import { appendFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -17,7 +17,7 @@ import {
   truncateMetadataString,
 } from '@workos-inc/audit-core/util';
 import { compactMetadata } from '@workos-inc/audit-core/hook-runtime';
-import { configLoader, findRunnerBin } from './scripts/config-file.mjs';
+import { configLoader, destinationFor, findRunnerBin } from './scripts/config-file.mjs';
 
 const PLUGIN_ID = 'workos-audit';
 const COMMAND_TOOLS = new Set(['bash']);
@@ -120,21 +120,37 @@ function sendDetached(events, config) {
   if (!runner) return emitEvents(events, config);
   const script = fileURLToPath(new URL('./scripts/emit-batch.mjs', import.meta.url));
   const path = join(tmpdir(), `workos-audit-batch-${randomUUID()}.json`);
-  writeFileSync(path, JSON.stringify({ events }), { mode: 0o600 });
+  // A failed spawn must not lose the batch or leak its file: remove the
+  // payload and fall back to in-process emission (best effort — inferior only
+  // at the tail of a one-shot run, and a runner that cannot spawn would have
+  // failed there too).
+  const fallback = (detail) => {
+    trace(`spawn failed (${detail}); falling back to in-process emit`);
+    try { rmSync(path, { force: true }); } catch {}
+    return emitEvents(events, config);
+  };
+  writeFileSync(path, JSON.stringify({ destination: destinationFor(config), events }), { mode: 0o600 });
   trace(`wrote ${path}`);
-  const child = spawn(runner, [script, path], {
-    detached: true,
-    stdio: 'ignore',
-    env: process.env,
+  let child;
+  try {
+    child = spawn(runner, [script, path], {
+      detached: true,
+      stdio: 'ignore',
+      env: process.env,
+    });
+  } catch (error) {
+    return fallback(String(error?.message || error));
+  }
+  child.on('error', (error) => {
+    Promise.resolve(fallback(String(error?.message || error))).catch(() => {});
   });
-  child.on('error', (error) => trace(`spawn error ${String(error?.message || error)}`));
   child.unref();
   trace(`spawned pid=${child.pid ?? 'none'}`);
   return Promise.resolve({ ok: true, transport: 'detached', total: events.length });
 }
 
 function batcherFor(config) {
-  const key = config.proxyUrl ?? `direct:${config.organizationId ?? ''}`;
+  const key = destinationFor(config);
   let batcher = batchers.get(key);
   if (!batcher) {
     batcher = createEventBatcher({
@@ -326,7 +342,8 @@ export const WorkosAuditPlugin = async ({ directory }) => {
           tool_name: input.tool,
           tool_call_id: input.callID,
           duration_ms: consumeToolTiming(input.sessionID, input.callID),
-          is_error: false,
+          // No is_error: the 1.3.x after-hook carries no failure signal, and a
+          // hardcoded false would be a claim; failures surface via session.error.
           result_sha256: output?.output === undefined ? undefined : sha256(output.output),
           result_bytes: output?.output === undefined ? undefined : byteLength(output.output),
           title: truncateMetadataString(output?.title),

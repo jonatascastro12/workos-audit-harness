@@ -3776,7 +3776,7 @@ import { readFileSync as readFileSync3, rmSync as rmSync3 } from "node:fs";
 // ../audit-core/src/cli/emit-event.mjs
 import { randomUUID } from "node:crypto";
 import { spawn } from "node:child_process";
-import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
+import { mkdtempSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -8619,13 +8619,30 @@ function getDeviceCertLabel() {
 var CONNECT_TIMEOUT_SECONDS = 5;
 var MAX_TIME_SECONDS = 10;
 var PROXY_MAX_BATCH_EVENTS = 25;
+var PAYLOAD_DIR_PREFIX = "workos-audit-";
+var STALE_PAYLOAD_MS = 60 * 60 * 1000;
+function sweepStalePayloadDirs() {
+  try {
+    for (const entry of readdirSync(tmpdir())) {
+      if (!entry.startsWith(PAYLOAD_DIR_PREFIX))
+        continue;
+      const dir = join(tmpdir(), entry);
+      try {
+        if (Date.now() - statSync(dir).mtimeMs > STALE_PAYLOAD_MS) {
+          rmSync(dir, { recursive: true, force: true });
+        }
+      } catch {}
+    }
+  } catch {}
+}
 function runCurl(args, input) {
   return new Promise((resolve) => {
     let payloadDir;
     let payloadArgs = args;
     if (input !== undefined) {
       try {
-        payloadDir = mkdtempSync(join(tmpdir(), "workos-audit-"));
+        sweepStalePayloadDirs();
+        payloadDir = mkdtempSync(join(tmpdir(), PAYLOAD_DIR_PREFIX));
         const payloadPath = join(payloadDir, "payload.json");
         writeFileSync(payloadPath, input, { mode: 384 });
         payloadArgs = args.map((arg) => arg === "@-" ? `@${payloadPath}` : arg);
@@ -9126,22 +9143,28 @@ var configLoader = createConfigLoader({
     recordingEnabled: true
   }
 });
+function destinationFor(config) {
+  return config.proxyUrl ?? `direct:${config.organizationId ?? ""}`;
+}
 
 // scripts/emit-batch.mjs
 async function main() {
   const path3 = process.argv[2];
   if (!path3)
     return;
-  let events;
+  let batch;
   try {
-    events = JSON.parse(readFileSync3(path3, "utf8")).events;
+    batch = JSON.parse(readFileSync3(path3, "utf8"));
   } finally {
     rmSync3(path3, { force: true });
   }
+  const events = batch.events;
   if (!Array.isArray(events) || events.length === 0)
     return;
   const config = configLoader.loadConfig();
   if (config.recordingEnabled === false)
+    return;
+  if (batch.destination !== undefined && batch.destination !== destinationFor(config))
     return;
   await emitEvents(events, config);
 }

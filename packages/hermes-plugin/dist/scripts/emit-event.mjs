@@ -3833,7 +3833,7 @@ function compactMetadata(metadata) {
 // ../audit-core/src/cli/emit-event.mjs
 import { randomUUID } from "node:crypto";
 import { spawn } from "node:child_process";
-import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
+import { mkdtempSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -8667,13 +8667,30 @@ function getDeviceCertLabel() {
 // ../audit-core/src/cli/emit-event.mjs
 var CONNECT_TIMEOUT_SECONDS = 5;
 var MAX_TIME_SECONDS = 10;
+var PAYLOAD_DIR_PREFIX = "workos-audit-";
+var STALE_PAYLOAD_MS = 60 * 60 * 1000;
+function sweepStalePayloadDirs() {
+  try {
+    for (const entry of readdirSync(tmpdir())) {
+      if (!entry.startsWith(PAYLOAD_DIR_PREFIX))
+        continue;
+      const dir = join(tmpdir(), entry);
+      try {
+        if (Date.now() - statSync(dir).mtimeMs > STALE_PAYLOAD_MS) {
+          rmSync(dir, { recursive: true, force: true });
+        }
+      } catch {}
+    }
+  } catch {}
+}
 function runCurl(args, input) {
   return new Promise((resolve) => {
     let payloadDir;
     let payloadArgs = args;
     if (input !== undefined) {
       try {
-        payloadDir = mkdtempSync(join(tmpdir(), "workos-audit-"));
+        sweepStalePayloadDirs();
+        payloadDir = mkdtempSync(join(tmpdir(), PAYLOAD_DIR_PREFIX));
         const payloadPath = join(payloadDir, "payload.json");
         writeFileSync(payloadPath, input, { mode: 384 });
         payloadArgs = args.map((arg) => arg === "@-" ? `@${payloadPath}` : arg);

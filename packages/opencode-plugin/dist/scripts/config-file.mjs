@@ -322,6 +322,9 @@ var {
   clearFileConfig,
   loadConfig
 } = configLoader;
+function destinationFor(config) {
+  return config.proxyUrl ?? `direct:${config.organizationId ?? ""}`;
+}
 var runnerBin;
 var runnerResolved = false;
 function findRunnerBin() {
@@ -348,6 +351,7 @@ export {
   loadConfig,
   getConfigFilePath,
   findRunnerBin,
+  destinationFor,
   configLoader,
   clearFileConfig
 };

@@ -38,6 +38,13 @@ export const {
   loadConfig,
 } = configLoader;
 
+// The transport a config resolves to — one batcher per destination in the
+// plugin, and the detached emitter re-checks it before sending so a config
+// change between buffering and emission cannot re-route a batch.
+export function destinationFor(config) {
+  return config.proxyUrl ?? `direct:${config.organizationId ?? ''}`;
+}
+
 // Runner for the detached batch emitter. OpenCode is a standalone binary
 // (process.execPath is opencode itself), so a real node or bun must be found on
 // PATH — checked once, since PATH does not change over the host's lifetime.

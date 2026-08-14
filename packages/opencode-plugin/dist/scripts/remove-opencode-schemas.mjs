@@ -8532,7 +8532,6 @@ function getOpenCodeAuditSchemaDefinitions(prefix = "opencode") {
         tool_name: "string",
         tool_call_id: "string",
         duration_ms: "number",
-        is_error: "boolean",
         result_sha256: "string",
         result_bytes: "number",
         title: "string"

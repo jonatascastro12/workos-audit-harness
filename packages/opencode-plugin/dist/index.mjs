@@ -3773,7 +3773,7 @@ var init_webapi_CxKOxXjo = __esm(() => {
 // index.mjs
 import { spawn as spawn2 } from "node:child_process";
 import { randomUUID as randomUUID2 } from "node:crypto";
-import { appendFileSync, writeFileSync as writeFileSync4 } from "node:fs";
+import { appendFileSync, rmSync as rmSync3, writeFileSync as writeFileSync4 } from "node:fs";
 import { tmpdir as tmpdir2 } from "node:os";
 import { join as join2 } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -23204,7 +23204,7 @@ async function queryAuditLogs(config2, params = {}) {
 // ../audit-core/src/cli/emit-event.mjs
 import { randomUUID } from "node:crypto";
 import { spawn } from "node:child_process";
-import { mkdtempSync, writeFileSync as writeFileSync2, rmSync } from "node:fs";
+import { mkdtempSync, readdirSync, rmSync, statSync, writeFileSync as writeFileSync2 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -23231,13 +23231,30 @@ function getDeviceCertLabel() {
 var CONNECT_TIMEOUT_SECONDS = 5;
 var MAX_TIME_SECONDS = 10;
 var PROXY_MAX_BATCH_EVENTS = 25;
+var PAYLOAD_DIR_PREFIX = "workos-audit-";
+var STALE_PAYLOAD_MS = 60 * 60 * 1000;
+function sweepStalePayloadDirs() {
+  try {
+    for (const entry of readdirSync(tmpdir())) {
+      if (!entry.startsWith(PAYLOAD_DIR_PREFIX))
+        continue;
+      const dir = join(tmpdir(), entry);
+      try {
+        if (Date.now() - statSync(dir).mtimeMs > STALE_PAYLOAD_MS) {
+          rmSync(dir, { recursive: true, force: true });
+        }
+      } catch {}
+    }
+  } catch {}
+}
 function runCurl(args, input) {
   return new Promise((resolve) => {
     let payloadDir;
     let payloadArgs = args;
     if (input !== undefined) {
       try {
-        payloadDir = mkdtempSync(join(tmpdir(), "workos-audit-"));
+        sweepStalePayloadDirs();
+        payloadDir = mkdtempSync(join(tmpdir(), PAYLOAD_DIR_PREFIX));
         const payloadPath = join(payloadDir, "payload.json");
         writeFileSync2(payloadPath, input, { mode: 384 });
         payloadArgs = args.map((arg) => arg === "@-" ? `@${payloadPath}` : arg);
@@ -23819,6 +23836,9 @@ var configLoader = createConfigLoader({
     recordingEnabled: true
   }
 });
+function destinationFor(config2) {
+  return config2.proxyUrl ?? `direct:${config2.organizationId ?? ""}`;
+}
 var runnerBin;
 var runnerResolved = false;
 function findRunnerBin() {
@@ -23923,20 +23943,34 @@ function sendDetached(events, config2) {
     return emitEvents(events, config2);
   const script = fileURLToPath(new URL("./scripts/emit-batch.mjs", import.meta.url));
   const path4 = join2(tmpdir2(), `workos-audit-batch-${randomUUID2()}.json`);
-  writeFileSync4(path4, JSON.stringify({ events }), { mode: 384 });
+  const fallback = (detail) => {
+    trace(`spawn failed (${detail}); falling back to in-process emit`);
+    try {
+      rmSync3(path4, { force: true });
+    } catch {}
+    return emitEvents(events, config2);
+  };
+  writeFileSync4(path4, JSON.stringify({ destination: destinationFor(config2), events }), { mode: 384 });
   trace(`wrote ${path4}`);
-  const child = spawn2(runner, [script, path4], {
-    detached: true,
-    stdio: "ignore",
-    env: process.env
+  let child;
+  try {
+    child = spawn2(runner, [script, path4], {
+      detached: true,
+      stdio: "ignore",
+      env: process.env
+    });
+  } catch (error51) {
+    return fallback(String(error51?.message || error51));
+  }
+  child.on("error", (error51) => {
+    Promise.resolve(fallback(String(error51?.message || error51))).catch(() => {});
   });
-  child.on("error", (error51) => trace(`spawn error ${String(error51?.message || error51)}`));
   child.unref();
   trace(`spawned pid=${child.pid ?? "none"}`);
   return Promise.resolve({ ok: true, transport: "detached", total: events.length });
 }
 function batcherFor(config2) {
-  const key = config2.proxyUrl ?? `direct:${config2.organizationId ?? ""}`;
+  const key = destinationFor(config2);
   let batcher = batchers.get(key);
   if (!batcher) {
     batcher = createEventBatcher({
@@ -24097,7 +24131,6 @@ var WorkosAuditPlugin = async ({ directory }) => {
           tool_name: input.tool,
           tool_call_id: input.callID,
           duration_ms: consumeToolTiming(input.sessionID, input.callID),
-          is_error: false,
           result_sha256: output?.output === undefined ? undefined : sha256(output.output),
           result_bytes: output?.output === undefined ? undefined : byteLength(output.output),
           title: truncateMetadataString(output?.title)

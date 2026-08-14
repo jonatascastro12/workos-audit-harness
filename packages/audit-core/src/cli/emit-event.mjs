@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { spawn } from 'node:child_process';
-import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { ensureOrganization, getEffectiveApiKey, apiUrl, runWorkos, USER_AGENT } from '../workos-client.mjs';
@@ -36,13 +36,36 @@ const PROXY_MAX_BATCH_EVENTS = 25;
 // still exiting 0 — the emission both lost its content and looked successful.
 // A file written synchronously before spawn cannot be raced by host shutdown.
 // (argv is not an option either: the payload would show up in `ps` output.)
+// A host that dies before curl exits leaves its payload dir behind (the
+// cleanup handler never runs), so each call opportunistically sweeps payload
+// dirs older than an hour — far beyond any curl lifetime — before making its
+// own. Payloads are hashed/truncated metadata, so a brief orphan is not a
+// leak, but they should not accumulate.
+const PAYLOAD_DIR_PREFIX = 'workos-audit-';
+const STALE_PAYLOAD_MS = 60 * 60 * 1000;
+
+function sweepStalePayloadDirs() {
+  try {
+    for (const entry of readdirSync(tmpdir())) {
+      if (!entry.startsWith(PAYLOAD_DIR_PREFIX)) continue;
+      const dir = join(tmpdir(), entry);
+      try {
+        if (Date.now() - statSync(dir).mtimeMs > STALE_PAYLOAD_MS) {
+          rmSync(dir, { recursive: true, force: true });
+        }
+      } catch {}
+    }
+  } catch {}
+}
+
 function runCurl(args, input) {
   return new Promise((resolve) => {
     let payloadDir;
     let payloadArgs = args;
     if (input !== undefined) {
       try {
-        payloadDir = mkdtempSync(join(tmpdir(), 'workos-audit-'));
+        sweepStalePayloadDirs();
+        payloadDir = mkdtempSync(join(tmpdir(), PAYLOAD_DIR_PREFIX));
         const payloadPath = join(payloadDir, 'payload.json');
         writeFileSync(payloadPath, input, { mode: 0o600 });
         payloadArgs = args.map((arg) => (arg === '@-' ? `@${payloadPath}` : arg));

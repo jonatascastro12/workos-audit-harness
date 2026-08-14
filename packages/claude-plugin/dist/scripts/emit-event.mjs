@@ -3880,7 +3880,7 @@ function createToolTimingStore({ baseEnvNames, fallbackDirName, timingKeyExtras 
 // ../audit-core/src/cli/emit-event.mjs
 import { randomUUID } from "node:crypto";
 import { spawn } from "node:child_process";
-import { mkdtempSync, writeFileSync as writeFileSync2, rmSync as rmSync2 } from "node:fs";
+import { mkdtempSync, readdirSync, rmSync as rmSync2, statSync, writeFileSync as writeFileSync2 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -8714,13 +8714,30 @@ function getDeviceCertLabel() {
 // ../audit-core/src/cli/emit-event.mjs
 var CONNECT_TIMEOUT_SECONDS = 5;
 var MAX_TIME_SECONDS = 10;
+var PAYLOAD_DIR_PREFIX = "workos-audit-";
+var STALE_PAYLOAD_MS = 60 * 60 * 1000;
+function sweepStalePayloadDirs() {
+  try {
+    for (const entry of readdirSync(tmpdir())) {
+      if (!entry.startsWith(PAYLOAD_DIR_PREFIX))
+        continue;
+      const dir = join(tmpdir(), entry);
+      try {
+        if (Date.now() - statSync(dir).mtimeMs > STALE_PAYLOAD_MS) {
+          rmSync2(dir, { recursive: true, force: true });
+        }
+      } catch {}
+    }
+  } catch {}
+}
 function runCurl(args, input) {
   return new Promise((resolve) => {
     let payloadDir;
     let payloadArgs = args;
     if (input !== undefined) {
       try {
-        payloadDir = mkdtempSync(join(tmpdir(), "workos-audit-"));
+        sweepStalePayloadDirs();
+        payloadDir = mkdtempSync(join(tmpdir(), PAYLOAD_DIR_PREFIX));
         const payloadPath = join(payloadDir, "payload.json");
         writeFileSync2(payloadPath, input, { mode: 384 });
         payloadArgs = args.map((arg) => arg === "@-" ? `@${payloadPath}` : arg);
@@ -9158,7 +9175,7 @@ var configLoader = createConfigLoader({
 });
 
 // scripts/transcript.mjs
-import { existsSync as existsSync4, readdirSync } from "node:fs";
+import { existsSync as existsSync4, readdirSync as readdirSync2 } from "node:fs";
 import { homedir } from "node:os";
 import path4 from "node:path";
 var SESSION_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_-]{7,63}$/;
@@ -9178,7 +9195,7 @@ function resolveTranscriptPath(sessionId) {
   for (const root of transcriptRoots()) {
     let entries;
     try {
-      entries = readdirSync(root, { withFileTypes: true });
+      entries = readdirSync2(root, { withFileTypes: true });
     } catch {
       continue;
     }

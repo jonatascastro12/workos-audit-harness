@@ -201,6 +201,38 @@ def post_approval_response(**kwargs):
     _emit("permission-resolved", payload)
 
 
+# subagent_stop payloads carry no child ids, so remember them from
+# subagent_start keyed by (parent, role) and consume FIFO at stop — best
+# effort, concurrent same-role children may swap ids. Bounded like the other
+# per-process stores.
+_SUBAGENT_IDS = {}
+_SUBAGENT_IDS_LOCK = threading.Lock()
+_SUBAGENT_IDS_MAX = 200
+
+
+def _remember_subagent(kwargs):
+    key = (kwargs.get("parent_session_id"), kwargs.get("child_role"))
+    ids = _pick(kwargs, "child_session_id", "child_subagent_id")
+    if not ids:
+        return
+    with _SUBAGENT_IDS_LOCK:
+        if sum(len(v) for v in _SUBAGENT_IDS.values()) >= _SUBAGENT_IDS_MAX:
+            _SUBAGENT_IDS.clear()
+        _SUBAGENT_IDS.setdefault(key, []).append(ids)
+
+
+def _recall_subagent(kwargs):
+    key = (kwargs.get("parent_session_id"), kwargs.get("child_role"))
+    with _SUBAGENT_IDS_LOCK:
+        pending = _SUBAGENT_IDS.get(key)
+        if not pending:
+            return {}
+        ids = pending.pop(0)
+        if not pending:
+            _SUBAGENT_IDS.pop(key, None)
+        return ids
+
+
 def subagent_start(**kwargs):
     payload = _pick(
         kwargs,
@@ -214,11 +246,14 @@ def subagent_start(**kwargs):
     goal = kwargs.get("child_goal")
     if isinstance(goal, str):
         payload["child_goal"] = goal
+    _remember_subagent(kwargs)
     _emit("agent-started", payload)
 
 
 def subagent_stop(**kwargs):
     payload = _pick(kwargs, "parent_session_id", "child_role", "child_status", "duration_ms")
+    for id_key, id_value in _recall_subagent(kwargs).items():
+        payload.setdefault(id_key, id_value)
     summary = kwargs.get("child_summary")
     if isinstance(summary, str):
         payload["child_summary"] = summary
