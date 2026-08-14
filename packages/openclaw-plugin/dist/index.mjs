@@ -13194,6 +13194,9 @@ async function queryAuditLogs(config, params = {}) {
 // ../audit-core/src/cli/emit-event.mjs
 import { randomUUID } from "node:crypto";
 import { spawn } from "node:child_process";
+import { mkdtempSync, readdirSync, rmSync, statSync, writeFileSync as writeFileSync2 } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 // ../audit-core/src/device-cert.mjs
 import { execFileSync as execFileSync2 } from "node:child_process";
@@ -13218,15 +13221,53 @@ function getDeviceCertLabel() {
 var CONNECT_TIMEOUT_SECONDS = 5;
 var MAX_TIME_SECONDS = 10;
 var PROXY_MAX_BATCH_EVENTS = 25;
+var PAYLOAD_DIR_PREFIX = "workos-audit-";
+var STALE_PAYLOAD_MS = 60 * 60 * 1000;
+function sweepStalePayloadDirs() {
+  try {
+    for (const entry of readdirSync(tmpdir())) {
+      if (!entry.startsWith(PAYLOAD_DIR_PREFIX))
+        continue;
+      const dir = join(tmpdir(), entry);
+      try {
+        if (Date.now() - statSync(dir).mtimeMs > STALE_PAYLOAD_MS) {
+          rmSync(dir, { recursive: true, force: true });
+        }
+      } catch {}
+    }
+  } catch {}
+}
 function runCurl(args, input) {
   return new Promise((resolve) => {
+    let payloadDir;
+    let payloadArgs = args;
+    if (input !== undefined) {
+      try {
+        sweepStalePayloadDirs();
+        payloadDir = mkdtempSync(join(tmpdir(), PAYLOAD_DIR_PREFIX));
+        const payloadPath = join(payloadDir, "payload.json");
+        writeFileSync2(payloadPath, input, { mode: 384 });
+        payloadArgs = args.map((arg) => arg === "@-" ? `@${payloadPath}` : arg);
+      } catch (error) {
+        if (payloadDir)
+          rmSync(payloadDir, { recursive: true, force: true });
+        resolve({ code: null, stdout: "", stderr: String(error?.message || error) });
+        return;
+      }
+    }
+    const cleanup = () => {
+      if (payloadDir)
+        rmSync(payloadDir, { recursive: true, force: true });
+      payloadDir = undefined;
+    };
     let child;
     try {
-      child = spawn("/usr/bin/curl", args, {
-        stdio: ["pipe", "pipe", "pipe"],
+      child = spawn("/usr/bin/curl", payloadArgs, {
+        stdio: ["ignore", "pipe", "pipe"],
         env: { ...process.env, CURL_SSL_BACKEND: "secure-transport" }
       });
     } catch (error) {
+      cleanup();
       resolve({ code: null, stdout: "", stderr: String(error?.message || error) });
       return;
     }
@@ -13241,11 +13282,13 @@ function runCurl(args, input) {
       stderr += chunk;
     });
     child.on("error", (error) => {
+      cleanup();
       resolve({ code: null, stdout, stderr: stderr || String(error?.message || error) });
     });
-    child.on("close", (code) => resolve({ code, stdout, stderr }));
-    child.stdin.on("error", () => {});
-    child.stdin.end(input);
+    child.on("close", (code) => {
+      cleanup();
+      resolve({ code, stdout, stderr });
+    });
   });
 }
 function toRestEvent(event) {
@@ -13521,7 +13564,7 @@ function createEventBatcher({
 // ../audit-core/src/hook-runtime.mjs
 import os3 from "node:os";
 import path3 from "node:path";
-import { existsSync as existsSync2, mkdirSync, readFileSync as readFileSync2, rmSync, writeFileSync as writeFileSync2 } from "node:fs";
+import { existsSync as existsSync2, mkdirSync, readFileSync as readFileSync2, rmSync as rmSync2, writeFileSync as writeFileSync3 } from "node:fs";
 function compactMetadata(metadata) {
   return Object.fromEntries(Object.entries(metadata).filter(([, value]) => value !== undefined));
 }
@@ -13549,7 +13592,7 @@ function createToolTimingStore({ baseEnvNames, fallbackDirName, timingKeyExtras 
     return path3.join(getStateDir(), `${toolUseId}.json`);
   }
   function storeToolTiming(payload) {
-    writeFileSync2(getTimingPath(payload), JSON.stringify({ startedAt: Date.now() }), "utf8");
+    writeFileSync3(getTimingPath(payload), JSON.stringify({ startedAt: Date.now() }), "utf8");
   }
   function consumeToolTiming(payload) {
     const timingPath = getTimingPath(payload);
@@ -13557,10 +13600,10 @@ function createToolTimingStore({ baseEnvNames, fallbackDirName, timingKeyExtras 
       return;
     try {
       const raw = JSON.parse(readFileSync2(timingPath, "utf8"));
-      rmSync(timingPath, { force: true });
+      rmSync2(timingPath, { force: true });
       return typeof raw.startedAt === "number" ? Date.now() - raw.startedAt : undefined;
     } catch {
-      rmSync(timingPath, { force: true });
+      rmSync2(timingPath, { force: true });
       return;
     }
   }
@@ -13570,7 +13613,7 @@ function createToolTimingStore({ baseEnvNames, fallbackDirName, timingKeyExtras 
 // ../audit-core/src/config.mjs
 import os4 from "node:os";
 import path4 from "node:path";
-import { chmodSync, existsSync as existsSync3, mkdirSync as mkdirSync2, readFileSync as readFileSync3, rmSync as rmSync2, writeFileSync as writeFileSync3 } from "node:fs";
+import { chmodSync, existsSync as existsSync3, mkdirSync as mkdirSync2, readFileSync as readFileSync3, rmSync as rmSync3, writeFileSync as writeFileSync4 } from "node:fs";
 var CONFIG_KEYS = [
   "apiKey",
   "organizationId",
@@ -13681,13 +13724,13 @@ function createConfigLoader({
       }
     }
     mkdirSync2(path4.dirname(filePath), { recursive: true, mode: 448 });
-    writeFileSync3(filePath, `${JSON.stringify(sanitized, null, 2)}
+    writeFileSync4(filePath, `${JSON.stringify(sanitized, null, 2)}
 `, { mode: 384 });
     chmodSync(filePath, 384);
     return filePath;
   }
   function clearFileConfig() {
-    rmSync2(getConfigFilePath(), { force: true });
+    rmSync3(getConfigFilePath(), { force: true });
   }
   function lookupEnv(key) {
     const candidates2 = envKeyOrder[key] || [];

@@ -11,10 +11,10 @@
 // workspace install has happened.
 
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import readline from "node:readline";
 
 const REPO = "workos/workos-audit-harness";
@@ -79,10 +79,11 @@ function stepTolerant(label, cmd, args, tolerate, opts = {}) {
 }
 
 // ---------------------------------------------------------------------------
-// checkout management: Codex/OpenClaw/pi install from a repo checkout. When
-// this script already runs inside one (dev workflow), use it; otherwise keep a
-// stable clone under ~/.workos-audit/ — NOT the ephemeral npx cache, which
-// matters for pi, whose extension keeps loading from the checkout afterwards.
+// checkout management: the checkout-based agents (Codex, OpenClaw, OpenCode,
+// Hermes, pi) install from a repo checkout. When this script already runs
+// inside one (dev workflow), use it; otherwise keep a stable clone under
+// ~/.workos-audit/ — NOT the ephemeral npx cache, which matters for the agents
+// whose shim/symlink/extension keeps loading from the checkout afterwards.
 function repoRootOfThisFile() {
   const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
   return existsSync(path.join(root, ".claude-plugin", "marketplace.json")) &&
@@ -182,6 +183,95 @@ const AGENTS = [
         stepTolerant("openclaw plugins install", "openclaw", ["plugins", "install", plugin], /already/i) &&
         stepTolerant("openclaw plugins enable", "openclaw", ["plugins", "enable", "workos-audit"], /already/i);
       return { ok, next: "Restart the OpenClaw gateway to load the plugin." };
+    },
+  },
+  {
+    id: "opencode",
+    label: "OpenCode",
+    binary: "opencode",
+    needsCheckout: true,
+    install(dir) {
+      const root = checkout(dir);
+      if (!root) return { ok: false };
+      const plugin = path.join(root, "packages", "opencode-plugin");
+      // OpenCode scans {plugin,plugins}/*.{ts,js} in its config dir — .mjs
+      // files are ignored — so write a one-line .js shim that re-exports the
+      // bundled entry from the checkout. Overwriting keeps this idempotent.
+      // Match opencode's own resolution: OPENCODE_CONFIG_DIR, then
+      // $XDG_CONFIG_HOME/opencode, then ~/.config/opencode.
+      const configDir = process.env.OPENCODE_CONFIG_DIR
+        ? path.resolve(process.env.OPENCODE_CONFIG_DIR)
+        : path.join(process.env.XDG_CONFIG_HOME || path.join(homedir(), ".config"), "opencode");
+      const shim = path.join(configDir, "plugins", "workos-audit.js");
+      const entry = pathToFileURL(path.join(plugin, "dist", "index.mjs")).href;
+      const ok =
+        step("npm install (workspace root)", "npm", ["install", "--no-audit", "--no-fund"], {
+          cwd: root,
+        }) &&
+        step("bundle plugin", "npm", ["run", "bundle"], { cwd: plugin }) &&
+        (() => {
+          try {
+            mkdirSync(path.dirname(shim), { recursive: true });
+            writeFileSync(shim, `export * from ${JSON.stringify(entry)};\n`);
+            process.stdout.write(`  ${green("✔")} write loader shim ${shim}\n`);
+            return true;
+          } catch (err) {
+            process.stdout.write(`  ${red("✖")} write loader shim ${shim} (${err.message})\n`);
+            return false;
+          }
+        })();
+      return { ok, next: "Restart opencode to load the plugin." };
+    },
+  },
+  {
+    id: "hermes",
+    label: "Hermes Agent",
+    binary: "hermes",
+    needsCheckout: true,
+    install(dir) {
+      const root = checkout(dir);
+      if (!root) return { ok: false };
+      const plugin = path.join(root, "packages", "hermes-plugin");
+      const target = path.join(homedir(), ".hermes", "plugins", "workos-audit");
+      const ok =
+        step("npm install (workspace root)", "npm", ["install", "--no-audit", "--no-fund"], {
+          cwd: root,
+        }) &&
+        step("bundle plugin", "npm", ["run", "bundle"], { cwd: plugin }) &&
+        (() => {
+          // Symlink preferred so the plugin tracks the checkout; copy as the
+          // fallback where symlinks need privileges (Windows). Replace any
+          // existing install so re-running stays idempotent.
+          try {
+            mkdirSync(path.dirname(target), { recursive: true });
+            rmSync(target, { recursive: true, force: true });
+            try {
+              symlinkSync(plugin, target, "dir");
+            } catch {
+              cpSync(plugin, target, { recursive: true });
+            }
+            process.stdout.write(`  ${green("✔")} link plugin ${target}\n`);
+            return true;
+          } catch (err) {
+            process.stdout.write(`  ${red("✖")} link plugin ${target} (${err.message})\n`);
+            return false;
+          }
+        })();
+      if (!ok) return { ok };
+      // `hermes plugins enable` can prompt or vary across versions, so a
+      // failure here doesn't fail the install — the next-step message covers it.
+      const enabled = stepTolerant(
+        "hermes plugins enable",
+        "hermes",
+        ["plugins", "enable", "workos-audit"],
+        /already/i,
+      );
+      return {
+        ok,
+        next: enabled
+          ? "Restart Hermes to load the plugin."
+          : "Run `hermes plugins enable workos-audit` yourself, then restart Hermes.",
+      };
     },
   },
   {
@@ -299,7 +389,8 @@ Usage:
 Options:
   -a, --agents <ids>    comma-separated: ${AGENTS.map((a) => a.id).join(", ")}
   -y, --yes             skip the prompt; use detected (or --agents) as-is
-      --checkout <dir>  where Codex/OpenClaw/pi installs keep their repo checkout
+      --checkout <dir>  where checkout-based installs (codex, openclaw, opencode,
+                        hermes, pi) keep their repo checkout
                         (default: ${DEFAULT_CHECKOUT})
       --list            print detection results and exit
   -h, --help            this help

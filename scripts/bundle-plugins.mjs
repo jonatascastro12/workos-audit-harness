@@ -40,6 +40,20 @@ const PLUGINS = {
     entries: ['index.mjs', 'server/index.mjs', 'scripts/*.mjs'],
     keyringPackage: '@napi-rs/keyring',
   },
+  'opencode-plugin': {
+    dir: 'packages/opencode-plugin',
+    // No server/ entry: the audit tools are native OpenCode tools inside
+    // index.mjs, not an MCP server.
+    entries: ['index.mjs', 'scripts/*.mjs'],
+    keyringPackage: '@napi-rs/keyring',
+  },
+  'hermes-plugin': {
+    dir: 'packages/hermes-plugin',
+    // No index.mjs or server/ entry: the Python plugin (__init__.py) shells
+    // out to the bundled scripts for everything.
+    entries: ['scripts/*.mjs'],
+    keyringPackage: '@napi-rs/keyring',
+  },
   'pi-extension': {
     dir: 'packages/pi-extension',
     entries: ['index.ts'],

@@ -132,6 +132,19 @@ jobs:
             packages/codex-plugin/dist/scripts/emit-event.mjs \
             packages/openclaw-plugin/dist/server/index.mjs \
             packages/openclaw-plugin/dist/index.mjs \
+            packages/opencode-plugin/dist/index.mjs \
+            packages/opencode-plugin/dist/scripts/config-file.mjs \
+            packages/opencode-plugin/dist/scripts/emit-batch.mjs \
+            packages/opencode-plugin/dist/scripts/create-opencode-schemas.mjs \
+            packages/opencode-plugin/dist/scripts/remove-opencode-schemas.mjs \
+            packages/opencode-plugin/dist/scripts/print-config-status.mjs \
+            packages/hermes-plugin/dist/scripts/emit-event.mjs \
+            packages/hermes-plugin/dist/scripts/audit-query.mjs \
+            packages/hermes-plugin/dist/scripts/config-file.mjs \
+            packages/hermes-plugin/dist/scripts/hermes-audit-schemas.mjs \
+            packages/hermes-plugin/dist/scripts/create-hermes-schemas.mjs \
+            packages/hermes-plugin/dist/scripts/remove-hermes-schemas.mjs \
+            packages/hermes-plugin/dist/scripts/print-config-status.mjs \
             packages/pi-extension/dist/index.mjs ; do
             test -s "$f" || { echo "::error::missing or empty bundle: $f"; exit 1; }
             echo "ok $f"

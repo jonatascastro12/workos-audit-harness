@@ -3734,7 +3734,7 @@ var init_webapi_CxKOxXjo = __esm(() => {
 import os4 from "node:os";
 import path5 from "node:path";
 import { execFileSync as execFileSync3 } from "node:child_process";
-import { chmodSync as chmodSync2, existsSync as existsSync3, mkdirSync as mkdirSync2, readFileSync as readFileSync3, rmSync as rmSync3, writeFileSync as writeFileSync4 } from "node:fs";
+import { chmodSync as chmodSync2, existsSync as existsSync3, mkdirSync as mkdirSync2, readFileSync as readFileSync3, rmSync as rmSync4, writeFileSync as writeFileSync5 } from "node:fs";
 import { createHash } from "node:crypto";
 
 // ../../node_modules/eventemitter3/index.mjs
@@ -12672,6 +12672,9 @@ __export(exports_typebox, {
 // ../audit-core/src/cli/emit-event.mjs
 import { randomUUID } from "node:crypto";
 import { spawn } from "node:child_process";
+import { mkdtempSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 // ../audit-core/src/workos-client.mjs
 import os from "node:os";
@@ -12863,15 +12866,53 @@ function getDeviceCertLabel() {
 var CONNECT_TIMEOUT_SECONDS = 5;
 var MAX_TIME_SECONDS = 10;
 var PROXY_MAX_BATCH_EVENTS = 25;
+var PAYLOAD_DIR_PREFIX = "workos-audit-";
+var STALE_PAYLOAD_MS = 60 * 60 * 1000;
+function sweepStalePayloadDirs() {
+  try {
+    for (const entry of readdirSync(tmpdir())) {
+      if (!entry.startsWith(PAYLOAD_DIR_PREFIX))
+        continue;
+      const dir = join(tmpdir(), entry);
+      try {
+        if (Date.now() - statSync(dir).mtimeMs > STALE_PAYLOAD_MS) {
+          rmSync(dir, { recursive: true, force: true });
+        }
+      } catch {}
+    }
+  } catch {}
+}
 function runCurl(args, input) {
   return new Promise((resolve) => {
+    let payloadDir;
+    let payloadArgs = args;
+    if (input !== undefined) {
+      try {
+        sweepStalePayloadDirs();
+        payloadDir = mkdtempSync(join(tmpdir(), PAYLOAD_DIR_PREFIX));
+        const payloadPath = join(payloadDir, "payload.json");
+        writeFileSync(payloadPath, input, { mode: 384 });
+        payloadArgs = args.map((arg) => arg === "@-" ? `@${payloadPath}` : arg);
+      } catch (error) {
+        if (payloadDir)
+          rmSync(payloadDir, { recursive: true, force: true });
+        resolve({ code: null, stdout: "", stderr: String(error?.message || error) });
+        return;
+      }
+    }
+    const cleanup = () => {
+      if (payloadDir)
+        rmSync(payloadDir, { recursive: true, force: true });
+      payloadDir = undefined;
+    };
     let child;
     try {
-      child = spawn("/usr/bin/curl", args, {
-        stdio: ["pipe", "pipe", "pipe"],
+      child = spawn("/usr/bin/curl", payloadArgs, {
+        stdio: ["ignore", "pipe", "pipe"],
         env: { ...process.env, CURL_SSL_BACKEND: "secure-transport" }
       });
     } catch (error) {
+      cleanup();
       resolve({ code: null, stdout: "", stderr: String(error?.message || error) });
       return;
     }
@@ -12886,11 +12927,13 @@ function runCurl(args, input) {
       stderr += chunk;
     });
     child.on("error", (error) => {
+      cleanup();
       resolve({ code: null, stdout, stderr: stderr || String(error?.message || error) });
     });
-    child.on("close", (code) => resolve({ code, stdout, stderr }));
-    child.stdin.on("error", () => {});
-    child.stdin.end(input);
+    child.on("close", (code) => {
+      cleanup();
+      resolve({ code, stdout, stderr });
+    });
   });
 }
 function toRestEvent(event) {
@@ -13166,7 +13209,7 @@ function createEventBatcher({
 // ../audit-core/src/audit-query.mjs
 import os2 from "node:os";
 import path2 from "node:path";
-import { writeFileSync } from "node:fs";
+import { writeFileSync as writeFileSync2 } from "node:fs";
 var DEFAULT_QUERY_RANGE_DAYS = 7;
 var DEFAULT_QUERY_MAX_ROWS = 50;
 var MAX_QUERY_MAX_ROWS = 200;
@@ -13371,7 +13414,7 @@ async function queryAuditLogs(config, params = {}) {
   let csvPath = null;
   if (auditExport.state === "empty") {
     csvPath = path2.join(os2.tmpdir(), `workos-audit-export-empty-${Date.now()}.csv`);
-    writeFileSync(csvPath, csv, "utf8");
+    writeFileSync2(csvPath, csv, "utf8");
   } else {
     if (auditExport.state !== "ready" || !auditExport.url) {
       throw new Error(`Audit export ${auditExport.id || "(unknown)"} finished in unexpected state: ${auditExport.state}`);
@@ -13381,7 +13424,7 @@ async function queryAuditLogs(config, params = {}) {
       throw new Error(`Failed to download audit export ${auditExport.id}: ${response.status} ${response.statusText}`);
     csv = await response.text();
     csvPath = path2.join(os2.tmpdir(), `workos-audit-export-${auditExport.id}.csv`);
-    writeFileSync(csvPath, csv, "utf8");
+    writeFileSync2(csvPath, csv, "utf8");
   }
   const rows = parseAuditLogRows(csv).sort((a, b) => (b.occurredAt || "").localeCompare(a.occurredAt || ""));
   const sampleRows = rows.slice(0, maxRows);
@@ -13421,7 +13464,7 @@ async function queryAuditLogs(config, params = {}) {
 // ../audit-core/src/cli/schema.mjs
 import os3 from "node:os";
 import path3 from "node:path";
-import { mkdtempSync, rmSync, writeFileSync as writeFileSync2 } from "node:fs";
+import { mkdtempSync as mkdtempSync2, rmSync as rmSync2, writeFileSync as writeFileSync3 } from "node:fs";
 async function createSchema(config, schema2) {
   if (!schema2?.action)
     throw new Error("Schema must include action.");
@@ -13430,13 +13473,13 @@ async function createSchema(config, schema2) {
   if (workos) {
     return await retry(() => workos.auditLogs.createSchema({ action: schema2.action, ...body }), `schema ${schema2.action}`);
   }
-  const tmpDir = mkdtempSync(path3.join(os3.tmpdir(), "workos-audit-harness-"));
+  const tmpDir = mkdtempSync2(path3.join(os3.tmpdir(), "workos-audit-harness-"));
   const schemaPath = path3.join(tmpDir, "schema.json");
   try {
-    writeFileSync2(schemaPath, JSON.stringify(body, null, 2), "utf8");
+    writeFileSync3(schemaPath, JSON.stringify(body, null, 2), "utf8");
     return await retry(() => parseJson(runWorkos(["audit-log", "create-schema", schema2.action, "--file", schemaPath, "--json", "--mode", "agent"])), `schema ${schema2.action}`);
   } finally {
-    rmSync(tmpDir, { recursive: true, force: true });
+    rmSync2(tmpDir, { recursive: true, force: true });
   }
 }
 
@@ -13654,7 +13697,7 @@ function getHarnessAuditSchemaDefinitions(prefix = "harness") {
 
 // ../audit-core/src/config.mjs
 import path4 from "node:path";
-import { chmodSync, existsSync as existsSync2, mkdirSync, readFileSync as readFileSync2, rmSync as rmSync2, writeFileSync as writeFileSync3 } from "node:fs";
+import { chmodSync, existsSync as existsSync2, mkdirSync, readFileSync as readFileSync2, rmSync as rmSync3, writeFileSync as writeFileSync4 } from "node:fs";
 var CONFIG_KEYS = [
   "apiKey",
   "organizationId",
@@ -13770,12 +13813,12 @@ function readStoredConfig() {
 function writeStoredConfig(config) {
   const filePath = getConfigFilePath();
   mkdirSync2(path5.dirname(filePath), { recursive: true, mode: 448 });
-  writeFileSync4(filePath, `${JSON.stringify(config, null, 2)}
+  writeFileSync5(filePath, `${JSON.stringify(config, null, 2)}
 `, { mode: 384 });
   chmodSync2(filePath, 384);
 }
 function clearStoredConfig() {
-  rmSync3(getConfigFilePath(), { force: true });
+  rmSync4(getConfigFilePath(), { force: true });
 }
 function maskSecret(value) {
   if (!value)
@@ -14743,7 +14786,7 @@ function workosAuditLogsExtension(pi) {
         throw new Error(`Failed to download audit export ${auditExport.id}: ${response.status} ${response.statusText}`);
       const csv = await response.text();
       const csvPath = path5.join(os4.tmpdir(), `workos-audit-export-${auditExport.id}.csv`);
-      writeFileSync4(csvPath, csv, "utf8");
+      writeFileSync5(csvPath, csv, "utf8");
       const rows = parseAuditLogRows2(csv).sort((a, b) => (b.occurredAt || "").localeCompare(a.occurredAt || ""));
       const sampleRows = rows.slice(0, maxRows);
       const actionSummary = summarizeCounts2(rows.map((row) => row.action).filter(Boolean));
